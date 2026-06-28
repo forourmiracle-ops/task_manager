@@ -99,6 +99,23 @@ export function GanttView() {
   const dateScrollRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
   const datePanelRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
+
+  // Callback ref — sets up ResizeObserver immediately when the DOM element mounts,
+  // regardless of isLoading state. Avoids the useEffect([]) + early-return race
+  // where the ref is null during loading and the effect never re-runs.
+  const datePanelCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setDatePanelWidth(entry.contentRect.width)
+      }
+    })
+    ro.observe(el)
+    observerRef.current = ro
+  }, [])
 
   const allFlatTasks = useMemo(() => {
     if (!tasks) return []
@@ -155,19 +172,6 @@ export function GanttView() {
   const LABEL_WIDTH = useMemo(() => Math.round(260 * scale), [scale])
   const HEADER_HEIGHT = useMemo(() => Math.round(66 * scale), [scale])
   const MONTH_HEADER_HEIGHT = useMemo(() => Math.round(28 * scale), [scale])
-
-  // ResizeObserver to track date panel width
-  useEffect(() => {
-    const el = datePanelRef.current
-    if (!el) return
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setDatePanelWidth(entry.contentRect.width)
-      }
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   // Sync dimension with defaultDimension setting
   useEffect(() => {
@@ -533,7 +537,7 @@ export function GanttView() {
         </div>
 
         {/* ====== RIGHT PANEL: Unified scroll container ====== */}
-        <div className="flex-1 flex flex-col overflow-hidden" ref={datePanelRef}>
+        <div className="flex-1 flex flex-col overflow-hidden" ref={(el) => { (datePanelRef as React.MutableRefObject<HTMLDivElement | null>).current = el; datePanelCallbackRef(el) }}>
           <div
             ref={dateScrollRef}
             className="flex-1 overflow-auto"
