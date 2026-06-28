@@ -99,6 +99,36 @@ export function GanttView() {
   const dateScrollRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
   const datePanelRef = useRef<HTMLDivElement>(null)
+
+  const allFlatTasks = useMemo(() => {
+    if (!tasks) return []
+    const tree = buildTaskTree(tasks)
+    return flattenTasks(tree).filter((t) => t.start_date && t.due_date)
+  }, [tasks])
+
+  // Auto-detect dimension from task periods and overall span
+  const autoDimension = useMemo(() => {
+    if (allFlatTasks.length === 0) return 'quarter'
+    let totalDuration = 0
+    let minStart: Date | null = null
+    let maxEnd: Date | null = null
+    allFlatTasks.forEach((t) => {
+      const s = new Date(t.start_date!)
+      const e = new Date(t.due_date!)
+      totalDuration += daysBetween(s, e)
+      if (!minStart || s < minStart) minStart = s
+      if (!maxEnd || e > maxEnd) maxEnd = e
+    })
+    const avgDays = totalDuration / allFlatTasks.length
+    const overallSpan = minStart && maxEnd ? daysBetween(minStart, maxEnd) : 0
+    const effectiveDays = Math.max(avgDays, overallSpan * 0.6)
+    if (effectiveDays < 7) return 'week'
+    if (effectiveDays < 30) return 'month'
+    if (effectiveDays < 90) return 'quarter'
+    if (effectiveDays < 180) return 'halfyear'
+    return 'year'
+  }, [allFlatTasks])
+
   const [dimension, setDimension] = useState<Dimension>(() => {
     if (defaultDimension === 'auto') return autoDimension
     return (defaultDimension as Dimension) || 'quarter'
@@ -136,36 +166,6 @@ export function GanttView() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-
-  const allFlatTasks = useMemo(() => {
-    if (!tasks) return []
-    const tree = buildTaskTree(tasks)
-    return flattenTasks(tree).filter((t) => t.start_date && t.due_date)
-  }, [tasks])
-
-  // Auto-detect dimension from task periods and overall span
-  const autoDimension = useMemo(() => {
-    if (allFlatTasks.length === 0) return 'quarter'
-    let totalDuration = 0
-    let minStart: Date | null = null
-    let maxEnd: Date | null = null
-    allFlatTasks.forEach((t) => {
-      const s = new Date(t.start_date!)
-      const e = new Date(t.due_date!)
-      totalDuration += daysBetween(s, e)
-      if (!minStart || s < minStart) minStart = s
-      if (!maxEnd || e > maxEnd) maxEnd = e
-    })
-    const avgDays = totalDuration / allFlatTasks.length
-    const overallSpan = minStart && maxEnd ? daysBetween(minStart, maxEnd) : 0
-    // Use the larger of average duration and overall span for dimension selection
-    const effectiveDays = Math.max(avgDays, overallSpan * 0.6)
-    if (effectiveDays < 7) return 'week'
-    if (effectiveDays < 30) return 'month'
-    if (effectiveDays < 90) return 'quarter'
-    if (effectiveDays < 180) return 'halfyear'
-    return 'year'
-  }, [allFlatTasks])
 
   // Auto mode follows autoDimension changes
   useEffect(() => {
