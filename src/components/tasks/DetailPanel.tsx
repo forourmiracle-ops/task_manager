@@ -202,23 +202,17 @@ export function DetailPanel() {
     }
   }
 
-  // Click outside / Enter handler
+  // Click outside handler
   useEffect(() => {
     if (!editingField) return
 
-    const handleMouseDown = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent) => {
       try {
         const target = e.target as HTMLElement
         if (target.closest('[data-detail-editor]')) return
-        // For date fields, rely on onBlur instead of mousedown.
-        // The native date picker popup renders in shadow DOM outside the
-        // document flow, so clicks on its arrows/calendar would otherwise
-        // trigger commitEdit and close the editor prematurely.
-        const field = editingFieldRef.current
-        if (field === 'start_date' || field === 'due_date') return
         commitEdit()
       } catch (err) {
-        console.error('DetailPanel mouseDown error:', err)
+        console.error('DetailPanel click error:', err)
         setEditingField(null)
         setEditValue('')
       }
@@ -240,10 +234,10 @@ export function DetailPanel() {
       }
     }
 
-    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('click', handleClick)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('click', handleClick)
       document.removeEventListener('keydown', handleKeyDown)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
