@@ -29,6 +29,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 const MIN_DAY_WIDTH = 3
+const CHART_YEARS = 10 // 10-year chart range for true infinite scrolling
 
 // Chinese holidays 2026
 const HOLIDAYS_2026 = new Set([
@@ -140,32 +141,42 @@ export function GanttView() {
     return flattenTasks(tree).filter((t) => t.start_date && t.due_date)
   }, [tasks])
 
-  // Auto-detect dimension from task periods
+  // Auto-detect dimension from task periods and overall span
   const autoDimension = useMemo(() => {
     if (allFlatTasks.length === 0) return 'quarter'
-    let totalDays = 0
+    let totalDuration = 0
+    let minStart: Date | null = null
+    let maxEnd: Date | null = null
     allFlatTasks.forEach((t) => {
       const s = new Date(t.start_date!)
       const e = new Date(t.due_date!)
-      totalDays += daysBetween(s, e)
+      totalDuration += daysBetween(s, e)
+      if (!minStart || s < minStart) minStart = s
+      if (!maxEnd || e > maxEnd) maxEnd = e
     })
-    const avgDays = totalDays / allFlatTasks.length
-    if (avgDays < 7) return 'week'
-    if (avgDays < 30) return 'month'
-    if (avgDays < 90) return 'quarter'
-    if (avgDays < 180) return 'halfyear'
+    const avgDays = totalDuration / allFlatTasks.length
+    const overallSpan = minStart && maxEnd ? daysBetween(minStart, maxEnd) : 0
+    // Use the larger of average duration and overall span for dimension selection
+    const effectiveDays = Math.max(avgDays, overallSpan * 0.6)
+    if (effectiveDays < 7) return 'week'
+    if (effectiveDays < 30) return 'month'
+    if (effectiveDays < 90) return 'quarter'
+    if (effectiveDays < 180) return 'halfyear'
     return 'year'
   }, [allFlatTasks])
 
-  // Initialize dimension from default on first mount
+  // Initialize dimension from default. Auto mode always follows autoDimension
   useEffect(() => {
-    if (dimensionInitialized) return
-    const resolved = defaultDimension === 'auto' ? autoDimension : (defaultDimension as Dimension)
-    setDimension(resolved)
-    setDimensionInitialized(true)
+    if (defaultDimension === 'auto') {
+      setDimension(autoDimension)
+      setDimensionInitialized(true)
+    } else if (!dimensionInitialized) {
+      setDimension(defaultDimension as Dimension)
+      setDimensionInitialized(true)
+    }
   }, [defaultDimension, autoDimension, dimensionInitialized])
 
-  // Fixed chart range: 365 days, today - 180 to today + 184
+  // Chart range: 10 years for true infinite scrolling (today - 5yr to today + 5yr)
   const { startDate, endDate, totalDays, monthHeaders, todayOffset } = useMemo<{
     startDate: Date
     endDate: Date
@@ -176,11 +187,13 @@ export function GanttView() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
+    const halfYears = Math.floor(CHART_YEARS / 2)
     const start = new Date(today)
-    start.setDate(start.getDate() - 180)
+    start.setFullYear(start.getFullYear() - halfYears)
 
     const end = new Date(today)
-    end.setDate(end.getDate() + 184)
+    end.setFullYear(end.getFullYear() + (CHART_YEARS - halfYears))
+    end.setDate(end.getDate() - 1)
 
     const total = daysBetween(start, end) + 1
     const months = buildMonthHeaders(start, end)

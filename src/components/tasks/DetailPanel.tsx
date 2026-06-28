@@ -153,6 +153,31 @@ export function DetailPanel() {
       const value = valueOverride ?? editValueRef.current
       if (!field) return
 
+      const t = taskRef.current
+      if (!t) { setEditingField(null); setEditValue(''); return }
+
+      // Validate subtask dates against parent
+      if ((field === 'start_date' || field === 'due_date') && t.parent_id && tasks) {
+        const parent = tasks.find((p) => p.id === t.parent_id)
+        if (parent) {
+          if (field === 'start_date' && value && parent.start_date && value < parent.start_date) {
+            alert(`子任务开始日期不能早于父任务开始日期（${parent.start_date}）`)
+            setEditingField(null); setEditValue(''); return
+          }
+          if (field === 'due_date' && value && parent.due_date && value > parent.due_date) {
+            alert(`子任务截止日期不能晚于父任务截止日期（${parent.due_date}）`)
+            setEditingField(null); setEditValue(''); return
+          }
+          // Check start <= due cross-field
+          const newStart = field === 'start_date' ? value : (t.start_date || '')
+          const newDue = field === 'due_date' ? value : (t.due_date || '')
+          if (newStart && newDue && newStart > newDue) {
+            alert('开始日期不能晚于截止日期')
+            setEditingField(null); setEditValue(''); return
+          }
+        }
+      }
+
       const payload = buildPayload(field, value)
       setEditingField(null)
       setEditValue('')
@@ -182,6 +207,11 @@ export function DetailPanel() {
       try {
         const target = e.target as HTMLElement
         if (target.closest('[data-detail-editor]')) return
+        // Don't close on outside click when editing date fields — the native
+        // date picker popup renders outside the document flow, so clicks on
+        // its arrows/calendar would otherwise trigger commitEdit prematurely.
+        const field = editingFieldRef.current
+        if (field === 'start_date' || field === 'due_date') return
         commitEdit()
       } catch (err) {
         console.error('DetailPanel mouseDown error:', err)
