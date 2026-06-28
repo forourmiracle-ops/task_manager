@@ -59,27 +59,31 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-background">
       {/* Top Navigation */}
-      <header className="border-b border-border flex items-center px-3 gap-1 bg-background flex-shrink-0" style={{ height: 40 }}>
+      <header className="border-b border-border flex items-center px-4 gap-3 bg-background flex-shrink-0 shadow-card" style={{ height: 44 }}>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-xs text-muted-foreground hover:text-foreground px-1"
+          className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent transition-colors"
           title="切换侧边栏 (Ctrl+B)"
         >
-          ☰
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M2 3h12M2 8h12M2 13h12" />
+          </svg>
         </button>
-        <span className="text-xs font-semibold mr-4">TaskFlow</span>
+        <span className="text-sm font-bold tracking-tight text-foreground">TaskFlow</span>
 
-        <nav className="flex gap-0.5">
+        <div className="w-px h-5 bg-border mx-1" />
+
+        <nav className="flex gap-1">
           {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
             <button
               key={view}
               onClick={() => setCurrentView(view)}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-all ${
                 currentView === view
-                  ? 'bg-accent text-accent-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                  ? 'bg-primary/10 text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
               }`}
             >
               {VIEW_LABELS[view]}
@@ -92,7 +96,7 @@ export default function App() {
         {/* Quick Create */}
         <button
           onClick={() => startCreating(null)}
-          className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90"
+          className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 shadow-sm transition-all"
           title="新建项目 (Ctrl+N)"
         >
           + 新建
