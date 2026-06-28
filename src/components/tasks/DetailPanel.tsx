@@ -210,6 +210,12 @@ export function DetailPanel() {
       try {
         const target = e.target as HTMLElement
         if (target.closest('[data-detail-editor]')) return
+        // For date fields, rely on onBlur instead of mousedown.
+        // The native date picker popup renders in shadow DOM outside the
+        // document flow, so clicks on its arrows/calendar would otherwise
+        // trigger commitEdit and close the editor prematurely.
+        const field = editingFieldRef.current
+        if (field === 'start_date' || field === 'due_date') return
         commitEdit()
       } catch (err) {
         console.error('DetailPanel mouseDown error:', err)
@@ -265,6 +271,10 @@ export function DetailPanel() {
   const startEditing = (field: EditableField) => {
     if (!task) return
     try {
+      // Commit any pending edit before switching to a new field
+      if (editingFieldRef.current && editingFieldRef.current !== field) {
+        commitEdit()
+      }
       let value = ''
       switch (field) {
         case 'title': value = task.title || ''; break

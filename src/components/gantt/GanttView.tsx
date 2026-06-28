@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
+import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
@@ -275,30 +275,24 @@ export function GanttView() {
   }, [allFlatTasks, viewportRange, expandedIds])
 
   // Scroll into position based on dimension display rules.
-  // Uses rAF to ensure DOM is fully painted before scrolling.
-  useEffect(() => {
+  // useLayoutEffect runs synchronously after DOM mutations but before paint,
+  // so the correct scroll position is applied before the user sees anything.
+  useLayoutEffect(() => {
     const el = dateScrollRef.current
     if (!el || totalDays <= 0 || DAY_WIDTH <= 0 || datePanelWidth <= 0) return
 
-    const doScroll = () => {
-      if (!dateScrollRef.current) return
-      let scrollPos: number
-      if (dimension === 'week' || dimension === 'month') {
-        // Today at 3rd column
-        scrollPos = (todayOffset - 2) * DAY_WIDTH
-      } else {
-        // Today's week starts at left edge
-        const today = new Date()
-        const dayOfWeek = today.getDay()
-        scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
-      }
-      dateScrollRef.current.scrollLeft = Math.max(0, scrollPos)
-      initialScrollDone.current = true
+    let scrollPos: number
+    if (dimension === 'week' || dimension === 'month') {
+      // Today at 3rd column
+      scrollPos = (todayOffset - 2) * DAY_WIDTH
+    } else {
+      // Today's week starts at left edge
+      const today = new Date()
+      const dayOfWeek = today.getDay()
+      scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
     }
-
-    // Use rAF to defer until after layout/paint
-    const raf = requestAnimationFrame(doScroll)
-    return () => cancelAnimationFrame(raf)
+    el.scrollLeft = Math.max(0, scrollPos)
+    initialScrollDone.current = true
   }, [totalDays, todayOffset, DAY_WIDTH, datePanelWidth, dimension])
 
   const totalWidth = totalDays * DAY_WIDTH
