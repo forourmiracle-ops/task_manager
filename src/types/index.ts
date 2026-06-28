@@ -81,3 +81,4 @@ export interface AIMessage {
 }
 
 export type ViewType = 'gantt' | 'board' | 'calendar' | 'ai' | 'settings'
+export type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'

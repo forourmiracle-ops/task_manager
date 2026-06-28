@@ -1,10 +1,12 @@
 import { create } from 'zustand'
-import type { ViewType } from '@/types'
+import type { ViewType, Dimension } from '@/types'
 
 export type ThemeMode = 'light' | 'dark' | 'eye-care'
+export type DefaultDimension = 'auto' | Dimension
 
 const STORED_THEME = (localStorage.getItem('taskflow-theme') || 'light') as ThemeMode
 const STORED_FONT_SIZE = Number(localStorage.getItem('taskflow-font-size') || '4')
+const STORED_DEFAULT_DIMENSION = (localStorage.getItem('taskflow-default-dimension') || 'auto') as DefaultDimension
 
 interface AppState {
   // Navigation
@@ -45,6 +47,10 @@ interface AppState {
   // Font size (1-8)
   fontSize: number
   setFontSize: (size: number) => void
+
+  // Default dimension
+  defaultDimension: DefaultDimension
+  setDefaultDimension: (dim: DefaultDimension) => void
 }
 
 function applyTheme(theme: ThemeMode) {
@@ -99,5 +105,11 @@ export const useAppStore = create<AppState>((set) => ({
   setFontSize: (size) => {
     applyFontSize(Math.max(1, Math.min(8, Math.round(size))))
     set({ fontSize: Math.max(1, Math.min(8, Math.round(size))) })
+  },
+
+  defaultDimension: STORED_DEFAULT_DIMENSION,
+  setDefaultDimension: (dim) => {
+    localStorage.setItem('taskflow-default-dimension', dim)
+    set({ defaultDimension: dim })
   },
 }))

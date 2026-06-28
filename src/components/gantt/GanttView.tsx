@@ -22,6 +22,12 @@ const DIMENSION_LABELS: { key: Dimension; label: string }[] = [
   { key: 'year', label: '全年' },
 ]
 
+const PRIORITY_COLORS: Record<string, string> = {
+  high: '#ef4444',
+  medium: '#f59e0b',
+  low: '#9ca3af',
+}
+
 const MIN_DAY_WIDTH = 3
 
 // Chinese holidays 2026
@@ -87,7 +93,7 @@ function addDays(date: Date, days: number): Date {
 }
 
 export function GanttView() {
-  const { selectedTaskId, setSelectedTaskId, fontSize } = useAppStore()
+  const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
   const dateScrollRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
@@ -97,6 +103,7 @@ export function GanttView() {
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollWidth, setScrollWidth] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [dimensionInitialized, setDimensionInitialized] = useState(false)
 
   // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
@@ -133,7 +140,32 @@ export function GanttView() {
     return flattenTasks(tree).filter((t) => t.start_date && t.due_date)
   }, [tasks])
 
-  // Chart range covers all tasks + buffer
+  // Auto-detect dimension from task periods
+  const autoDimension = useMemo(() => {
+    if (allFlatTasks.length === 0) return 'quarter'
+    let totalDays = 0
+    allFlatTasks.forEach((t) => {
+      const s = new Date(t.start_date!)
+      const e = new Date(t.due_date!)
+      totalDays += daysBetween(s, e)
+    })
+    const avgDays = totalDays / allFlatTasks.length
+    if (avgDays < 7) return 'week'
+    if (avgDays < 30) return 'month'
+    if (avgDays < 90) return 'quarter'
+    if (avgDays < 180) return 'halfyear'
+    return 'year'
+  }, [allFlatTasks])
+
+  // Initialize dimension from default on first mount
+  useEffect(() => {
+    if (dimensionInitialized) return
+    const resolved = defaultDimension === 'auto' ? autoDimension : (defaultDimension as Dimension)
+    setDimension(resolved)
+    setDimensionInitialized(true)
+  }, [defaultDimension, autoDimension, dimensionInitialized])
+
+  // Fixed chart range: 365 days, today - 180 to today + 184
   const { startDate, endDate, totalDays, monthHeaders, todayOffset } = useMemo<{
     startDate: Date
     endDate: Date
@@ -144,24 +176,17 @@ export function GanttView() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    let start = new Date(today)
-    let end = new Date(today)
+    const start = new Date(today)
+    start.setDate(start.getDate() - 180)
 
-    for (const t of allFlatTasks) {
-      const s = new Date(t.start_date!)
-      const e = new Date(t.due_date!)
-      if (s < start) start = new Date(s)
-      if (e > end) end = new Date(e)
-    }
-
-    start.setDate(start.getDate() - 3)
-    end.setDate(end.getDate() + 3)
+    const end = new Date(today)
+    end.setDate(end.getDate() + 184)
 
     const total = daysBetween(start, end) + 1
     const months = buildMonthHeaders(start, end)
     const offset = daysBetween(start, today)
     return { startDate: start, endDate: end, totalDays: total, monthHeaders: months, todayOffset: offset }
-  }, [allFlatTasks])
+  }, [])
 
   // Track horizontal scroll for viewport filtering, sync vertical scroll
   useEffect(() => {
@@ -170,7 +195,6 @@ export function GanttView() {
     const update = () => {
       setScrollLeft(el.scrollLeft)
       setScrollWidth(el.clientWidth)
-      // Sync vertical scroll
       if (taskListRef.current) taskListRef.current.scrollTop = el.scrollTop
     }
     update()
@@ -236,12 +260,22 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
-  // Scroll to center today on dimension change
+  // Scroll into position based on dimension display rules
   useEffect(() => {
     if (dateScrollRef.current && totalDays > 0 && DAY_WIDTH > 0 && datePanelWidth > 0) {
-      dateScrollRef.current.scrollLeft = Math.max(0, todayOffset * DAY_WIDTH - datePanelWidth / 2)
+      let scrollPos: number
+      if (dimension === 'week' || dimension === 'month') {
+        // Today at 3rd column
+        scrollPos = (todayOffset - 2) * DAY_WIDTH
+      } else {
+        // Today's week starts at left edge
+        const today = new Date()
+        const dayOfWeek = today.getDay()
+        scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
+      }
+      dateScrollRef.current.scrollLeft = Math.max(0, scrollPos)
     }
-  }, [totalDays, todayOffset, DAY_WIDTH, datePanelWidth, dimensionDays])
+  }, [totalDays, todayOffset, DAY_WIDTH, datePanelWidth, dimension])
 
   const totalWidth = totalDays * DAY_WIDTH
 
@@ -261,10 +295,8 @@ export function GanttView() {
     }
   }
 
-  // Click on blank area to close detail panel
   const handleDatePanelClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
-    // Only close if clicking on the background, not on a task bar
     if (!target.closest('[data-task-bar]') && !target.closest('[data-task-row]')) {
       setSelectedTaskId(null)
     }
@@ -280,7 +312,6 @@ export function GanttView() {
     })
   }, [])
 
-  // Pre-compute parent/child relationships
   const childCountMap = useMemo(() => {
     const map = new Map<string, number>()
     allFlatTasks.forEach((t) => {
@@ -343,12 +374,30 @@ export function GanttView() {
         <span className="text-[10px] text-muted-foreground">
           {visibleTasks.length}/{allFlatTasks.length} 任务
         </span>
+        <select
+          value={defaultDimension}
+          onChange={(e) => setDefaultDimension(e.target.value as 'auto' | Dimension)}
+          className="text-[11px] px-2 py-1 rounded-full border border-border bg-background text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+          title="默认维度"
+        >
+          <option value="auto">默认：自动</option>
+          {DIMENSION_LABELS.map(({ key, label }) => (
+            <option key={key} value={key}>默认：{label}</option>
+          ))}
+        </select>
         <button
           type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
           onClick={() => {
             if (dateScrollRef.current && DAY_WIDTH > 0 && datePanelWidth > 0) {
-              dateScrollRef.current.scrollLeft = Math.max(0, todayOffset * DAY_WIDTH - datePanelWidth / 2)
+              let scrollPos: number
+              if (dimension === 'week' || dimension === 'month') {
+                scrollPos = (todayOffset - 2) * DAY_WIDTH
+              } else {
+                const today = new Date()
+                scrollPos = (todayOffset - today.getDay()) * DAY_WIDTH
+              }
+              dateScrollRef.current.scrollLeft = Math.max(0, scrollPos)
             }
           }}
         >
@@ -358,12 +407,11 @@ export function GanttView() {
 
       {/* Gantt body: two-panel layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* ====== LEFT PANEL: Task names (fixed, never overlapped) ====== */}
+        {/* ====== LEFT PANEL ====== */}
         <div
           className="flex-shrink-0 border-r border-border flex flex-col bg-background"
           style={{ width: LABEL_WIDTH }}
         >
-          {/* Header */}
           <div
             className="flex-shrink-0 border-b border-border flex items-center px-3 bg-muted/10"
             style={{ height: HEADER_HEIGHT }}
@@ -371,7 +419,6 @@ export function GanttView() {
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">任务</span>
           </div>
 
-          {/* Task rows */}
           <div
             ref={taskListRef}
             className="flex-1 overflow-hidden"
@@ -387,19 +434,26 @@ export function GanttView() {
               const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
               const isExpanded = expandedIds.has(task.id)
               const childCount = childCountMap.get(task.id) || 0
+              const isChild = depth > 0
               const indent = depth * 16 + (hasChildren ? 0 : 18)
+              const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
 
               return (
                 <div
                   key={task.id}
                   data-task-row
                   className={cn(
-                    'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0',
+                    'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative',
                     isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
                   )}
                   style={{ height: ROW_HEIGHT }}
                   onClick={() => handleTaskClick(task.id)}
                 >
+                  {/* Child tree connector line */}
+                  {isChild && (
+                    <div className="absolute left-0 top-0 bottom-0 border-l-2 border-muted-foreground/20" style={{ left: 12 + (depth - 1) * 16 }} />
+                  )}
+
                   <span className="w-4 flex-shrink-0 flex justify-center">
                     {hasChildren ? (
                       <button
@@ -416,20 +470,14 @@ export function GanttView() {
                           </svg>
                         )}
                       </button>
-                    ) : (
-                      <span className="text-muted-foreground/30 inline-block w-1.5 h-1.5 rounded-full bg-current" />
-                    )}
+                    ) : null}
                   </span>
 
                   <div className="flex items-center flex-1 min-w-0" style={{ paddingLeft: indent }}>
+                    {/* Priority marker */}
                     <span
-                      className={cn(
-                        'w-2 h-2 rounded-full flex-shrink-0 ring-1 ring-offset-1',
-                        task.status === 'done' && 'bg-green-500 ring-green-200',
-                        task.status === 'in_progress' && 'bg-blue-500 ring-blue-200',
-                        task.status === 'blocked' && 'bg-red-500 ring-red-200',
-                        task.status === 'todo' && 'bg-gray-300 ring-gray-200'
-                      )}
+                      className="w-2 h-2 rounded-full flex-shrink-0 ring-1 ring-offset-1"
+                      style={{ backgroundColor: priorityColor, boxShadow: `0 0 0 1px ${priorityColor}33` }}
                     />
                     <span className={cn(
                       'text-[12px] truncate flex-1 ml-2',
@@ -443,8 +491,16 @@ export function GanttView() {
                       </span>
                     )}
                   </div>
+                  {/* Status indicator */}
+                  <span className={cn(
+                    'w-1.5 h-1.5 rounded-full flex-shrink-0 ml-1',
+                    task.status === 'done' && 'bg-green-500',
+                    task.status === 'in_progress' && 'bg-blue-500',
+                    task.status === 'blocked' && 'bg-red-500',
+                    task.status === 'todo' && 'bg-gray-300'
+                  )} />
                   {(task.progress_percent || 0) > 0 && (
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium">
+                    <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium ml-1">
                       {task.progress_percent}%
                     </span>
                   )}
@@ -546,8 +602,8 @@ export function GanttView() {
                   const isSelected = selectedTaskId === task.id
                   const progressPercent = task.progress_percent || 0
                   const depth = task.depth ?? 0
-                  const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
                   const isChild = depth > 0
+                  const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
 
                   const barColor = (() => {
                     switch (task.status) {
@@ -558,14 +614,10 @@ export function GanttView() {
                     }
                   })()
 
-                  const stripeColor = (() => {
-                    switch (task.status) {
-                      case 'done': return '#22c55e'
-                      case 'in_progress': return '#3b82f6'
-                      case 'blocked': return '#ef4444'
-                      default: return '#9ca3af'
-                    }
-                  })()
+                  // Parent: full opacity + full height. Child: 75% opacity + narrower height
+                  const barOpacity = isChild ? 0.75 : 1
+                  const barTop = isChild ? 8 : 4
+                  const barBottom = isChild ? 8 : 4
 
                   return (
                     <div
@@ -602,33 +654,29 @@ export function GanttView() {
                         style={{
                           left: Math.max(left, 0),
                           width: Math.max(width, 4),
-                          top: 4,
-                          bottom: 4,
+                          top: barTop,
+                          bottom: barBottom,
                           background: barColor,
+                          opacity: barOpacity,
                           boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
                         }}
                         onClick={() => handleTaskClick(task.id)}
                         title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
                       >
-                        {/* Parent task left stripe */}
-                        {hasChildren && (
-                          <div
-                            className="absolute inset-y-0 left-0 rounded-l-md"
-                            style={{ width: 3, background: stripeColor }}
-                          />
-                        )}
-                        {/* Child task left indent marker */}
-                        {isChild && !hasChildren && (
-                          <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/20" style={{ width: 3 }} />
-                        )}
+                        {/* Priority color marker on left */}
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-l-md"
+                          style={{ width: 3, background: priorityColor }}
+                        />
+                        {/* Progress fill */}
                         {progressPercent > 0 && (
-                          <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/25" style={{ width: `${progressPercent}%` }} />
+                          <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/25" style={{ width: `${progressPercent}%`, left: 3 }} />
                         )}
                         <span
                           className="absolute inset-0 flex items-center justify-center px-2 text-white font-medium truncate drop-shadow"
                           style={{
                             fontSize: `clamp(10px, ${11 * scale}px, 14px)`,
-                            paddingLeft: hasChildren ? '10px' : isChild ? '10px' : '4px',
+                            paddingLeft: '10px',
                           }}
                         >
                           {task.title}
