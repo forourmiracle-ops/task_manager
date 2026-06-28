@@ -144,8 +144,9 @@ export function GanttView() {
   const dimensionDays = DIMENSION_DAYS[dimension]
 
   // DAY_WIDTH = date panel width / dimension days, so viewport shows exactly the dimension range
+  // Fallback uses estimated 480px panel width so dimension is respected before ResizeObserver fires
   const DAY_WIDTH = useMemo(() => {
-    if (datePanelWidth <= 0) return 40 // fallback before measurement
+    if (datePanelWidth <= 0) return Math.max(MIN_DAY_WIDTH, Math.round(480 / dimensionDays))
     return Math.max(MIN_DAY_WIDTH, Math.round(datePanelWidth / dimensionDays))
   }, [datePanelWidth, dimensionDays])
 
