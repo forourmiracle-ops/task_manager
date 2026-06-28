@@ -69,14 +69,21 @@ function addDays(date: Date, days: number): Date {
 export function GanttView() {
   const { selectedTaskId, setSelectedTaskId, fontSize } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const dateScrollRef = useRef<HTMLDivElement>(null)
+  const monthHeaderRef = useRef<HTMLDivElement>(null)
+  const dayHeaderRef = useRef<HTMLDivElement>(null)
+  const taskListRef = useRef<HTMLDivElement>(null)
   const [viewMonths, setViewMonths] = useState(3)
-  const [viewport, setViewport] = useState({ left: 0, width: 0 })
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const [scrollWidth, setScrollWidth] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
-  // Scale dimensions by font size (1-8). At 4 -> ~1.0, at 8 -> ~1.5
+  // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
-  const DAY_WIDTH = useMemo(() => Math.round(40 * scale), [scale])
+
+  // viewMonths controls granularity: more months = narrower columns
+  // Base: 3 months = 40px/day. 1 month = 120px/day, 12 months = 10px/day
+  const DAY_WIDTH = useMemo(() => Math.round(40 * scale * 3 / viewMonths), [scale, viewMonths])
   const ROW_HEIGHT = useMemo(() => Math.round(36 * scale), [scale])
   const LABEL_WIDTH = useMemo(() => Math.round(260 * scale), [scale])
   const HEADER_HEIGHT = useMemo(() => Math.round(66 * scale), [scale])
@@ -88,7 +95,7 @@ export function GanttView() {
     return flattenTasks(tree).filter((t) => t.start_date && t.due_date)
   }, [tasks])
 
-  // Calculate the chart date range based on viewMonths
+  // Chart range covers all tasks + buffer
   const { startDate, endDate, totalDays, monthHeaders, todayOffset } = useMemo<{
     startDate: Date
     endDate: Date
@@ -99,27 +106,15 @@ export function GanttView() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Find the earliest & latest task dates to ensure all tasks are within range
-    let earliestTask = today
-    let latestTask = today
+    let start = new Date(today)
+    let end = new Date(today)
+
     for (const t of allFlatTasks) {
       const s = new Date(t.start_date!)
       const e = new Date(t.due_date!)
-      if (s < earliestTask) earliestTask = new Date(s)
-      if (e > latestTask) latestTask = new Date(e)
+      if (s < start) start = new Date(s)
+      if (e > end) end = new Date(e)
     }
-
-    // Chart window: centered on today, spanning viewMonths
-    // But extend if tasks exist outside this window
-    const halfMonths = Math.max(1, Math.floor(viewMonths / 2))
-    let start = new Date(today)
-    start.setMonth(start.getMonth() - halfMonths)
-    let end = new Date(today)
-    end.setMonth(end.getMonth() + viewMonths - halfMonths)
-
-    // Ensure all tasks are visible in the chart range
-    if (earliestTask < start) start = new Date(earliestTask)
-    if (latestTask > end) end = new Date(latestTask)
 
     start.setDate(start.getDate() - 3)
     end.setDate(end.getDate() + 3)
@@ -128,14 +123,20 @@ export function GanttView() {
     const months = buildMonthHeaders(start, end)
     const offset = daysBetween(start, today)
     return { startDate: start, endDate: end, totalDays: total, monthHeaders: months, todayOffset: offset }
-  }, [allFlatTasks, viewMonths])
+  }, [allFlatTasks])
 
-  // Track scroll viewport for range-filtered task list
+  // Track horizontal scroll for viewport filtering, sync headers
   useEffect(() => {
-    const el = scrollRef.current
+    const el = dateScrollRef.current
     if (!el) return
     const update = () => {
-      setViewport({ left: el.scrollLeft, width: el.clientWidth })
+      setScrollLeft(el.scrollLeft)
+      setScrollWidth(el.clientWidth)
+      // Sync headers
+      if (monthHeaderRef.current) monthHeaderRef.current.scrollLeft = el.scrollLeft
+      if (dayHeaderRef.current) dayHeaderRef.current.scrollLeft = el.scrollLeft
+      // Sync vertical scroll
+      if (taskListRef.current) taskListRef.current.scrollTop = el.scrollTop
     }
     update()
     el.addEventListener('scroll', update, { passive: true })
@@ -152,21 +153,18 @@ export function GanttView() {
     setExpandedIds(new Set(taskIds))
   }, [taskIds])
 
-  // Visible date range (accounting for the sticky task label column)
+  // Visible date range from scroll position
   const viewportRange = useMemo(() => {
-    if (!viewport.width) {
-      return { start: startDate, end: endDate }
-    }
-    const effectiveWidth = Math.max(1, viewport.width - LABEL_WIDTH)
-    const startIndex = Math.floor(viewport.left / DAY_WIDTH)
-    const endIndex = Math.ceil((viewport.left + effectiveWidth) / DAY_WIDTH)
+    if (!scrollWidth) return { start: startDate, end: endDate }
+    const startIndex = Math.floor(scrollLeft / DAY_WIDTH)
+    const endIndex = Math.ceil((scrollLeft + scrollWidth) / DAY_WIDTH)
     return {
       start: addDays(startDate, Math.max(0, startIndex)),
       end: addDays(startDate, Math.min(totalDays - 1, endIndex)),
     }
-  }, [viewport, startDate, endDate, totalDays, DAY_WIDTH, LABEL_WIDTH])
+  }, [scrollLeft, scrollWidth, startDate, endDate, totalDays, DAY_WIDTH])
 
-  // Filter visible tasks by current viewport date overlap, rebuild visible tree
+  // Filter visible tasks by viewport date overlap
   const visibleTasks = useMemo(() => {
     const visibleIds = new Set(
       allFlatTasks
@@ -195,8 +193,8 @@ export function GanttView() {
     const filterExpanded = (list: Task[]): Task[] => {
       return list.flatMap((node) => {
         const isExpanded = expandedIds.has(node.id)
-        const visibleChildren = isExpanded && node.children ? filterExpanded(node.children) : []
-        return [{ ...node, children: visibleChildren }]
+        const children = isExpanded && node.children ? filterExpanded(node.children) : []
+        return [{ ...node, children }]
       })
     }
 
@@ -204,13 +202,11 @@ export function GanttView() {
   }, [allFlatTasks, viewportRange, expandedIds])
 
   // Scroll to today on viewMonths change
-  const prevViewMonths = useRef(viewMonths)
   useEffect(() => {
-    if (scrollRef.current && totalDays > 0) {
-      const scrollLeft = todayOffset * DAY_WIDTH - 200
-      scrollRef.current.scrollLeft = Math.max(0, scrollLeft)
+    if (dateScrollRef.current && totalDays > 0) {
+      const daysBefore = viewMonths === 1 ? 2 : 1
+      dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - daysBefore) * DAY_WIDTH)
     }
-    prevViewMonths.current = viewMonths
   }, [totalDays, todayOffset, DAY_WIDTH, viewMonths])
 
   const totalWidth = totalDays * DAY_WIDTH
@@ -273,7 +269,7 @@ export function GanttView() {
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/10 flex-shrink-0">
-        <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">时间范围</span>
+        <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">粒度</span>
         {[
           { m: 1, label: '当月' },
           { m: 3, label: '季度' },
@@ -302,8 +298,9 @@ export function GanttView() {
           type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
           onClick={() => {
-            if (scrollRef.current && todayOffset >= 0) {
-              scrollRef.current.scrollLeft = todayOffset * DAY_WIDTH - 200
+            if (dateScrollRef.current) {
+              const daysBefore = viewMonths === 1 ? 2 : 1
+              dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - daysBefore) * DAY_WIDTH)
             }
           }}
         >
@@ -311,173 +308,203 @@ export function GanttView() {
         </button>
       </div>
 
-      {/* Gantt chart */}
-      <div className="flex-1 overflow-auto relative" ref={scrollRef}>
-        <div style={{ minWidth: LABEL_WIDTH + totalWidth }}>
-          {/* Month headers */}
-          <div className="flex border-b border-border sticky top-0 z-30 bg-muted/10">
-            <div
-              className="flex-shrink-0 border-r border-border flex items-center px-3 sticky left-0 z-50 bg-muted/10 shadow-[2px_0_12px_-2px_rgba(0,0,0,0.10)]"
-              style={{ width: LABEL_WIDTH, height: MONTH_HEADER_HEIGHT }}
-            >
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">任务</span>
-            </div>
-            <div className="flex relative z-10">
-              {monthHeaders.map((mh, i) => (
-                <div
-                  key={i}
-                  className="flex-shrink-0 flex items-center justify-center border-r border-border font-bold text-[11px] text-foreground/80"
-                  style={{ width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT, minWidth: mh.days * DAY_WIDTH }}
-                >
-                  {mh.label}
-                </div>
-              ))}
-            </div>
+      {/* Gantt body: two-panel layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ====== LEFT PANEL: Task names (fixed, never overlapped) ====== */}
+        <div
+          className="flex-shrink-0 border-r border-border flex flex-col bg-background"
+          style={{ width: LABEL_WIDTH }}
+        >
+          {/* Header */}
+          <div
+            className="flex-shrink-0 border-b border-border flex items-center px-3 bg-muted/10"
+            style={{ height: HEADER_HEIGHT }}
+          >
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">任务</span>
           </div>
-
-          {/* Day headers */}
-          <div className="flex border-b border-border sticky z-30 bg-background" style={{ top: MONTH_HEADER_HEIGHT }}>
-            <div
-              className="flex-shrink-0 border-r border-border sticky left-0 z-50 bg-background shadow-[2px_0_12px_-2px_rgba(0,0,0,0.10)]"
-              style={{ width: LABEL_WIDTH, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
-            />
-            <div className="flex relative z-10">
-              {Array.from({ length: totalDays }).map((_, i) => {
-                const d = new Date(startDate)
-                d.setDate(d.getDate() + i)
-                const w = isWeekend(d)
-                const h = isHoliday(d)
-                const isToday = i === todayOffset
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      'flex-shrink-0 flex flex-col items-center justify-center border-r border-border/60',
-                      w && !h && 'bg-red-50/20',
-                      h && 'bg-amber-50/30',
-                      isToday && 'bg-blue-50/50'
-                    )}
-                    style={{ width: DAY_WIDTH, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
-                  >
-                    <span className={cn('text-[11px] font-semibold leading-tight', isToday ? 'text-blue-600' : w ? 'text-red-400' : h ? 'text-amber-600' : 'text-foreground/60')}>
-                      {d.getDate()}
-                    </span>
-                    <span className={cn('text-[9px] leading-tight', isToday ? 'text-blue-500 font-semibold' : w ? 'text-red-300' : h ? 'text-amber-500' : 'text-muted-foreground/60')}>
-                      {['日', '一', '二', '三', '四', '五', '六'][d.getDay()]}
-                    </span>
-                    {h && <span className="text-[8px] text-amber-500 leading-none mt-0.5">休</span>}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Today marker line */}
-          {todayOffset >= 0 && todayOffset < totalDays && (
-            <div
-              className="absolute z-10 pointer-events-none"
-              style={{
-                left: LABEL_WIDTH + todayOffset * DAY_WIDTH + DAY_WIDTH / 2,
-                top: 0,
-                bottom: 0,
-                width: 2,
-              }}
-            >
-              <div className="absolute inset-0 bg-red-500" />
-              <div
-                className="absolute text-[10px] font-bold text-white whitespace-nowrap bg-red-500 px-2 py-0.5 rounded-full shadow-md"
-                style={{ top: 6, left: '50%', transform: 'translateX(-50%)' }}
-              >
-                今天
-              </div>
-            </div>
-          )}
 
           {/* Task rows */}
-          <div>
+          <div
+            ref={taskListRef}
+            className="flex-1 overflow-hidden"
+            onScroll={(e) => {
+              // Sync vertical scroll back to date panel
+              if (dateScrollRef.current) {
+                dateScrollRef.current.scrollTop = (e.target as HTMLElement).scrollTop
+              }
+            }}
+          >
             {visibleTasks.map((task, idx) => {
-              const { left, width } = getTaskBarStyle(task)
               const isSelected = selectedTaskId === task.id
-              const progressPercent = task.progress_percent || 0
-              const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
               const depth = task.depth ?? 0
               const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
               const isExpanded = expandedIds.has(task.id)
               const indent = depth * 16 + (hasChildren ? 0 : 18)
 
-              const barColor = (() => {
-                switch (task.status) {
-                  case 'done': return 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)'
-                  case 'in_progress': return 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)'
-                  case 'blocked': return 'linear-gradient(180deg, #ef4444 0%, #dc2626 100%)'
-                  default: return 'linear-gradient(180deg, #9ca3af 0%, #6b7280 100%)'
-                }
-              })()
-
               return (
                 <div
                   key={task.id}
                   className={cn(
-                    'flex border-b border-border/50 transition-colors',
-                    idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                    'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0',
+                    isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
                   )}
                   style={{ height: ROW_HEIGHT }}
+                  onClick={() => handleTaskClick(task.id)}
                 >
-                  {/* Task label — sticky left column, z-40 above date content, below header z-50 */}
-                  <div
-                    className={cn(
-                      'flex-shrink-0 border-r border-border flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors relative z-40 shadow-[2px_0_12px_-2px_rgba(0,0,0,0.10)]',
-                      isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
-                    )}
-                    style={{ width: LABEL_WIDTH, position: 'sticky', left: 0 }}
-                    onClick={() => handleTaskClick(task.id)}
-                  >
-                    {/* Expand/collapse or hierarchy dot */}
-                    <span className="w-4 flex-shrink-0 flex justify-center">
-                      {hasChildren ? (
-                        <button
-                          onClick={(e) => toggleExpanded(e, task.id)}
-                          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
-                        >
-                          {isExpanded ? (
-                            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
-                              <path d="M4 6l4 4 4-4" />
-                            </svg>
-                          ) : (
-                            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
-                              <path d="M6 4l4 4-4 4" />
-                            </svg>
-                          )}
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground/30 inline-block w-1.5 h-1.5 rounded-full bg-current" />
-                      )}
-                    </span>
-
-                    <div className="flex items-center flex-1 min-w-0" style={{ paddingLeft: indent }}>
-                      <span
-                        className={cn(
-                          'w-2 h-2 rounded-full flex-shrink-0 ring-1 ring-offset-1',
-                          task.status === 'done' && 'bg-green-500 ring-green-200',
-                          task.status === 'in_progress' && 'bg-blue-500 ring-blue-200',
-                          task.status === 'blocked' && 'bg-red-500 ring-red-200',
-                          task.status === 'todo' && 'bg-gray-300 ring-gray-200'
+                  <span className="w-4 flex-shrink-0 flex justify-center">
+                    {hasChildren ? (
+                      <button
+                        onClick={(e) => toggleExpanded(e, task.id)}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
+                      >
+                        {isExpanded ? (
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 6l4 4 4-4" />
+                          </svg>
+                        ) : (
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M6 4l4 4-4 4" />
+                          </svg>
                         )}
-                      />
-                      <span className="text-[12px] truncate flex-1 font-medium ml-2">{task.title}</span>
-                    </div>
-                    {isOverdue && (
-                      <span className="text-[10px] text-red-500 font-semibold flex-shrink-0 bg-red-50 px-1.5 py-0.5 rounded">逾期</span>
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground/30 inline-block w-1.5 h-1.5 rounded-full bg-current" />
                     )}
-                    {progressPercent > 0 && (
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium">
-                        {progressPercent}%
-                      </span>
-                    )}
-                  </div>
+                  </span>
 
-                  {/* Bar area */}
-                  <div className="flex-1 relative" style={{ width: totalWidth }}>
+                  <div className="flex items-center flex-1 min-w-0" style={{ paddingLeft: indent }}>
+                    <span
+                      className={cn(
+                        'w-2 h-2 rounded-full flex-shrink-0 ring-1 ring-offset-1',
+                        task.status === 'done' && 'bg-green-500 ring-green-200',
+                        task.status === 'in_progress' && 'bg-blue-500 ring-blue-200',
+                        task.status === 'blocked' && 'bg-red-500 ring-red-200',
+                        task.status === 'todo' && 'bg-gray-300 ring-gray-200'
+                      )}
+                    />
+                    <span className="text-[12px] truncate flex-1 font-medium ml-2">{task.title}</span>
+                  </div>
+                  {(task.progress_percent || 0) > 0 && (
+                    <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium">
+                      {task.progress_percent}%
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+            {visibleTasks.length === 0 && (
+              <div className="flex items-center justify-center py-12 text-muted-foreground text-xs">
+                当前可视范围内没有任务
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ====== RIGHT PANEL: Scrollable date timeline ====== */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Month headers */}
+          <div className="flex-shrink-0 border-b border-border bg-muted/10" style={{ height: MONTH_HEADER_HEIGHT }}>
+            <div className="overflow-hidden" ref={monthHeaderRef}>
+              <div className="flex" style={{ minWidth: totalWidth }}>
+                {monthHeaders.map((mh, i) => (
+                  <div
+                    key={i}
+                    className="flex-shrink-0 flex items-center justify-center border-r border-border font-bold text-[11px] text-foreground/80"
+                    style={{ width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT, minWidth: mh.days * DAY_WIDTH }}
+                  >
+                    {mh.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Day headers */}
+          <div className="flex-shrink-0 border-b border-border bg-background" style={{ height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}>
+            <div className="overflow-hidden" ref={dayHeaderRef}>
+              <div className="flex" style={{ minWidth: totalWidth }}>
+                {Array.from({ length: totalDays }).map((_, i) => {
+                  const d = new Date(startDate)
+                  d.setDate(d.getDate() + i)
+                  const w = isWeekend(d)
+                  const h = isHoliday(d)
+                  const isToday = i === todayOffset
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        'flex-shrink-0 flex flex-col items-center justify-center border-r border-border/60',
+                        w && !h && 'bg-red-50/20',
+                        h && 'bg-amber-50/30',
+                        isToday && 'bg-blue-50/50'
+                      )}
+                      style={{ width: DAY_WIDTH, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
+                    >
+                      <span className={cn('text-[11px] font-semibold leading-tight', isToday ? 'text-blue-600' : w ? 'text-red-400' : h ? 'text-amber-600' : 'text-foreground/60')}>
+                        {d.getDate()}
+                      </span>
+                      <span className={cn('text-[9px] leading-tight', isToday ? 'text-blue-500 font-semibold' : w ? 'text-red-300' : h ? 'text-amber-500' : 'text-muted-foreground/60')}>
+                        {['日', '一', '二', '三', '四', '五', '六'][d.getDay()]}
+                      </span>
+                      {h && <span className="text-[8px] text-amber-500 leading-none mt-0.5">休</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable bar area */}
+          <div
+            className="flex-1 overflow-auto relative"
+            ref={dateScrollRef}
+          >
+            <div style={{ minWidth: totalWidth, height: visibleTasks.length * ROW_HEIGHT }}>
+              {/* Today marker */}
+              {todayOffset >= 0 && todayOffset < totalDays && (
+                <div
+                  className="absolute z-10 pointer-events-none"
+                  style={{
+                    left: todayOffset * DAY_WIDTH + DAY_WIDTH / 2,
+                    top: 0,
+                    bottom: 0,
+                    width: 2,
+                  }}
+                >
+                  <div className="absolute inset-0 bg-red-500" />
+                  <div
+                    className="absolute text-[10px] font-bold text-white whitespace-nowrap bg-red-500 px-2 py-0.5 rounded-full shadow-md"
+                    style={{ top: 6, left: '50%', transform: 'translateX(-50%)' }}
+                  >
+                    今天
+                  </div>
+                </div>
+              )}
+
+              {/* Task bars */}
+              {visibleTasks.map((task, idx) => {
+                const { left, width } = getTaskBarStyle(task)
+                const isSelected = selectedTaskId === task.id
+                const progressPercent = task.progress_percent || 0
+
+                const barColor = (() => {
+                  switch (task.status) {
+                    case 'done': return 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)'
+                    case 'in_progress': return 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)'
+                    case 'blocked': return 'linear-gradient(180deg, #ef4444 0%, #dc2626 100%)'
+                    default: return 'linear-gradient(180deg, #9ca3af 0%, #6b7280 100%)'
+                  }
+                })()
+
+                return (
+                  <div
+                    key={task.id}
+                    className={cn(
+                      'border-b border-border/50 transition-colors relative',
+                      idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                    )}
+                    style={{ height: ROW_HEIGHT }}
+                  >
                     {/* Weekend/holiday shading */}
                     {Array.from({ length: totalDays }).map((_, i) => {
                       const d = new Date(startDate)
@@ -522,14 +549,14 @@ export function GanttView() {
                       </span>
                     </div>
                   </div>
+                )
+              })}
+              {visibleTasks.length === 0 && (
+                <div className="flex items-center justify-center py-12 text-muted-foreground text-xs" style={{ height: ROW_HEIGHT * 3 }}>
+                  当前可视范围内没有任务，请滚动或调整粒度
                 </div>
-              )
-            })}
-            {visibleTasks.length === 0 && (
-              <div className="flex items-center justify-center py-12 text-muted-foreground text-xs">
-                当前可视范围内没有任务，请滚动或调整时间范围
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
