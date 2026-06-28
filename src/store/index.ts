@@ -15,8 +15,11 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void
 
   // Creating task
+  isCreating: boolean
   creatingParentId: string | null
   setCreatingParentId: (id: string | null) => void
+  startCreating: (parentId: string | null) => void
+  stopCreating: () => void
 
   // Filters
   searchQuery: string
@@ -43,6 +46,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   creatingParentId: null,
   setCreatingParentId: (id) => set({ creatingParentId: id }),
+  isCreating: false,
+  startCreating: (parentId) => set({ isCreating: true, creatingParentId: parentId }),
+  stopCreating: () => set({ isCreating: false, creatingParentId: null }),
 
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),

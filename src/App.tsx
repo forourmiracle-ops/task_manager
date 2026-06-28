@@ -22,7 +22,7 @@ export default function App() {
     setCurrentView,
     sidebarOpen,
     setSidebarOpen,
-    setCreatingParentId,
+    startCreating,
   } = useAppStore()
 
   // Keyboard shortcut
@@ -30,7 +30,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'n' && e.ctrlKey) {
         e.preventDefault()
-        setCreatingParentId(null)
+        startCreating(null)
       }
       if (e.key === 'b' && e.ctrlKey) {
         e.preventDefault()
@@ -39,7 +39,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sidebarOpen, setSidebarOpen, setCreatingParentId])
+  }, [sidebarOpen, setSidebarOpen, startCreating])
 
   const renderView = () => {
     switch (currentView) {
@@ -96,7 +96,7 @@ export default function App() {
 
         {/* Quick Create */}
         <button
-          onClick={() => setCreatingParentId(null)}
+          onClick={() => startCreating(null)}
           className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90"
           title="新建项目 (Ctrl+N)"
         >

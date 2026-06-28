@@ -5,6 +5,8 @@ import { buildTaskTree, flattenTasks } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Task } from '@/types'
 
+const MAX_DEPTH = 4
+
 export function Sidebar() {
   const { data: tasks, isLoading } = useTasks()
   const createTask = useCreateTask()
@@ -13,8 +15,10 @@ export function Sidebar() {
     setSelectedTaskId,
     sidebarOpen,
     setSidebarOpen,
+    isCreating,
     creatingParentId,
-    setCreatingParentId,
+    startCreating,
+    stopCreating,
     searchQuery,
     setSearchQuery,
   } = useAppStore()
@@ -23,33 +27,57 @@ export function Sidebar() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (creatingParentId) {
-      inputRef.current?.focus()
+    if (isCreating) {
+      setTimeout(() => inputRef.current?.focus(), 50)
     }
-  }, [creatingParentId])
+  }, [isCreating, creatingParentId])
 
   const tree = tasks ? buildTaskTree(tasks) : []
+
+  const getTaskDepth = (taskId: string): number => {
+    if (!tasks) return 0
+    let depth = 0
+    let current = tasks.find((t) => t.id === taskId)
+    while (current?.parent_id) {
+      depth++
+      current = tasks.find((t) => t.id === current!.parent_id)
+    }
+    return depth
+  }
+
+  const canAddChild = (taskId: string): boolean => {
+    return getTaskDepth(taskId) < MAX_DEPTH - 1
+  }
 
   const handleCreate = () => {
     if (!newTitle.trim()) return
     createTask.mutate(
       { title: newTitle.trim(), parent_id: creatingParentId },
-      { onSuccess: () => {
-        setNewTitle('')
-        setCreatingParentId(null)
-      }}
+      {
+        onSuccess: (task) => {
+          setNewTitle('')
+          stopCreating()
+          setSelectedTaskId(task.id)
+        },
+      }
     )
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') handleCreate()
     if (e.key === 'Escape') {
-      setCreatingParentId(null)
+      stopCreating()
       setNewTitle('')
     }
   }
 
   if (!sidebarOpen) return null
+
+  const getCreatingLabel = () => {
+    if (!creatingParentId) return '新项目名称'
+    const parent = tasks?.find((t) => t.id === creatingParentId)
+    return `在「${parent?.title || '...'}」下添加子任务`
+  }
 
   return (
     <aside className="w-64 min-w-[256px] border-r border-border bg-sidebar flex flex-col h-full">
@@ -73,28 +101,10 @@ export function Sidebar() {
         />
       </div>
 
-      {/* Task List */}
-      <div className="flex-1 overflow-auto p-2">
-        {isLoading ? (
-          <div className="text-xs text-muted-foreground p-2">加载中...</div>
-        ) : (
-          <TaskTreeList
-            tasks={tree}
-            selectedId={selectedTaskId}
-            onSelect={(id) => setSelectedTaskId(id)}
-            onAddChild={(id) => {
-              setCreatingParentId(id)
-              setNewTitle('')
-            }}
-            searchQuery={searchQuery}
-            depth={0}
-          />
-        )}
-      </div>
-
-      {/* Quick Add */}
-      <div className="p-3 border-t border-border">
-        {creatingParentId !== null ? (
+      {/* Quick Create (Top) */}
+      {isCreating && (
+        <div className="p-2 border-b border-border bg-accent/30">
+          <p className="text-[10px] text-muted-foreground mb-1.5">{getCreatingLabel()}</p>
           <div className="flex gap-1">
             <input
               ref={inputRef}
@@ -102,7 +112,7 @@ export function Sidebar() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入任务标题..."
+              placeholder="输入名称，回车确认..."
               className="flex-1 px-2 py-1.5 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <button
@@ -112,10 +122,56 @@ export function Sidebar() {
               确定
             </button>
           </div>
-        ) : (
           <button
             onClick={() => {
-              setCreatingParentId(null)
+              stopCreating()
+              setNewTitle('')
+            }}
+            className="text-[10px] text-muted-foreground hover:text-foreground mt-1.5"
+          >
+            取消
+          </button>
+        </div>
+      )}
+
+      {/* Task List */}
+      <div className="flex-1 overflow-auto p-2">
+        {isLoading ? (
+          <div className="text-xs text-muted-foreground p-2">加载中...</div>
+        ) : tree.length === 0 && !isCreating ? (
+          <div className="text-xs text-muted-foreground p-2 text-center py-8">
+            <p>暂无任务</p>
+            <button
+              onClick={() => startCreating(null)}
+              className="text-primary hover:underline mt-2"
+            >
+              创建第一个项目
+            </button>
+          </div>
+        ) : (
+          <TaskTreeList
+            tasks={tree}
+            selectedId={selectedTaskId}
+            onSelect={(id) => setSelectedTaskId(id)}
+            onAddChild={(id) => {
+              if (canAddChild(id)) {
+                startCreating(id)
+                setNewTitle('')
+              }
+            }}
+            searchQuery={searchQuery}
+            depth={0}
+            canAddChild={canAddChild}
+          />
+        )}
+      </div>
+
+      {/* Bottom Action */}
+      <div className="p-3 border-t border-border">
+        {!isCreating && (
+          <button
+            onClick={() => {
+              startCreating(null)
               setNewTitle('')
             }}
             className="w-full py-1.5 text-xs border border-dashed border-border rounded text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
@@ -135,6 +191,7 @@ function TaskTreeList({
   onAddChild,
   searchQuery,
   depth,
+  canAddChild,
 }: {
   tasks: Task[]
   selectedId: string | null
@@ -142,6 +199,7 @@ function TaskTreeList({
   onAddChild: (id: string) => void
   searchQuery: string
   depth: number
+  canAddChild: (id: string) => boolean
 }) {
   const filtered = searchQuery
     ? flattenTasks(tasks).filter((t) =>
@@ -160,6 +218,7 @@ function TaskTreeList({
           onAddChild={onAddChild}
           searchQuery={searchQuery}
           depth={depth}
+          canAddChild={canAddChild}
         />
       ))}
     </ul>
@@ -173,6 +232,7 @@ function TaskNode({
   onAddChild,
   searchQuery,
   depth,
+  canAddChild,
 }: {
   task: Task
   selectedId: string | null
@@ -180,13 +240,15 @@ function TaskNode({
   onAddChild: (id: string) => void
   searchQuery: string
   depth: number
+  canAddChild: (id: string) => boolean
 }) {
   const [expanded, setExpanded] = useState(true)
   const isSelected = selectedId === task.id
   const hasChildren = task.children && task.children.length > 0
   const currentDepth = task.depth ?? depth
+  const canAdd = canAddChild(task.id)
 
-  if (currentDepth >= 4) return null
+  if (currentDepth >= MAX_DEPTH) return null
 
   return (
     <li>
@@ -239,16 +301,18 @@ function TaskNode({
         )}
 
         {/* Add child button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onAddChild(task.id)
-          }}
-          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground flex-shrink-0 px-1"
-          title="添加子任务"
-        >
-          +
-        </button>
+        {canAdd && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddChild(task.id)
+            }}
+            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground flex-shrink-0 px-1"
+            title="添加子任务"
+          >
+            +
+          </button>
+        )}
       </div>
 
       {/* Children */}
@@ -260,6 +324,7 @@ function TaskNode({
           onAddChild={onAddChild}
           searchQuery={searchQuery}
           depth={currentDepth + 1}
+          canAddChild={canAddChild}
         />
       )}
     </li>
