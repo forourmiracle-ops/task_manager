@@ -1,0 +1,80 @@
+{
+  "statistics": {
+    "total_tasks": 3,
+    "success_count": 2,
+    "failed_count": 1,
+    "total_tokens": 0,
+    "total_duration_sec": 45
+  },
+  "recent_tasks": [
+    {
+      "timestamp": "2026-06-28 05:58:59",
+      "task_desc": "DetailPanel编辑功能修复：click事件导致编辑立即关闭，改回mousedown+日期字段skip",
+      "result": "success",
+      "domain": "coding",
+      "trace": "Read→Edit→tsc--noEmit",
+      "context": "click事件在startEditing(setEditingField)后冒泡到document，触发commitEdit中的setEditingField(null)覆盖了编辑状态。mousedown在React onClick之前触发，此时handler尚未注册，因此不会冲突。日期字段跳过mousedown/Enter提交，仅依赖onBlur。"
+    },
+    {
+      "timestamp": "2026-06-28 05:59:19",
+      "task_desc": "甘特图首次加载滚动定位：setTimeout改requestAnimationFrame双缓冲+ref防闭包过期",
+      "result": "success",
+      "domain": "coding",
+      "trace": "Read→Edit→tsc--noEmit",
+      "context": "setTimeout(0)在浏览器布局完成前触发，scrollLeft无效。改为双rAF确保paint后再滚动。ref存储最新参数避免闭包过期。fallback的setTimeout(300)读取空deps闭包中的stale值，已移除。"
+    },
+    {
+      "timestamp": "2026-06-28 05:59:44",
+      "task_desc": "React编辑面板click-outside模式：不应使用click事件，必须用mousedown",
+      "result": "failed",
+      "domain": "coding"
+    }
+  ],
+  "task_type_counts": {
+    "DetailPanel编辑功能修复：": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-28T05:58:59.933157"
+        }
+      ]
+    },
+    "甘特图首次加载滚动定位：setTim": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-28T05:59:19.343606"
+        }
+      ]
+    },
+    "React编辑面板click-out": {
+      "total": 1,
+      "success": 0,
+      "failed": 1,
+      "partial": 0,
+      "consecutive_errors": 1,
+      "last_results": [
+        {
+          "result": "failed",
+          "ts": "2026-06-28T05:59:44.551142"
+        }
+      ]
+    }
+  },
+  "error_cat_counts": {
+    "React": {
+      "consecutive_errors": 1,
+      "total_errors": 1
+    }
+  }
+}

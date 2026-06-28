@@ -1,0 +1,47 @@
+{
+  "schema_version": "4.0",
+  "description": "大一统自进化系统 — 由upgrade_agent.py v4.0自动初始化",
+  "last_updated": "2026-06-28T05:58:25.018566",
+  "architecture": "unified-domain",
+  "self_evolution_enabled": true,
+  "evolution_version": "4.0",
+  "domains": {
+    "docs": {
+      "name": "文档管理",
+      "experience_file": "domains/docs/experiences.json",
+      "memory_file": "domains/docs/memory.json",
+      "immune_rules_file": "domains/docs/immune_rules.json"
+    },
+    "coding": {
+      "name": "代码开发",
+      "experience_file": "domains/coding/experiences.json",
+      "memory_file": "domains/coding/memory.json",
+      "immune_rules_file": "domains/coding/immune_rules.json"
+    },
+    "log": {
+      "name": "log相关",
+      "experience_file": "domains/log/experiences.json",
+      "memory_file": "domains/log/memory.json",
+      "immune_rules_file": "domains/log/immune_rules.json"
+    },
+    "domain": {
+      "name": "domain相关",
+      "experience_file": "domains/domain/experiences.json",
+      "memory_file": "domains/domain/memory.json",
+      "immune_rules_file": "domains/domain/immune_rules.json"
+    }
+  },
+  "global_files": {
+    "config": "domains/_shared/evo-config.json",
+    "feedback": "domains/_shared/evo-feedback.json",
+    "l4_working_memory": "workspace/.tmp/l4-memory.json",
+    "admin_experiences": "domains/_shared/admin-experiences.json"
+  },
+  "resolved_paths": {
+    "memory_dir": "/workspace/task-manager/memory",
+    "memory_file": "/workspace/task-manager/memory/MEMORY.md",
+    "stm_file": "/workspace/task-manager/memory/short-term-memory.md",
+    "feedback_file": "/workspace/task-manager/domains/_shared/evo-feedback.json",
+    "root": "/workspace/task-manager"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "4.2",
+  "experiences": [
+    {
+      "id": "init_log_001",
+      "layer": "L2",
+      "status": "active",
+      "scenario": "⚡ 自进化log触发条件（无例外）",
+      "keywords": [
+        "log"
+      ],
+      "fact": "唯一豁免**：打招呼、单句确认、用户取消任务、询问时间路径",
+      "steps": [
+        "做了以下任何一件事，结束前**必须执行log**：",
+        "写文件/改代码/跑命令/写文档/数据加工/决策记录"
+      ],
+      "insight": "做了以下任何一件事，结束前**必须执行log**：",
+      "confidence": 0.6,
+      "proven_count": 0,
+      "superseded_by": null,
+      "updated_at": "2026-06-28",
+      "source": "memory_import_v4.6"
+    }
+  ]
+}
