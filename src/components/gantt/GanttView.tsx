@@ -105,6 +105,7 @@ export function GanttView() {
   const [scrollWidth, setScrollWidth] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [dimensionInitialized, setDimensionInitialized] = useState(false)
+  const initialScrollDone = useRef(false)
 
   // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
@@ -273,9 +274,14 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
-  // Scroll into position based on dimension display rules
+  // Scroll into position based on dimension display rules.
+  // Uses rAF to ensure DOM is fully painted before scrolling.
   useEffect(() => {
-    if (dateScrollRef.current && totalDays > 0 && DAY_WIDTH > 0 && datePanelWidth > 0) {
+    const el = dateScrollRef.current
+    if (!el || totalDays <= 0 || DAY_WIDTH <= 0 || datePanelWidth <= 0) return
+
+    const doScroll = () => {
+      if (!dateScrollRef.current) return
       let scrollPos: number
       if (dimension === 'week' || dimension === 'month') {
         // Today at 3rd column
@@ -287,7 +293,12 @@ export function GanttView() {
         scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
       }
       dateScrollRef.current.scrollLeft = Math.max(0, scrollPos)
+      initialScrollDone.current = true
     }
+
+    // Use rAF to defer until after layout/paint
+    const raf = requestAnimationFrame(doScroll)
+    return () => cancelAnimationFrame(raf)
   }, [totalDays, todayOffset, DAY_WIDTH, datePanelWidth, dimension])
 
   const totalWidth = totalDays * DAY_WIDTH
