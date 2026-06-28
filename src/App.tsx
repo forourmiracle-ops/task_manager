@@ -6,6 +6,7 @@ import { BoardView } from '@/components/board/BoardView'
 import { CalendarView } from '@/components/calendar/CalendarView'
 import { AIAssistantView } from '@/components/ai/AIAssistantView'
 import { SettingsView } from '@/components/settings/SettingsView'
+import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
 import type { ViewType } from '@/types'
 
@@ -124,6 +125,9 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {/* Create Task Dialog */}
+      <CreateTaskDialog />
     </div>
   )
 }
