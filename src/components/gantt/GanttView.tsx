@@ -145,9 +145,10 @@ export function GanttView() {
 
   // DAY_WIDTH = date panel width / dimension days, so viewport shows exactly the dimension range
   // Fallback uses estimated 480px panel width so dimension is respected before ResizeObserver fires
+  // No Math.round() — fractional px avoids cumulative rounding errors that make visible days mismatch the dimension
   const DAY_WIDTH = useMemo(() => {
-    if (datePanelWidth <= 0) return Math.max(MIN_DAY_WIDTH, Math.round(480 / dimensionDays))
-    return Math.max(MIN_DAY_WIDTH, Math.round(datePanelWidth / dimensionDays))
+    if (datePanelWidth <= 0) return Math.max(MIN_DAY_WIDTH, 480 / dimensionDays)
+    return Math.max(MIN_DAY_WIDTH, datePanelWidth / dimensionDays)
   }, [datePanelWidth, dimensionDays])
 
   const ROW_HEIGHT = useMemo(() => Math.round(36 * scale), [scale])

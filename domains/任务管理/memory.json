@@ -1,10 +1,10 @@
 {
   "statistics": {
-    "total_tasks": 1,
-    "success_count": 1,
+    "total_tasks": 2,
+    "success_count": 2,
     "failed_count": 0,
     "total_tokens": 0,
-    "total_duration_sec": 0
+    "total_duration_sec": 3136
   },
   "recent_tasks": [
     {
@@ -14,6 +14,14 @@
       "domain": "任务管理",
       "trace": "Read→Edit×3→tsc验证",
       "context": "三重修复：1)甘特图useLayoutEffect用rAF延迟scrollLeft+allFlatTasks依赖 2)CreateTaskDialog bg-card→bg-background 3)DetailPanel日期onChange改为commitEdit直接提交"
+    },
+    {
+      "timestamp": "2026-06-28 10:58:42",
+      "task_desc": "甘特图维度fallback+弹窗内联背景修复",
+      "result": "success",
+      "domain": "任务管理",
+      "trace": "Edit×2→tsc→git push",
+      "context": "甘特图DAY_WIDTH fallback从固定40改为480/dimensionDays按维度缩放；弹窗用内联style绕过Tailwind v4 CSS变量注册问题"
     }
   ],
   "task_type_counts": {
@@ -27,6 +35,19 @@
         {
           "result": "success",
           "ts": "2026-06-28T10:06:26.994607"
+        }
+      ]
+    },
+    "甘特图维度fallback+弹窗内联": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-28T10:58:42.751160"
         }
       ]
     }
