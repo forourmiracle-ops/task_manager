@@ -100,7 +100,7 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top Navigation */}
-      <header className="border-b border-border flex items-center px-4 gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 48 }}>
+      <header className="border-b border-border flex items-center px-4 gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
@@ -111,25 +111,28 @@ export default function App() {
           </svg>
         </button>
 
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 8l3-3 4 4 3-3" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center shadow-md">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M2 9l4-4 3 3 5-5" />
             </svg>
           </div>
-          <span className="text-sm font-bold tracking-tight text-foreground">TaskFlow</span>
+          <div className="flex flex-col leading-none">
+            <span className="text-sm font-bold tracking-tight text-foreground">TaskFlow</span>
+            <span className="text-[10px] text-muted-foreground font-medium">任务管理系统</span>
+          </div>
         </div>
 
-        <div className="w-px h-5 bg-border mx-1 hidden md:block" />
+        <div className="w-px h-6 bg-border mx-1 hidden md:block" />
 
-        <nav className="hidden md:flex gap-0.5">
+        <nav className="hidden md:flex gap-1 p-1 rounded-xl bg-muted/30">
           {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
             <button
               key={view}
               onClick={() => setCurrentView(view)}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
                 currentView === view
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? 'bg-background text-primary shadow-sm ring-1 ring-border'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent'
               }`}
             >
@@ -144,13 +147,13 @@ export default function App() {
         {/* Quick Create */}
         <button
           onClick={() => startCreating(null)}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90 shadow-sm transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
           title="新建项目 (Ctrl+N)"
         >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
             <path d="M8 3v10M3 8h10" />
           </svg>
-          <span className="hidden sm:inline">新建</span>
+          <span className="hidden sm:inline">新建项目</span>
         </button>
       </header>
 
@@ -162,7 +165,7 @@ export default function App() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden border-t border-border flex items-center bg-background flex-shrink-0 z-40" style={{ height: 52 }}>
+      <nav className="md:hidden border-t border-border flex items-center bg-background flex-shrink-0 z-40" style={{ height: 56 }}>
         {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
           <button
             key={view}
@@ -173,7 +176,7 @@ export default function App() {
                 : 'text-muted-foreground'
             }`}
           >
-            <span className={currentView === view ? 'text-primary' : ''}>{VIEW_LABELS[view].icon}</span>
+            <span className={currentView === view ? 'text-primary bg-primary/10 p-1 rounded-lg' : ''}>{VIEW_LABELS[view].icon}</span>
             {VIEW_LABELS[view].label}
           </button>
         ))}

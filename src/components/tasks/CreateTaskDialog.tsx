@@ -90,10 +90,10 @@ export function CreateTaskDialog() {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-background/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/60 backdrop-blur-md"
       onClick={handleOverlayClick}
     >
-      <div className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" style={{ boxShadow: '0 24px 60px -12px hsl(var(--foreground) / 0.18)' }}>
+      <div className="bg-background border border-border rounded-2xl w-full max-w-md mx-4 overflow-hidden" style={{ boxShadow: '0 24px 70px -12px rgba(0,0,0,0.35), 0 0 0 1px hsl(var(--border))' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/10">
           <h3 className="text-sm font-bold">
