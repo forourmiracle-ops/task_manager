@@ -210,8 +210,16 @@ export function DetailPanel() {
 
     const handleMouseDown = (e: MouseEvent) => {
       try {
-        const target = e.target as HTMLElement
-        if (target.closest('[data-detail-editor]')) return
+        // Use composedPath() to penetrate shadow DOM (native date picker buttons)
+        const path = e.composedPath()
+        const isInsideEditor = path.some((el) => {
+          if (el instanceof Element) {
+            return el.closest?.('[data-detail-editor]') !== undefined
+          }
+          return false
+        })
+        if (isInsideEditor) return
+
         commitEdit()
       } catch (err) {
         console.error('DetailPanel mousedown error:', err)
@@ -363,16 +371,7 @@ export function DetailPanel() {
               autoFocus
               type="date"
               value={val}
-              onChange={(e) => { setEditValue(e.target.value); setValidationError(null) }}
-              onBlur={() => {
-                // Only commit if value actually changed (prevents closing on date picker interaction)
-                const t = taskRef.current
-                if (!t) return
-                const originalValue = field === 'start_date' ? (t.start_date || '') : (t.due_date || '')
-                if (editValueRef.current !== originalValue) {
-                  commitEdit()
-                }
-              }}
+              onChange={(e) => { setValidationError(null); commitEdit(e.target.value) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
                 baseClass,

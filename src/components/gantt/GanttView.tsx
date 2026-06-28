@@ -167,9 +167,13 @@ export function GanttView() {
     return () => ro.disconnect()
   }, [])
 
-  // Auto mode follows autoDimension changes
+  // Sync dimension with defaultDimension setting
   useEffect(() => {
-    if (defaultDimension === 'auto') setDimension(autoDimension)
+    if (defaultDimension === 'auto') {
+      setDimension(autoDimension)
+    } else {
+      setDimension(defaultDimension as Dimension)
+    }
   }, [defaultDimension, autoDimension])
 
   // Chart range: 10 years for true infinite scrolling (today - 5yr to today + 5yr)
@@ -269,38 +273,24 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
-  // Scroll to today on first load and when dimension/size changes.
-  // useLayoutEffect fires synchronously after DOM mutations but before paint,
-  // but the scroll container's content may not be fully laid out yet.
-  // Use requestAnimationFrame to ensure scrolling happens after browser layout.
+  // Scroll to today on first load and when dimension/size/data changes.
+  // rAF delays scrollLeft by one frame so browser finishes layout first.
   useLayoutEffect(() => {
-    if (datePanelWidth <= 0 || DAY_WIDTH <= 0) return
     const el = dateScrollRef.current
-    if (!el) return
+    if (!el || DAY_WIDTH <= 0) return
 
-    const doScroll = () => {
-      let scrollPos: number
+    const scrollPos = (() => {
       if (dimension === 'week' || dimension === 'month') {
-        scrollPos = (todayOffset - 2) * DAY_WIDTH
-      } else {
-        const today = new Date()
-        scrollPos = (todayOffset - today.getDay()) * DAY_WIDTH
+        return (todayOffset - 2) * DAY_WIDTH
       }
-      el.scrollLeft = Math.max(0, scrollPos)
-    }
+      const today = new Date()
+      return (todayOffset - today.getDay()) * DAY_WIDTH
+    })()
 
-    // First try: immediate scroll
-    doScroll()
-    
-    // Second try: after browser layout (for initial load)
-    const rafId = requestAnimationFrame(() => {
-      if (el.scrollLeft === 0) {
-        doScroll()
-      }
+    requestAnimationFrame(() => {
+      el.scrollLeft = Math.max(0, scrollPos)
     })
-    
-    return () => cancelAnimationFrame(rafId)
-  }, [datePanelWidth, DAY_WIDTH, totalDays, todayOffset, dimension])
+  }, [todayOffset, dimension, DAY_WIDTH, allFlatTasks.length])
 
   const totalWidth = totalDays * DAY_WIDTH
 
