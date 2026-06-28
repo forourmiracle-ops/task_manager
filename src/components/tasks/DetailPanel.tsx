@@ -134,10 +134,11 @@ export function DetailPanel() {
     return changed ? payload : null
   }
 
-  const commitEdit = () => {
+  const commitEdit = (valueOverride?: string) => {
     try {
       const field = editingFieldRef.current
-      const value = editValueRef.current
+      // Use override (e.g. from select onChange) or fall back to ref
+      const value = valueOverride ?? editValueRef.current
       if (!field) return
 
       const payload = buildPayload(field, value)
@@ -284,7 +285,7 @@ export function DetailPanel() {
             data-detail-editor
             autoFocus
             value={val}
-            onChange={(e) => { setEditValue(e.target.value); commitEdit() }}
+            onChange={(e) => commitEdit(e.target.value)}
             className={baseClass}
           >
             {Object.entries(STATUS_LABELS).map(([k, v]) => (
@@ -298,7 +299,7 @@ export function DetailPanel() {
             data-detail-editor
             autoFocus
             value={val}
-            onChange={(e) => { setEditValue(e.target.value); commitEdit() }}
+            onChange={(e) => commitEdit(e.target.value)}
             className={baseClass}
           >
             {Object.entries(PRIORITY_LABELS).map(([k, v]) => (

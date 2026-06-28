@@ -4,6 +4,26 @@ import { useTasks } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
 import type { Task } from '@/types'
 
+type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
+
+const DIMENSION_DAYS: Record<Dimension, number> = {
+  week: 7,
+  month: 30,
+  quarter: 90,
+  halfyear: 180,
+  year: 365,
+}
+
+const DIMENSION_LABELS: { key: Dimension; label: string }[] = [
+  { key: 'week', label: '一周' },
+  { key: 'month', label: '当月' },
+  { key: 'quarter', label: '季度' },
+  { key: 'halfyear', label: '半年' },
+  { key: 'year', label: '全年' },
+]
+
+const MIN_DAY_WIDTH = 3
+
 // Chinese holidays 2026
 const HOLIDAYS_2026 = new Set([
   '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-02-19', '2026-02-20',
@@ -73,7 +93,9 @@ export function GanttView() {
   const monthHeaderRef = useRef<HTMLDivElement>(null)
   const dayHeaderRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
-  const [viewMonths, setViewMonths] = useState(3)
+  const datePanelRef = useRef<HTMLDivElement>(null)
+  const [dimension, setDimension] = useState<Dimension>('quarter')
+  const [datePanelWidth, setDatePanelWidth] = useState(0)
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollWidth, setScrollWidth] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -81,13 +103,31 @@ export function GanttView() {
   // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
 
-  // viewMonths controls granularity: more months = narrower columns
-  // Base: 3 months = 40px/day. 1 month = 120px/day, 12 months = 10px/day
-  const DAY_WIDTH = useMemo(() => Math.round(40 * scale * 3 / viewMonths), [scale, viewMonths])
+  const dimensionDays = DIMENSION_DAYS[dimension]
+
+  // DAY_WIDTH = date panel width / dimension days, so viewport shows exactly the dimension range
+  const DAY_WIDTH = useMemo(() => {
+    if (datePanelWidth <= 0) return 40 // fallback before measurement
+    return Math.max(MIN_DAY_WIDTH, Math.round(datePanelWidth / dimensionDays))
+  }, [datePanelWidth, dimensionDays])
+
   const ROW_HEIGHT = useMemo(() => Math.round(36 * scale), [scale])
   const LABEL_WIDTH = useMemo(() => Math.round(260 * scale), [scale])
   const HEADER_HEIGHT = useMemo(() => Math.round(66 * scale), [scale])
   const MONTH_HEADER_HEIGHT = useMemo(() => Math.round(28 * scale), [scale])
+
+  // ResizeObserver to track date panel width
+  useEffect(() => {
+    const el = datePanelRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setDatePanelWidth(entry.contentRect.width)
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const allFlatTasks = useMemo(() => {
     if (!tasks) return []
@@ -201,13 +241,12 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
-  // Scroll to today on viewMonths change
+  // Scroll to center today on dimension change
   useEffect(() => {
-    if (dateScrollRef.current && totalDays > 0) {
-      const daysBefore = viewMonths === 1 ? 2 : 1
-      dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - daysBefore) * DAY_WIDTH)
+    if (dateScrollRef.current && totalDays > 0 && DAY_WIDTH > 0) {
+      dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - Math.floor(dimensionDays / 2)) * DAY_WIDTH)
     }
-  }, [totalDays, todayOffset, DAY_WIDTH, viewMonths])
+  }, [totalDays, todayOffset, DAY_WIDTH, dimensionDays])
 
   const totalWidth = totalDays * DAY_WIDTH
 
@@ -269,20 +308,15 @@ export function GanttView() {
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/10 flex-shrink-0">
-        <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">粒度</span>
-        {[
-          { m: 1, label: '当月' },
-          { m: 3, label: '季度' },
-          { m: 6, label: '半年' },
-          { m: 12, label: '全年' },
-        ].map(({ m, label }) => (
+        <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">维度</span>
+        {DIMENSION_LABELS.map(({ key, label }) => (
           <button
             type="button"
-            key={m}
-            onClick={() => setViewMonths(m)}
+            key={key}
+            onClick={() => setDimension(key)}
             className={cn(
               'px-3 py-1 text-[11px] rounded-full font-medium transition-all',
-              viewMonths === m
+              dimension === key
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             )}
@@ -298,9 +332,8 @@ export function GanttView() {
           type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
           onClick={() => {
-            if (dateScrollRef.current) {
-              const daysBefore = viewMonths === 1 ? 2 : 1
-              dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - daysBefore) * DAY_WIDTH)
+            if (dateScrollRef.current && DAY_WIDTH > 0) {
+              dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - Math.floor(dimensionDays / 2)) * DAY_WIDTH)
             }
           }}
         >
@@ -401,7 +434,7 @@ export function GanttView() {
         </div>
 
         {/* ====== RIGHT PANEL: Scrollable date timeline ====== */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden" ref={datePanelRef}>
           {/* Month headers */}
           <div className="flex-shrink-0 border-b border-border bg-muted/10" style={{ height: MONTH_HEADER_HEIGHT }}>
             <div className="overflow-hidden" ref={monthHeaderRef}>
