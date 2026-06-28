@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
+import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
@@ -99,13 +99,14 @@ export function GanttView() {
   const dateScrollRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
   const datePanelRef = useRef<HTMLDivElement>(null)
-  const [dimension, setDimension] = useState<Dimension>('quarter')
+  const [dimension, setDimension] = useState<Dimension>(() => {
+    if (defaultDimension === 'auto') return autoDimension
+    return (defaultDimension as Dimension) || 'quarter'
+  })
   const [datePanelWidth, setDatePanelWidth] = useState(0)
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollWidth, setScrollWidth] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [dimensionInitialized, setDimensionInitialized] = useState(false)
-  const initialScrollDone = useRef(false)
 
   // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
@@ -166,16 +167,10 @@ export function GanttView() {
     return 'year'
   }, [allFlatTasks])
 
-  // Initialize dimension from default. Auto mode always follows autoDimension
+  // Auto mode follows autoDimension changes
   useEffect(() => {
-    if (defaultDimension === 'auto') {
-      setDimension(autoDimension)
-      setDimensionInitialized(true)
-    } else if (!dimensionInitialized) {
-      setDimension(defaultDimension as Dimension)
-      setDimensionInitialized(true)
-    }
-  }, [defaultDimension, autoDimension, dimensionInitialized])
+    if (defaultDimension === 'auto') setDimension(autoDimension)
+  }, [defaultDimension, autoDimension])
 
   // Chart range: 10 years for true infinite scrolling (today - 5yr to today + 5yr)
   const { startDate, endDate, totalDays, monthHeaders, todayOffset } = useMemo<{
@@ -274,56 +269,22 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
-  // Keep latest scroll params in refs to avoid stale closure issues
-  const scrollParamsRef = useRef({ datePanelWidth: 0, DAY_WIDTH: 0, todayOffset: 0, dimension: 'quarter' as string })
-  useEffect(() => {
-    scrollParamsRef.current = { datePanelWidth, DAY_WIDTH, todayOffset, dimension }
-  }, [datePanelWidth, DAY_WIDTH, todayOffset, dimension])
+  // Scroll to today on first load and when dimension/size changes.
+  // useLayoutEffect fires synchronously after DOM mutations but before paint,
+  // so the user never sees the wrong scroll position.
+  useLayoutEffect(() => {
+    if (datePanelWidth <= 0 || DAY_WIDTH <= 0) return
+    const el = dateScrollRef.current
+    if (!el) return
 
-  // Scroll into position based on dimension display rules.
-  // Uses double requestAnimationFrame to ensure the browser has painted
-  // before we attempt to scroll — this is critical for first-load positioning.
-  useEffect(() => {
-    let cancelled = false
-    let attempts = 0
-
-    const attemptScroll = () => {
-      if (cancelled) return
-      const { datePanelWidth: w, DAY_WIDTH: dw, todayOffset: to, dimension: dim } = scrollParamsRef.current
-      const el = dateScrollRef.current
-
-      if (!el || w <= 0 || dw <= 0) {
-        // Layout not ready yet — retry up to 10 times
-        if (attempts < 10) {
-          attempts++
-          requestAnimationFrame(attemptScroll)
-        }
-        return
-      }
-
-      let scrollPos: number
-      if (dim === 'week' || dim === 'month') {
-        scrollPos = (to - 2) * dw
-      } else {
-        const today = new Date()
-        const dayOfWeek = today.getDay()
-        scrollPos = (to - dayOfWeek) * dw
-      }
-      el.scrollLeft = Math.max(0, scrollPos)
-      initialScrollDone.current = true
+    let scrollPos: number
+    if (dimension === 'week' || dimension === 'month') {
+      scrollPos = (todayOffset - 2) * DAY_WIDTH
+    } else {
+      const today = new Date()
+      scrollPos = (todayOffset - today.getDay()) * DAY_WIDTH
     }
-
-    // Double rAF: first waits for layout, second waits for paint
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(attemptScroll)
-      if (cancelled) cancelAnimationFrame(raf2)
-    })
-
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(raf1)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    el.scrollLeft = Math.max(0, scrollPos)
   }, [datePanelWidth, DAY_WIDTH, totalDays, todayOffset, dimension])
 
   const totalWidth = totalDays * DAY_WIDTH

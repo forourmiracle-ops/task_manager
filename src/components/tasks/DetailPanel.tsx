@@ -228,9 +228,6 @@ export function DetailPanel() {
       try {
         if (e.key === 'Enter') {
           e.preventDefault()
-          // Date fields: skip Enter commit — they rely on onBlur
-          const field = editingFieldRef.current
-          if (field === 'start_date' || field === 'due_date') return
           commitEdit()
         } else if (e.key === 'Escape') {
           setEditingField(null)
@@ -371,7 +368,6 @@ export function DetailPanel() {
               type="date"
               value={val}
               onChange={(e) => { setEditValue(e.target.value); setValidationError(null) }}
-              onBlur={() => commitEdit()}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
                 baseClass,
