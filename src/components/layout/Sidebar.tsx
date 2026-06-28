@@ -42,29 +42,35 @@ export function Sidebar() {
     <aside className="border-r border-border bg-sidebar flex flex-col h-full" style={{ width: 256, minWidth: 256, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-3 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold">任务列表</h2>
+        <div className="flex items-center justify-between mb-2.5">
+          <h2 className="text-sm font-semibold tracking-tight">任务列表</h2>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="text-muted-foreground hover:text-foreground text-xs"
+            className="text-muted-foreground hover:text-foreground text-xs px-1.5 py-0.5 rounded hover:bg-accent transition-colors"
           >
             收起
           </button>
         </div>
-        <input
-          type="text"
-          placeholder="搜索任务..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-2 py-1.5 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        <div className="relative">
+          <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+          <input
+            type="text"
+            placeholder="搜索任务..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-7 pr-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-1.5 focus:ring-ring placeholder:text-muted-foreground/60"
+          />
+        </div>
       </div>
 
       {/* Quick Create Button */}
       <div className="p-2 border-b border-border">
         <button
           onClick={() => startCreating(null)}
-          className="w-full py-1.5 text-xs bg-primary text-primary-foreground rounded hover:opacity-90"
+          className="w-full py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 shadow-sm transition-all"
         >
           + 新建项目
         </button>
@@ -184,10 +190,10 @@ function TaskNode({
     <li>
       <div
         className={cn(
-          'group flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer transition-colors',
+          'group flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs cursor-pointer transition-all',
           isSelected
-            ? 'bg-accent text-accent-foreground'
-            : 'hover:bg-accent/50 text-foreground'
+            ? 'bg-primary/10 text-primary font-medium'
+            : 'hover:bg-accent text-foreground'
         )}
         style={{ paddingLeft: `${8 + currentDepth * 16}px` }}
         onClick={() => onSelect(task.id)}

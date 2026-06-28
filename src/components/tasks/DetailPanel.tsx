@@ -29,6 +29,7 @@ export function DetailPanel() {
   const [pendingValue, setPendingValue] = useState<unknown>(null)
   const detailRef = useRef<HTMLDivElement>(null)
   const editInputRef = useRef<HTMLElement>(null)
+  const commitEditRef = useRef<() => void>(() => {})
 
   // Reset editing when task changes
   useEffect(() => {
@@ -48,12 +49,12 @@ export function DetailPanel() {
     if (!editingField) return
     const handleClickOutside = (e: MouseEvent) => {
       if (detailRef.current && !detailRef.current.contains(e.target as Node)) {
-        commitEdit()
+        commitEditRef.current()
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [editingField, editValue])
+  }, [editingField])
 
   if (!detailPanelOpen || !task) return null
 
@@ -79,7 +80,6 @@ export function DetailPanel() {
   const commitEdit = useCallback(() => {
     if (!editingField || !task) return
     const newValue = editValue.trim()
-
     // Build the update payload
     let payload: Partial<Task> = {}
     switch (editingField) {
@@ -121,12 +121,14 @@ export function DetailPanel() {
         payload = { tags: newTags }
         break
     }
-
     setPendingField(editingField)
     setPendingValue({ id: task.id, ...payload })
     setShowConfirm(true)
     setEditingField(null)
   }, [editingField, editValue, task])
+
+  // Keep ref in sync to avoid stale closure in event listeners
+  commitEditRef.current = commitEdit
 
   const confirmEdit = () => {
     if (!pendingValue) return

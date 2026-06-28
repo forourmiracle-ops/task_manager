@@ -90,7 +90,7 @@ export function CreateTaskDialog() {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/30"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/50 backdrop-blur-sm"
       onClick={handleOverlayClick}
     >
       <div className="bg-background border border-border rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
