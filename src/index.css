@@ -99,9 +99,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Font size scaling: 8 levels from 0.75x to 1.5x */
+/* Font size scaling: 8 levels. Only scale font-related properties, not layout.
+   Layout widths (sidebar, panel, header) use fixed px to stay stable. */
 html {
   font-size: calc(14px + (var(--font-scale) - 1) * 1.5px);
+}
+
+/* Ensure fixed-px text sizes also scale with root font-size */
+.text-10px, [class*="text-[10px]"] {
+  font-size: 0.625rem !important;
+}
+.text-9px, [class*="text-[9px]"] {
+  font-size: 0.5625rem !important;
 }
 
 #root {

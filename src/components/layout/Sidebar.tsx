@@ -104,7 +104,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-64 min-w-[256px] border-r border-border bg-sidebar flex flex-col h-full">
+    <aside className="border-r border-border bg-sidebar flex flex-col h-full" style={{ width: 256, minWidth: 256, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between mb-2">
