@@ -1,0 +1,19 @@
+{
+  "schema_version": "4.0",
+  "rules": [
+    {
+      "id": "rule_1782626384557_0",
+      "scenario": "React编辑面板click-outside模式：不应使用click事件，必须用mousedown",
+      "rule": "React编辑面板的click-outside关闭模式必须使用mousedown事件而非click事件。原因：click事件在startEditing的setEditingField之后冒泡到document，commitEdit的setEditingField(null)会覆盖刚设置的编辑状态。mousedown在React合成事件之前触发，此时handler未注册，不会冲突。日期字段应跳过mousedown检查，仅依赖onBlur。",
+      "severity": "warning",
+      "source_lesson": "任务失败教训自动提取",
+      "source_experience_id": "lesson_1782626384554_0",
+      "error_type": "event_race_condition",
+      "error_category": "React",
+      "created_at": "2026-06-28T05:59:44.552838",
+      "timestamp": "2026-06-28T05:59:44.552838"
+    }
+  ],
+  "total_rules": 1,
+  "last_updated": "2026-06-28T05:59:44.552838"
+}

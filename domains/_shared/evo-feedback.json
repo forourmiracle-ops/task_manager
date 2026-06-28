@@ -1,0 +1,23 @@
+{
+  "schema_version": "4.0",
+  "feedback_records": [],
+  "trigger_words_config": {
+    "strong": [
+      "蠢模型",
+      "又错了",
+      "完全不对",
+      "废物"
+    ],
+    "medium": [
+      "不对",
+      "有问题",
+      "重做",
+      "错了"
+    ],
+    "mild": [
+      "再想想",
+      "可以更好",
+      "不太对"
+    ]
+  }
+}

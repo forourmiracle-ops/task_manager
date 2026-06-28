@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "description": "大一统自进化系统 — 领域索引（由upgrade_agent.py --deploy智能生成）",
+  "last_updated": "2026-06-28T05:58:25.019220",
+  "domains": {
+    "docs": {
+      "name": "文档管理",
+      "path": "domains/docs/",
+      "role_name": "",
+      "trigger_keywords": [
+        "文档",
+        "说明",
+        "手册"
+      ],
+      "experience_count": 0
+    },
+    "coding": {
+      "name": "代码开发",
+      "path": "domains/coding/",
+      "role_name": "",
+      "trigger_keywords": [
+        "代码",
+        "开发",
+        "实现"
+      ],
+      "experience_count": 0
+    },
+    "log": {
+      "name": "log相关",
+      "path": "domains/log/",
+      "role_name": "",
+      "trigger_keywords": [
+        "log"
+      ],
+      "experience_count": 0
+    },
+    "domain": {
+      "name": "domain相关",
+      "path": "domains/domain/",
+      "role_name": "",
+      "trigger_keywords": [
+        "domain"
+      ],
+      "experience_count": 0
+    }
+  },
+  "cross_domain_links": [],
+  "total_experiences": 0,
+  "total_domains": 4
+}

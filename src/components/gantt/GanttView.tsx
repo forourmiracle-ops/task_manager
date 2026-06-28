@@ -274,52 +274,57 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
+  // Keep latest scroll params in refs to avoid stale closure issues
+  const scrollParamsRef = useRef({ datePanelWidth: 0, DAY_WIDTH: 0, todayOffset: 0, dimension: 'quarter' as string })
+  useEffect(() => {
+    scrollParamsRef.current = { datePanelWidth, DAY_WIDTH, todayOffset, dimension }
+  }, [datePanelWidth, DAY_WIDTH, todayOffset, dimension])
+
   // Scroll into position based on dimension display rules.
-  // setTimeout(0) defers to next macrotask, after all DOM mutations and layout
-  // are complete — this is more reliable than useLayoutEffect for scroll positioning.
+  // Uses double requestAnimationFrame to ensure the browser has painted
+  // before we attempt to scroll — this is critical for first-load positioning.
   useEffect(() => {
-    if (datePanelWidth <= 0 || DAY_WIDTH <= 0) return
+    let cancelled = false
+    let attempts = 0
 
-    const timer = setTimeout(() => {
+    const attemptScroll = () => {
+      if (cancelled) return
+      const { datePanelWidth: w, DAY_WIDTH: dw, todayOffset: to, dimension: dim } = scrollParamsRef.current
       const el = dateScrollRef.current
-      if (!el) return
-      let scrollPos: number
-      if (dimension === 'week' || dimension === 'month') {
-        // Today at 3rd column
-        scrollPos = (todayOffset - 2) * DAY_WIDTH
-      } else {
-        // Today's week starts at left edge
-        const today = new Date()
-        const dayOfWeek = today.getDay()
-        scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
+
+      if (!el || w <= 0 || dw <= 0) {
+        // Layout not ready yet — retry up to 10 times
+        if (attempts < 10) {
+          attempts++
+          requestAnimationFrame(attemptScroll)
+        }
+        return
       }
-      el.scrollLeft = Math.max(0, scrollPos)
-      initialScrollDone.current = true
-    }, 0)
 
-    return () => clearTimeout(timer)
-  }, [datePanelWidth, DAY_WIDTH, totalDays, todayOffset, dimension])
-
-  // Fallback: ensure scroll is positioned after everything is fully rendered.
-  // Runs once on mount with a longer delay to catch any async layout shifts.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const el = dateScrollRef.current
-      if (!el || !datePanelWidth || !DAY_WIDTH || initialScrollDone.current) return
       let scrollPos: number
-      if (dimension === 'week' || dimension === 'month') {
-        scrollPos = (todayOffset - 2) * DAY_WIDTH
+      if (dim === 'week' || dim === 'month') {
+        scrollPos = (to - 2) * dw
       } else {
         const today = new Date()
         const dayOfWeek = today.getDay()
-        scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
+        scrollPos = (to - dayOfWeek) * dw
       }
       el.scrollLeft = Math.max(0, scrollPos)
       initialScrollDone.current = true
-    }, 300)
-    return () => clearTimeout(timer)
+    }
+
+    // Double rAF: first waits for layout, second waits for paint
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(attemptScroll)
+      if (cancelled) cancelAnimationFrame(raf2)
+    })
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf1)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [datePanelWidth, DAY_WIDTH, totalDays, todayOffset, dimension])
 
   const totalWidth = totalDays * DAY_WIDTH
 

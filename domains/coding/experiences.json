@@ -1,0 +1,82 @@
+{
+  "schema_version": "4.2",
+  "experiences": [
+    {
+      "id": "lesson_1782626384554_0",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "React编辑面板click-outside模式：不应使用click事件，必须用mousedown",
+      "keywords": [
+        "编辑面板",
+        "模式",
+        "不应使用",
+        "事件",
+        "必须用",
+        "使用",
+        "关闭模式",
+        "式必须使",
+        "React",
+        "event_race_condition"
+      ],
+      "lang": "mixed",
+      "steps": [
+        "教训: React编辑面板的click-outside关闭模式必须使用mousedown事件而非click事件。原因：click事件在startEditing的setEditingField之后冒泡到document，commitEdit的setEditingField(null)会覆盖刚设置的编辑状态。mousedown在React合成事件之前触发，此时handler未注册，不会冲突。日期字段应跳过mousedown检查，仅依赖onBlur。"
+      ],
+      "insight": "React编辑面板的click-outside关闭模式必须使用mousedown事件而非click事件。原因：click事件在startEditing的setEditingField之后冒泡到document，commitEdit的setEditingField(null)会覆盖刚设置的编辑状态。mousedown在React合成事件之前触发，此时handler未注册，不会冲突。日期字段应跳过mousedown检查，仅依赖onBlur。",
+      "trace": "",
+      "context": "",
+      "why_failed": "event_race_condition",
+      "confidence": 0.7,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "React编辑面板click-outside模式：不应使用click事件，必须用mousedown",
+      "agent": "admin",
+      "tags": [
+        "from_log_lesson",
+        "failure"
+      ],
+      "timestamp": "2026-06-28T05:59:44.552838",
+      "updated_at": "2026-06-28T05:59:44.552838"
+    },
+    {
+      "id": "review_1782626384650_0",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "[React编辑面板click-out] 失败教训(React编辑面板click-outside模式：不应使用click事件，必须用mousedown)",
+      "keywords": [
+        "编辑面板",
+        "模式",
+        "不应使用",
+        "事件",
+        "必须用",
+        "操作出现",
+        "类操作出",
+        "次失败",
+        "failure"
+      ],
+      "lang": "mixed",
+      "steps": [
+        "❌ 失败: React编辑面板click-outside模式：不应使用click事件，必须用mousedown"
+      ],
+      "insight": "[React编辑面板click-out] 该类操作出现1次失败: React编辑面板click-outside模式：不应使用click事件，必须用mousedown。建议分析失败根因后用 --lesson 参数记录具体教训。",
+      "trace": "",
+      "context": "",
+      "why_failed": "pattern_failure",
+      "confidence": 0.8,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "React编辑面板click-outside模式：不应使用click事件，必须用mousedown",
+      "agent": "auto-review",
+      "tags": [
+        "from_auto_review",
+        "failure_lesson"
+      ],
+      "timestamp": "2026-06-28T05:59:44.648772",
+      "updated_at": "2026-06-28T05:59:44.648772"
+    }
+  ],
+  "total_count": 2,
+  "last_updated": "2026-06-28T05:59:44.648772"
+}

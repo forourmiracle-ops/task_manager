@@ -202,17 +202,23 @@ export function DetailPanel() {
     }
   }
 
-  // Click outside handler
+  // Click outside handler — uses mousedown (not click) because:
+  // mousedown fires BEFORE the React onClick that calls startEditing,
+  // so the handler is not yet registered when the user clicks a field to edit.
+  // Date fields are skipped here — they use onBlur to commit instead.
   useEffect(() => {
     if (!editingField) return
 
-    const handleClick = (e: MouseEvent) => {
+    const handleMouseDown = (e: MouseEvent) => {
       try {
         const target = e.target as HTMLElement
         if (target.closest('[data-detail-editor]')) return
+        // Date fields: skip mousedown commit — they rely on onBlur
+        const field = editingFieldRef.current
+        if (field === 'start_date' || field === 'due_date') return
         commitEdit()
       } catch (err) {
-        console.error('DetailPanel click error:', err)
+        console.error('DetailPanel mousedown error:', err)
         setEditingField(null)
         setEditValue('')
       }
@@ -222,6 +228,9 @@ export function DetailPanel() {
       try {
         if (e.key === 'Enter') {
           e.preventDefault()
+          // Date fields: skip Enter commit — they rely on onBlur
+          const field = editingFieldRef.current
+          if (field === 'start_date' || field === 'due_date') return
           commitEdit()
         } else if (e.key === 'Escape') {
           setEditingField(null)
@@ -234,10 +243,10 @@ export function DetailPanel() {
       }
     }
 
-    document.addEventListener('click', handleClick)
+    document.addEventListener('mousedown', handleMouseDown)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener('click', handleClick)
+      document.removeEventListener('mousedown', handleMouseDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
