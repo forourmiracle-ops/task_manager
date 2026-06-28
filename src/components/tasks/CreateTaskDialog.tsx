@@ -93,7 +93,7 @@ export function CreateTaskDialog() {
       className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/60 backdrop-blur-md"
       onClick={handleOverlayClick}
     >
-      <div className="bg-background border border-border rounded-2xl w-full max-w-md mx-4 overflow-hidden" style={{ boxShadow: '0 24px 70px -12px rgba(0,0,0,0.35), 0 0 0 1px hsl(var(--border))' }}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md mx-4 overflow-hidden" style={{ boxShadow: '0 24px 70px -12px rgba(0,0,0,0.35), 0 0 0 1px hsl(var(--border))' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/10">
           <h3 className="text-sm font-bold">
@@ -151,20 +151,30 @@ export function CreateTaskDialog() {
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">开始日期</label>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                开始日期
+                {isSubtask && parentTask?.start_date && <span className="text-[9px] ml-1 opacity-60">≥ {parentTask.start_date}</span>}
+              </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                {...(isSubtask && parentTask?.start_date ? { min: parentTask.start_date } : {})}
+                {...(isSubtask && parentTask?.due_date ? { max: dueDate || parentTask.due_date } : {})}
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
               />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">截止日期</label>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                截止日期
+                {isSubtask && parentTask?.due_date && <span className="text-[9px] ml-1 opacity-60">≤ {parentTask.due_date}</span>}
+              </label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                {...(isSubtask && parentTask?.start_date ? { min: startDate || parentTask.start_date } : {})}
+                {...(isSubtask && parentTask?.due_date ? { max: parentTask.due_date } : {})}
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
               />
             </div>

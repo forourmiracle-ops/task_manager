@@ -90,8 +90,6 @@ export function GanttView() {
   const { selectedTaskId, setSelectedTaskId, fontSize } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
   const dateScrollRef = useRef<HTMLDivElement>(null)
-  const monthHeaderRef = useRef<HTMLDivElement>(null)
-  const dayHeaderRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
   const datePanelRef = useRef<HTMLDivElement>(null)
   const [dimension, setDimension] = useState<Dimension>('quarter')
@@ -165,16 +163,13 @@ export function GanttView() {
     return { startDate: start, endDate: end, totalDays: total, monthHeaders: months, todayOffset: offset }
   }, [allFlatTasks])
 
-  // Track horizontal scroll for viewport filtering, sync headers
+  // Track horizontal scroll for viewport filtering, sync vertical scroll
   useEffect(() => {
     const el = dateScrollRef.current
     if (!el) return
     const update = () => {
       setScrollLeft(el.scrollLeft)
       setScrollWidth(el.clientWidth)
-      // Sync headers
-      if (monthHeaderRef.current) monthHeaderRef.current.scrollLeft = el.scrollLeft
-      if (dayHeaderRef.current) dayHeaderRef.current.scrollLeft = el.scrollLeft
       // Sync vertical scroll
       if (taskListRef.current) taskListRef.current.scrollTop = el.scrollTop
     }
@@ -243,10 +238,10 @@ export function GanttView() {
 
   // Scroll to center today on dimension change
   useEffect(() => {
-    if (dateScrollRef.current && totalDays > 0 && DAY_WIDTH > 0) {
-      dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - Math.floor(dimensionDays / 2)) * DAY_WIDTH)
+    if (dateScrollRef.current && totalDays > 0 && DAY_WIDTH > 0 && datePanelWidth > 0) {
+      dateScrollRef.current.scrollLeft = Math.max(0, todayOffset * DAY_WIDTH - datePanelWidth / 2)
     }
-  }, [totalDays, todayOffset, DAY_WIDTH, dimensionDays])
+  }, [totalDays, todayOffset, DAY_WIDTH, datePanelWidth, dimensionDays])
 
   const totalWidth = totalDays * DAY_WIDTH
 
@@ -266,6 +261,15 @@ export function GanttView() {
     }
   }
 
+  // Click on blank area to close detail panel
+  const handleDatePanelClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    // Only close if clicking on the background, not on a task bar
+    if (!target.closest('[data-task-bar]') && !target.closest('[data-task-row]')) {
+      setSelectedTaskId(null)
+    }
+  }
+
   const toggleExpanded = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation()
     setExpandedIds((prev) => {
@@ -275,6 +279,17 @@ export function GanttView() {
       return next
     })
   }, [])
+
+  // Pre-compute parent/child relationships
+  const childCountMap = useMemo(() => {
+    const map = new Map<string, number>()
+    allFlatTasks.forEach((t) => {
+      if (t.parent_id) {
+        map.set(t.parent_id, (map.get(t.parent_id) || 0) + 1)
+      }
+    })
+    return map
+  }, [allFlatTasks])
 
   if (isLoading) {
     return (
@@ -332,8 +347,8 @@ export function GanttView() {
           type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
           onClick={() => {
-            if (dateScrollRef.current && DAY_WIDTH > 0) {
-              dateScrollRef.current.scrollLeft = Math.max(0, (todayOffset - Math.floor(dimensionDays / 2)) * DAY_WIDTH)
+            if (dateScrollRef.current && DAY_WIDTH > 0 && datePanelWidth > 0) {
+              dateScrollRef.current.scrollLeft = Math.max(0, todayOffset * DAY_WIDTH - datePanelWidth / 2)
             }
           }}
         >
@@ -361,7 +376,6 @@ export function GanttView() {
             ref={taskListRef}
             className="flex-1 overflow-hidden"
             onScroll={(e) => {
-              // Sync vertical scroll back to date panel
               if (dateScrollRef.current) {
                 dateScrollRef.current.scrollTop = (e.target as HTMLElement).scrollTop
               }
@@ -372,11 +386,13 @@ export function GanttView() {
               const depth = task.depth ?? 0
               const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
               const isExpanded = expandedIds.has(task.id)
+              const childCount = childCountMap.get(task.id) || 0
               const indent = depth * 16 + (hasChildren ? 0 : 18)
 
               return (
                 <div
                   key={task.id}
+                  data-task-row
                   className={cn(
                     'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0',
                     isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
@@ -415,7 +431,17 @@ export function GanttView() {
                         task.status === 'todo' && 'bg-gray-300 ring-gray-200'
                       )}
                     />
-                    <span className="text-[12px] truncate flex-1 font-medium ml-2">{task.title}</span>
+                    <span className={cn(
+                      'text-[12px] truncate flex-1 ml-2',
+                      hasChildren && 'font-bold'
+                    )}>
+                      {task.title}
+                    </span>
+                    {hasChildren && childCount > 0 && (
+                      <span className="text-[9px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full ml-1 flex-shrink-0">
+                        {childCount}
+                      </span>
+                    )}
                   </div>
                   {(task.progress_percent || 0) > 0 && (
                     <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium">
@@ -433,29 +459,35 @@ export function GanttView() {
           </div>
         </div>
 
-        {/* ====== RIGHT PANEL: Scrollable date timeline ====== */}
+        {/* ====== RIGHT PANEL: Unified scroll container ====== */}
         <div className="flex-1 flex flex-col overflow-hidden" ref={datePanelRef}>
-          {/* Month headers */}
-          <div className="flex-shrink-0 border-b border-border bg-muted/10" style={{ height: MONTH_HEADER_HEIGHT }}>
-            <div className="overflow-hidden" ref={monthHeaderRef}>
-              <div className="flex" style={{ minWidth: totalWidth }}>
+          <div
+            ref={dateScrollRef}
+            className="flex-1 overflow-auto"
+            onClick={handleDatePanelClick}
+          >
+            <div style={{ minWidth: totalWidth }}>
+              {/* Month headers — sticky */}
+              <div
+                className="sticky top-0 z-20 border-b border-border bg-muted/10 flex"
+                style={{ height: MONTH_HEADER_HEIGHT }}
+              >
                 {monthHeaders.map((mh, i) => (
                   <div
                     key={i}
                     className="flex-shrink-0 flex items-center justify-center border-r border-border font-bold text-[11px] text-foreground/80"
-                    style={{ width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT, minWidth: mh.days * DAY_WIDTH }}
+                    style={{ width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT }}
                   >
                     {mh.label}
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
 
-          {/* Day headers */}
-          <div className="flex-shrink-0 border-b border-border bg-background" style={{ height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}>
-            <div className="overflow-hidden" ref={dayHeaderRef}>
-              <div className="flex" style={{ minWidth: totalWidth }}>
+              {/* Day headers — sticky below month header */}
+              <div
+                className="sticky z-10 border-b border-border bg-background flex"
+                style={{ top: MONTH_HEADER_HEIGHT, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
+              >
                 {Array.from({ length: totalDays }).map((_, i) => {
                   const d = new Date(startDate)
                   d.setDate(d.getDate() + i)
@@ -484,111 +516,133 @@ export function GanttView() {
                   )
                 })}
               </div>
-            </div>
-          </div>
 
-          {/* Scrollable bar area */}
-          <div
-            className="flex-1 overflow-auto relative"
-            ref={dateScrollRef}
-          >
-            <div style={{ minWidth: totalWidth, height: visibleTasks.length * ROW_HEIGHT }}>
-              {/* Today marker */}
-              {todayOffset >= 0 && todayOffset < totalDays && (
-                <div
-                  className="absolute z-10 pointer-events-none"
-                  style={{
-                    left: todayOffset * DAY_WIDTH + DAY_WIDTH / 2,
-                    top: 0,
-                    bottom: 0,
-                    width: 2,
-                  }}
-                >
-                  <div className="absolute inset-0 bg-red-500" />
+              {/* Bar area */}
+              <div style={{ height: visibleTasks.length * ROW_HEIGHT, position: 'relative' }}>
+                {/* Today marker */}
+                {todayOffset >= 0 && todayOffset < totalDays && (
                   <div
-                    className="absolute text-[10px] font-bold text-white whitespace-nowrap bg-red-500 px-2 py-0.5 rounded-full shadow-md"
-                    style={{ top: 6, left: '50%', transform: 'translateX(-50%)' }}
+                    className="absolute z-10 pointer-events-none"
+                    style={{
+                      left: todayOffset * DAY_WIDTH + DAY_WIDTH / 2,
+                      top: 0,
+                      bottom: 0,
+                      width: 2,
+                    }}
                   >
-                    今天
-                  </div>
-                </div>
-              )}
-
-              {/* Task bars */}
-              {visibleTasks.map((task, idx) => {
-                const { left, width } = getTaskBarStyle(task)
-                const isSelected = selectedTaskId === task.id
-                const progressPercent = task.progress_percent || 0
-
-                const barColor = (() => {
-                  switch (task.status) {
-                    case 'done': return 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)'
-                    case 'in_progress': return 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)'
-                    case 'blocked': return 'linear-gradient(180deg, #ef4444 0%, #dc2626 100%)'
-                    default: return 'linear-gradient(180deg, #9ca3af 0%, #6b7280 100%)'
-                  }
-                })()
-
-                return (
-                  <div
-                    key={task.id}
-                    className={cn(
-                      'border-b border-border/50 transition-colors relative',
-                      idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
-                    )}
-                    style={{ height: ROW_HEIGHT }}
-                  >
-                    {/* Weekend/holiday shading */}
-                    {Array.from({ length: totalDays }).map((_, i) => {
-                      const d = new Date(startDate)
-                      d.setDate(d.getDate() + i)
-                      const w = isWeekend(d)
-                      const h = isHoliday(d)
-                      if (!w && !h) return null
-                      return (
-                        <div
-                          key={i}
-                          className={cn('absolute top-0 bottom-0', h ? 'bg-amber-50/25' : 'bg-red-50/15')}
-                          style={{ left: i * DAY_WIDTH, width: DAY_WIDTH }}
-                        />
-                      )
-                    })}
-
-                    {/* Task bar */}
+                    <div className="absolute inset-0 bg-red-500" />
                     <div
-                      className={cn(
-                        'absolute rounded-md cursor-pointer transition-all hover:brightness-110 hover:shadow-md group',
-                        isSelected && 'ring-2 ring-primary ring-offset-1'
-                      )}
-                      style={{
-                        left: Math.max(left, 0),
-                        width: Math.max(width, 4),
-                        top: 4,
-                        bottom: 4,
-                        background: barColor,
-                        boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
-                      }}
-                      onClick={() => handleTaskClick(task.id)}
-                      title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
+                      className="absolute text-[10px] font-bold text-white whitespace-nowrap bg-red-500 px-2 py-0.5 rounded-full shadow-md"
+                      style={{ top: 6, left: '50%', transform: 'translateX(-50%)' }}
                     >
-                      {progressPercent > 0 && (
-                        <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/25" style={{ width: `${progressPercent}%` }} />
-                      )}
-                      <span
-                        className="absolute inset-0 flex items-center justify-center px-2 text-white font-medium truncate drop-shadow"
-                        style={{ fontSize: `clamp(10px, ${11 * scale}px, 14px)` }}
-                      >
-                        {task.title}
-                      </span>
+                      今天
                     </div>
                   </div>
-                )
-              })}
-              {visibleTasks.length === 0 && (
-                <div className="flex items-center justify-center py-12 text-muted-foreground text-xs" style={{ height: ROW_HEIGHT * 3 }}>
-                  当前可视范围内没有任务，请滚动或调整粒度
-                </div>
-              )}
+                )}
+
+                {/* Task bars */}
+                {visibleTasks.map((task, idx) => {
+                  const { left, width } = getTaskBarStyle(task)
+                  const isSelected = selectedTaskId === task.id
+                  const progressPercent = task.progress_percent || 0
+                  const depth = task.depth ?? 0
+                  const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
+                  const isChild = depth > 0
+
+                  const barColor = (() => {
+                    switch (task.status) {
+                      case 'done': return 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)'
+                      case 'in_progress': return 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)'
+                      case 'blocked': return 'linear-gradient(180deg, #ef4444 0%, #dc2626 100%)'
+                      default: return 'linear-gradient(180deg, #9ca3af 0%, #6b7280 100%)'
+                    }
+                  })()
+
+                  const stripeColor = (() => {
+                    switch (task.status) {
+                      case 'done': return '#22c55e'
+                      case 'in_progress': return '#3b82f6'
+                      case 'blocked': return '#ef4444'
+                      default: return '#9ca3af'
+                    }
+                  })()
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        'border-b border-border/50 transition-colors relative',
+                        idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                      )}
+                      style={{ height: ROW_HEIGHT }}
+                    >
+                      {/* Weekend/holiday shading */}
+                      {Array.from({ length: totalDays }).map((_, i) => {
+                        const d = new Date(startDate)
+                        d.setDate(d.getDate() + i)
+                        const w = isWeekend(d)
+                        const h = isHoliday(d)
+                        if (!w && !h) return null
+                        return (
+                          <div
+                            key={i}
+                            className={cn('absolute top-0 bottom-0', h ? 'bg-amber-50/25' : 'bg-red-50/15')}
+                            style={{ left: i * DAY_WIDTH, width: DAY_WIDTH }}
+                          />
+                        )
+                      })}
+
+                      {/* Task bar */}
+                      <div
+                        data-task-bar
+                        className={cn(
+                          'absolute rounded-md cursor-pointer transition-all hover:brightness-110 hover:shadow-md group',
+                          isSelected && 'ring-2 ring-primary ring-offset-1'
+                        )}
+                        style={{
+                          left: Math.max(left, 0),
+                          width: Math.max(width, 4),
+                          top: 4,
+                          bottom: 4,
+                          background: barColor,
+                          boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+                        }}
+                        onClick={() => handleTaskClick(task.id)}
+                        title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
+                      >
+                        {/* Parent task left stripe */}
+                        {hasChildren && (
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-l-md"
+                            style={{ width: 3, background: stripeColor }}
+                          />
+                        )}
+                        {/* Child task left indent marker */}
+                        {isChild && !hasChildren && (
+                          <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/20" style={{ width: 3 }} />
+                        )}
+                        {progressPercent > 0 && (
+                          <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/25" style={{ width: `${progressPercent}%` }} />
+                        )}
+                        <span
+                          className="absolute inset-0 flex items-center justify-center px-2 text-white font-medium truncate drop-shadow"
+                          style={{
+                            fontSize: `clamp(10px, ${11 * scale}px, 14px)`,
+                            paddingLeft: hasChildren ? '10px' : isChild ? '10px' : '4px',
+                          }}
+                        >
+                          {task.title}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {visibleTasks.length === 0 && (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground text-xs" style={{ height: ROW_HEIGHT * 3 }}>
+                    当前可视范围内没有任务，请滚动或调整粒度
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
