@@ -55,6 +55,18 @@ export function DetailPanel() {
     return () => clearTimeout(timer)
   }, [savedField])
 
+  // Close panel on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDetailPanelOpen(false)
+        setSelectedTaskId(null)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [setDetailPanelOpen, setSelectedTaskId])
+
   const buildPayload = (field: EditableField, value: string): Partial<Task> & { id: string } | null => {
     const t = taskRef.current
     if (!t) return null
