@@ -1,0 +1,34 @@
+{
+  "statistics": {
+    "total_tasks": 1,
+    "success_count": 1,
+    "failed_count": 0,
+    "total_tokens": 0,
+    "total_duration_sec": 0
+  },
+  "recent_tasks": [
+    {
+      "timestamp": "2026-06-28 10:06:26",
+      "task_desc": "甘特图滚动定位+弹窗背景+日期onChange提交修复",
+      "result": "success",
+      "domain": "任务管理",
+      "trace": "Read→Edit×3→tsc验证",
+      "context": "三重修复：1)甘特图useLayoutEffect用rAF延迟scrollLeft+allFlatTasks依赖 2)CreateTaskDialog bg-card→bg-background 3)DetailPanel日期onChange改为commitEdit直接提交"
+    }
+  ],
+  "task_type_counts": {
+    "甘特图滚动定位+弹窗背景+日期onC": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-28T10:06:26.994607"
+        }
+      ]
+    }
+  }
+}
