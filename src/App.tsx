@@ -60,7 +60,7 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col">
       {/* Top Navigation */}
-      <header className="h-10 border-b border-border flex items-center px-3 gap-1 bg-background flex-shrink-0">
+      <header className="border-b border-border flex items-center px-3 gap-1 bg-background flex-shrink-0" style={{ height: 40 }}>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="text-xs text-muted-foreground hover:text-foreground px-1"
@@ -106,7 +106,7 @@ export default function App() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden h-12 border-t border-border flex items-center bg-background flex-shrink-0">
+      <nav className="md:hidden border-t border-border flex items-center bg-background flex-shrink-0" style={{ height: 48 }}>
         {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
           <button
             key={view}

@@ -306,7 +306,7 @@ export function DetailPanel() {
   }
 
   return (
-    <aside ref={detailRef} className="w-72 min-w-[288px] border-l border-border bg-background flex flex-col h-full overflow-auto">
+    <aside ref={detailRef} className="border-l border-border bg-background flex flex-col h-full overflow-auto" style={{ width: 288, minWidth: 288, flexShrink: 0 }}>
       <div className="p-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">

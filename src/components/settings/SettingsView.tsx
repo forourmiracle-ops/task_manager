@@ -1,6 +1,7 @@
 import { useAppStore, type ThemeMode } from '@/store'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
+const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: string }[] = [
   { value: 'light', label: '浅色模式', desc: '亮色背景，适合日间使用', icon: '☀️' },
@@ -59,28 +60,54 @@ export function SettingsView() {
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">当前档位</span>
               <span className="text-sm font-semibold bg-accent px-2 py-0.5 rounded">
-                {fontSize} 档 — {FONT_SIZE_LABELS[fontSize - 1]}
+                {fontSize} / 8 — {FONT_SIZE_LABELS[fontSize - 1]} ({FONT_SIZE_SAMPLES[fontSize - 1]})
               </span>
             </div>
-            <input
-              type="range"
-              min={1}
-              max={8}
-              step={1}
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-            />
+
+            {/* Slider with tick marks */}
+            <div className="relative">
+              <input
+                type="range"
+                min={1}
+                max={8}
+                step={1}
+                value={fontSize}
+                onChange={(e) => setFontSize(Number(e.target.value))}
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary relative z-10"
+                style={{
+                  background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${((fontSize - 1) / 7) * 100}%, hsl(var(--muted)) ${((fontSize - 1) / 7) * 100}%, hsl(var(--muted)) 100%)`,
+                }}
+              />
+              {/* Tick marks */}
+              <div className="absolute top-1/2 left-0 right-0 flex justify-between px-0 pointer-events-none" style={{ transform: 'translateY(-50%)', zIndex: 5 }}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="rounded-full transition-all"
+                    style={{
+                      width: fontSize === i + 1 ? 10 : 6,
+                      height: fontSize === i + 1 ? 10 : 6,
+                      backgroundColor: fontSize === i + 1 ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.4)',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Labels under slider */}
             <div className="flex justify-between text-[10px] text-muted-foreground">
               {FONT_SIZE_LABELS.map((label, i) => (
                 <span
                   key={i}
-                  className={`${fontSize === i + 1 ? 'text-primary font-medium' : ''}`}
+                  className={`cursor-pointer transition-colors ${fontSize === i + 1 ? 'text-primary font-semibold' : 'hover:text-foreground'}`}
+                  onClick={() => setFontSize(i + 1)}
                 >
                   {label}
                 </span>
               ))}
             </div>
+
+            {/* Preview */}
             <div className="p-3 bg-muted/50 rounded-lg border border-border">
               <p className="text-xs text-muted-foreground mb-2">预览效果</p>
               <p className="text-sm leading-relaxed">
