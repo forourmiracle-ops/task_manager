@@ -30,15 +30,13 @@ export function DetailPanel() {
 
   const [editingField, setEditingField] = useState<EditableField | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [pendingPayload, setPendingPayload] = useState<Partial<Task> & { id: string } | null>(null)
+  const [savedField, setSavedField] = useState<EditableField | null>(null)
 
-  // Use refs to keep mutable values accessible in event handlers without stale closures
+  // Refs to avoid stale closures
   const editingFieldRef = useRef<EditableField | null>(null)
   const editValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
 
-  // Sync refs
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
   useEffect(() => { editValueRef.current = editValue }, [editValue])
@@ -47,9 +45,15 @@ export function DetailPanel() {
   useEffect(() => {
     setEditingField(null)
     setEditValue('')
-    setShowConfirm(false)
-    setPendingPayload(null)
+    setSavedField(null)
   }, [task?.id])
+
+  // Auto-clear saved flash after 1.5s
+  useEffect(() => {
+    if (!savedField) return
+    const timer = setTimeout(() => setSavedField(null), 1500)
+    return () => clearTimeout(timer)
+  }, [savedField])
 
   const buildPayload = (field: EditableField, value: string): Partial<Task> & { id: string } | null => {
     const t = taskRef.current
@@ -134,15 +138,21 @@ export function DetailPanel() {
     try {
       const field = editingFieldRef.current
       const value = editValueRef.current
-      if (!field || !taskRef.current) return
+      if (!field) return
 
       const payload = buildPayload(field, value)
       setEditingField(null)
       setEditValue('')
 
       if (payload) {
-        setPendingPayload(payload)
-        setShowConfirm(true)
+        updateTask.mutate(payload, {
+          onSuccess: () => {
+            setSavedField(field)
+          },
+          onError: (err) => {
+            console.error('Save failed:', err)
+          },
+        })
       }
     } catch (err) {
       console.error('commitEdit error:', err)
@@ -158,7 +168,7 @@ export function DetailPanel() {
     const handleMouseDown = (e: MouseEvent) => {
       try {
         const target = e.target as HTMLElement
-        if (target.closest('[data-detail-editor]') || target.closest('[data-confirm-dialog]')) return
+        if (target.closest('[data-detail-editor]')) return
         commitEdit()
       } catch (err) {
         console.error('DetailPanel mouseDown error:', err)
@@ -231,32 +241,6 @@ export function DetailPanel() {
     } catch (err) {
       console.error('startEditing error:', err)
     }
-  }
-
-  const confirmSave = () => {
-    if (!pendingPayload) return
-    try {
-      updateTask.mutate(pendingPayload, {
-        onSuccess: () => {
-          setShowConfirm(false)
-          setPendingPayload(null)
-        },
-        onError: (err) => {
-          console.error('Save failed:', err)
-          setShowConfirm(false)
-          setPendingPayload(null)
-        },
-      })
-    } catch (err) {
-      console.error('confirmSave error:', err)
-      setShowConfirm(false)
-      setPendingPayload(null)
-    }
-  }
-
-  const cancelSave = () => {
-    setShowConfirm(false)
-    setPendingPayload(null)
   }
 
   const handleDelete = () => {
@@ -386,17 +370,30 @@ export function DetailPanel() {
     fullWidth?: boolean
   }) => {
     const isEditing = editingField === field
+    const justSaved = savedField === field
     return (
       <div
         className={cn(
-          'group rounded-xl border border-transparent transition-all',
+          'group rounded-xl border transition-all duration-300',
           fullWidth ? 'col-span-2' : '',
-          isEditing ? 'bg-background border-primary/30' : 'hover:border-border hover:bg-muted/20'
+          justSaved
+            ? 'border-green-400 bg-green-50/60'
+            : isEditing
+              ? 'border-primary/30 bg-background'
+              : 'border-transparent hover:border-border hover:bg-muted/20'
         )}
         onClick={() => !isEditing && startEditing(field)}
       >
         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 pt-2.5 block cursor-pointer">
           {label}
+          {justSaved && (
+            <span className="ml-1.5 text-green-600 inline-flex items-center gap-0.5">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13.8 4.2a.8.8 0 00-1.1 0L6 10.9l-2.7-2.7a.8.8 0 00-1.1 1.1l3.3 3.3a.8.8 0 001.1 0l7.2-7.2a.8.8 0 000-1.1z" />
+              </svg>
+              已保存
+            </span>
+          )}
         </label>
         <div className="px-3 pb-2.5">
           {isEditing ? renderFieldEditor(field) : (
@@ -570,48 +567,9 @@ export function DetailPanel() {
           删除任务
         </button>
         <p className="text-[10px] text-muted-foreground text-center">
-          点击任意字段即可编辑，按回车或点击其他区域确认
+          点击任意字段即可编辑，失焦或回车自动保存
         </p>
       </div>
-
-      {/* Modal Confirm Dialog */}
-      {showConfirm && (
-        <div
-          data-confirm-dialog
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelSave()
-          }}
-        >
-          <div className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5 space-y-4" style={{ boxShadow: '0 24px 60px -12px hsl(var(--foreground) / 0.18)' }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M8 4v4M8 10h.01M15 8A7 7 0 111 8a7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-foreground">是否确认修改？</h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5">保存后变更将同步到所有视图。</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={cancelSave}
-                className="flex-1 py-2 text-xs font-medium border border-border rounded-lg hover:bg-accent transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={confirmSave}
-                className="flex-1 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-lg hover:opacity-90 shadow-sm transition-all"
-              >
-                确认修改
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </aside>
   )
 }
