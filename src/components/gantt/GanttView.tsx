@@ -85,30 +85,20 @@ export function GanttView() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    if (flatTasks.length === 0) {
-      const start = new Date(today)
-      start.setMonth(start.getMonth() - 1)
-      const end = new Date(today)
-      end.setMonth(end.getMonth() + viewMonths)
-      const total = daysBetween(start, end) + 1
-      const months = buildMonthHeaders(start, end)
-      const offset = daysBetween(start, today)
-      return { startDate: start, totalDays: total, monthHeaders: months, todayOffset: offset }
-    }
-
-    // Always use viewMonths to control the range
-    const start = new Date(today)
+    // Compute an initial window around today with viewMonths
+    let start = new Date(today)
     start.setMonth(start.getMonth() - 1)
-    const end = new Date(start)
+    let end = new Date(start)
     end.setMonth(end.getMonth() + viewMonths + 1)
 
-    // Ensure all tasks are within visible range
+    // Extend window to fit all tasks
     for (const t of flatTasks) {
       const s = new Date(t.start_date!)
       const e = new Date(t.due_date!)
-      if (s < start) start.setTime(s.getTime())
-      if (e > end) end.setTime(e.getTime())
+      if (s < start) start = new Date(s)
+      if (e > end) end = new Date(e)
     }
+
     // Add padding
     start.setDate(start.getDate() - 2)
     end.setDate(end.getDate() + 2)
@@ -137,6 +127,14 @@ export function GanttView() {
     return { left, width }
   }
 
+  const handleTaskClick = (id: string) => {
+    try {
+      setSelectedTaskId(id)
+    } catch (err) {
+      console.error('Gantt click error:', err)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
@@ -163,6 +161,7 @@ export function GanttView() {
         <span className="text-[11px] font-medium text-muted-foreground tracking-wide">显示范围</span>
         {[1, 3, 6, 12].map((m) => (
           <button
+            type="button"
             key={m}
             onClick={() => setViewMonths(m)}
             className={cn(
@@ -177,6 +176,7 @@ export function GanttView() {
         ))}
         <div className="flex-1" />
         <button
+          type="button"
           className="px-2.5 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-md hover:bg-primary/5 transition-colors"
           onClick={() => {
             if (scrollRef.current && todayOffset >= 0) {
@@ -201,7 +201,11 @@ export function GanttView() {
                 <div
                   key={i}
                   className="flex-shrink-0 flex items-center justify-center border-r border-border font-semibold text-[11px] text-foreground/80"
-                  style={{ width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT }}
+                  style={{
+                    width: mh.days * DAY_WIDTH,
+                    height: MONTH_HEADER_HEIGHT,
+                    minWidth: mh.days * DAY_WIDTH,
+                  }}
                 >
                   {mh.label}
                 </div>
@@ -300,7 +304,7 @@ export function GanttView() {
                   <div
                     className="flex-shrink-0 border-r border-border flex items-center px-3 gap-2 cursor-pointer hover:bg-accent/30 transition-colors"
                     style={{ width: LABEL_WIDTH }}
-                    onClick={() => setSelectedTaskId(task.id)}
+                    onClick={() => handleTaskClick(task.id)}
                   >
                     <span className={cn(
                       'w-2 h-2 rounded-full flex-shrink-0 ring-1 ring-offset-1',
@@ -352,7 +356,7 @@ export function GanttView() {
                             ? '0 2px 8px rgba(0,0,0,0.15)'
                             : '0 1px 3px rgba(0,0,0,0.08)',
                         }}
-                        onClick={() => setSelectedTaskId(task.id)}
+                        onClick={() => handleTaskClick(task.id)}
                         title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
                       >
                         {progressPercent > 0 && (
