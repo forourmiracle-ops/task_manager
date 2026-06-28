@@ -12,8 +12,20 @@
       "error_category": "React",
       "created_at": "2026-06-28T05:59:44.552838",
       "timestamp": "2026-06-28T05:59:44.552838"
+    },
+    {
+      "id": "rule_1782629441977_1",
+      "scenario": "GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面",
+      "rule": "useState惰性初始化器中引用的变量必须在声明顺序上位于useState之前。const存在暂时性死区(TDZ)，在声明前引用会抛出ReferenceError。将依赖的useMemo移到useState之前即可。",
+      "severity": "warning",
+      "source_lesson": "任务失败教训自动提取",
+      "source_experience_id": "lesson_1782629441974_2",
+      "error_type": "reference_error",
+      "error_category": "React",
+      "created_at": "2026-06-28T06:50:41.973006",
+      "timestamp": "2026-06-28T06:50:41.973006"
     }
   ],
-  "total_rules": 1,
-  "last_updated": "2026-06-28T05:59:44.552838"
+  "total_rules": 2,
+  "last_updated": "2026-06-28T06:50:41.973006"
 }

@@ -1,10 +1,10 @@
 {
   "statistics": {
-    "total_tasks": 3,
-    "success_count": 2,
-    "failed_count": 1,
+    "total_tasks": 6,
+    "success_count": 4,
+    "failed_count": 2,
     "total_tokens": 0,
-    "total_duration_sec": 45
+    "total_duration_sec": 3102
   },
   "recent_tasks": [
     {
@@ -28,6 +28,30 @@
       "task_desc": "React编辑面板click-outside模式：不应使用click事件，必须用mousedown",
       "result": "failed",
       "domain": "coding"
+    },
+    {
+      "timestamp": "2026-06-28 06:03:19",
+      "task_desc": "git commit+push同步：DetailPanel/GanttView修复 + 进化系统部署",
+      "result": "success",
+      "domain": "coding",
+      "trace": "git status→git add→git commit→git push",
+      "context": "用户提醒同步到GitHub，提交了3个bug修复+进化系统初始化文件，共25个文件变更"
+    },
+    {
+      "timestamp": "2026-06-28 06:44:34",
+      "task_desc": "日期选择器移除onBlur+甘特图useLayoutEffect同步定位：简化设计修复两个持续bug",
+      "result": "success",
+      "domain": "coding",
+      "trace": "brainstorming→Read→Edit(x4)→tsc--noEmit→git commit→git push",
+      "context": "日期选择器bug根因是onBlur被原生日期选择器交互误触发，移除onBlur+统一Enter/click-outside提交。甘特图bug根因是dimension异步初始化+useEffect绘制后执行，改为useState惰性值+useLayoutEffect绘制前执行。用户反馈之前设计过于繁琐，简化为3行改动。"
+    },
+    {
+      "timestamp": "2026-06-28 06:50:41",
+      "task_desc": "GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面",
+      "result": "failed",
+      "domain": "coding",
+      "trace": "Read→Edit→tsc→git commit→git push",
+      "context": "上一轮修改将useState初始值改为惰性函数，引用了autoDimension(useMemo)，但autoDimension声明在useState之后，导致页面崩溃。"
     }
   ],
   "task_type_counts": {
@@ -69,12 +93,51 @@
           "ts": "2026-06-28T05:59:44.551142"
         }
       ]
+    },
+    "git commit+push同步：": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-28T06:03:19.624896"
+        }
+      ]
+    },
+    "日期选择器移除onBlur+甘特图u": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-28T06:44:34.950951"
+        }
+      ]
+    },
+    "GanttView Referenc": {
+      "total": 1,
+      "success": 0,
+      "failed": 1,
+      "partial": 0,
+      "consecutive_errors": 1,
+      "last_results": [
+        {
+          "result": "failed",
+          "ts": "2026-06-28T06:50:41.971577"
+        }
+      ]
     }
   },
   "error_cat_counts": {
     "React": {
-      "consecutive_errors": 1,
-      "total_errors": 1
+      "consecutive_errors": 2,
+      "total_errors": 2
     }
   }
 }

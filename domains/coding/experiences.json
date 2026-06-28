@@ -75,8 +75,83 @@
       ],
       "timestamp": "2026-06-28T05:59:44.648772",
       "updated_at": "2026-06-28T05:59:44.648772"
+    },
+    {
+      "id": "lesson_1782629441974_2",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面",
+      "keywords": [
+        "崩溃",
+        "明在后面",
+        "器中引用",
+        "引用但声",
+        "性初始化",
+        "序上位于",
+        "之前",
+        "时性死区",
+        "React",
+        "reference_error"
+      ],
+      "lang": "mixed",
+      "steps": [
+        "教训: useState惰性初始化器中引用的变量必须在声明顺序上位于useState之前。const存在暂时性死区(TDZ)，在声明前引用会抛出ReferenceError。将依赖的useMemo移到useState之前即可。"
+      ],
+      "insight": "useState惰性初始化器中引用的变量必须在声明顺序上位于useState之前。const存在暂时性死区(TDZ)，在声明前引用会抛出ReferenceError。将依赖的useMemo移到useState之前即可。",
+      "trace": "Read→Edit→tsc→git commit→git push",
+      "context": "上一轮修改将useState初始值改为惰性函数，引用了autoDimension(useMemo)，但autoDimension声明在useState之后，导致页面崩溃。",
+      "why_failed": "reference_error",
+      "confidence": 0.7,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面",
+      "agent": "admin",
+      "tags": [
+        "from_log_lesson",
+        "failure"
+      ],
+      "timestamp": "2026-06-28T06:50:41.973006",
+      "updated_at": "2026-06-28T06:50:41.973006"
+    },
+    {
+      "id": "review_1782629441991_0",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "[GanttView Referenc] 失败教训(GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面)",
+      "keywords": [
+        "ganttview",
+        "referenc",
+        "referenceerror",
+        "tdz",
+        "autodimension",
+        "usestate",
+        "referen",
+        "failure",
+        "失败"
+      ],
+      "lang": "en",
+      "steps": [
+        "❌ 失败: GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面"
+      ],
+      "insight": "[GanttView Referenc] 该类操作出现1次失败: GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面。建议分析失败根因后用 --lesson 参数记录具体教训。",
+      "trace": "Read→Edit→tsc→git commit→git push",
+      "context": "上一轮修改将useState初始值改为惰性函数，引用了autoDimension(useMemo)，但autoDimension声明在useState之后，导致页面崩溃。",
+      "why_failed": "pattern_failure",
+      "confidence": 0.8,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "GanttView ReferenceError TDZ崩溃：autoDimension在useState初始化器中引用但声明在后面",
+      "agent": "auto-review",
+      "tags": [
+        "from_auto_review",
+        "failure_lesson"
+      ],
+      "timestamp": "2026-06-28T06:50:41.991348",
+      "updated_at": "2026-06-28T06:50:41.991348"
     }
   ],
-  "total_count": 2,
-  "last_updated": "2026-06-28T05:59:44.648772"
+  "total_count": 4,
+  "last_updated": "2026-06-28T06:50:41.991348"
 }
