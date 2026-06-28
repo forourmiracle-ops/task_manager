@@ -45,6 +45,23 @@ export function CreateTaskDialog() {
 
   const handleSubmit = () => {
     if (!title.trim()) return
+
+    // Validate subtask dates against parent
+    if (isSubtask && parentTask) {
+      if (parentTask.start_date && startDate && startDate < parentTask.start_date) {
+        alert(`子任务开始日期不能早于父任务开始日期（${parentTask.start_date}）`)
+        return
+      }
+      if (parentTask.due_date && dueDate && dueDate > parentTask.due_date) {
+        alert(`子任务截止日期不能晚于父任务截止日期（${parentTask.due_date}）`)
+        return
+      }
+      if (startDate && dueDate && startDate > dueDate) {
+        alert('开始日期不能晚于截止日期')
+        return
+      }
+    }
+
     createTask.mutate(
       {
         title: title.trim(),

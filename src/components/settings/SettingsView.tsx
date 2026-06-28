@@ -1,7 +1,16 @@
-import { useAppStore, type ThemeMode } from '@/store'
+import { useAppStore, type ThemeMode, type DefaultDimension } from '@/store'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
 const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
+
+const DIMENSION_OPTIONS: { value: DefaultDimension; label: string }[] = [
+  { value: 'auto', label: '自动（根据任务周期）' },
+  { value: 'week', label: '一周' },
+  { value: 'month', label: '当月' },
+  { value: 'quarter', label: '季度' },
+  { value: 'halfyear', label: '半年' },
+  { value: 'year', label: '全年' },
+]
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: string }[] = [
   { value: 'light', label: '浅色模式', desc: '亮色背景，适合日间使用', icon: '☀️' },
@@ -10,7 +19,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
 ]
 
 export function SettingsView() {
-  const { theme, setTheme, fontSize, setFontSize } = useAppStore()
+  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension } = useAppStore()
 
   return (
     <div className="flex-1 flex justify-center overflow-auto bg-background">
@@ -120,6 +129,23 @@ export function SettingsView() {
                 The quick brown fox jumps over the lazy dog.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* Default Dimension */}
+        <section>
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">默认甘特图维度</h3>
+          <div className="bg-muted/20 rounded-xl p-4 border border-border/50">
+            <p className="text-xs text-muted-foreground mb-3">设置甘特图打开时的默认时间维度</p>
+            <select
+              value={defaultDimension}
+              onChange={(e) => setDefaultDimension(e.target.value as DefaultDimension)}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
+            >
+              {DIMENSION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
         </section>
 
