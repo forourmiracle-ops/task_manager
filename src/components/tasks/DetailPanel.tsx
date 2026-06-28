@@ -205,7 +205,6 @@ export function DetailPanel() {
   // Click outside handler — uses mousedown (not click) because:
   // mousedown fires BEFORE the React onClick that calls startEditing,
   // so the handler is not yet registered when the user clicks a field to edit.
-  // Date fields are skipped here — they use onBlur to commit instead.
   useEffect(() => {
     if (!editingField) return
 
@@ -213,9 +212,6 @@ export function DetailPanel() {
       try {
         const target = e.target as HTMLElement
         if (target.closest('[data-detail-editor]')) return
-        // Date fields: skip mousedown commit — they rely on onBlur
-        const field = editingFieldRef.current
-        if (field === 'start_date' || field === 'due_date') return
         commitEdit()
       } catch (err) {
         console.error('DetailPanel mousedown error:', err)
@@ -368,6 +364,15 @@ export function DetailPanel() {
               type="date"
               value={val}
               onChange={(e) => { setEditValue(e.target.value); setValidationError(null) }}
+              onBlur={() => {
+                // Only commit if value actually changed (prevents closing on date picker interaction)
+                const t = taskRef.current
+                if (!t) return
+                const originalValue = field === 'start_date' ? (t.start_date || '') : (t.due_date || '')
+                if (editValueRef.current !== originalValue) {
+                  commitEdit()
+                }
+              }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
                 baseClass,

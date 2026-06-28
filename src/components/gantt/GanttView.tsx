@@ -271,20 +271,35 @@ export function GanttView() {
 
   // Scroll to today on first load and when dimension/size changes.
   // useLayoutEffect fires synchronously after DOM mutations but before paint,
-  // so the user never sees the wrong scroll position.
+  // but the scroll container's content may not be fully laid out yet.
+  // Use requestAnimationFrame to ensure scrolling happens after browser layout.
   useLayoutEffect(() => {
     if (datePanelWidth <= 0 || DAY_WIDTH <= 0) return
     const el = dateScrollRef.current
     if (!el) return
 
-    let scrollPos: number
-    if (dimension === 'week' || dimension === 'month') {
-      scrollPos = (todayOffset - 2) * DAY_WIDTH
-    } else {
-      const today = new Date()
-      scrollPos = (todayOffset - today.getDay()) * DAY_WIDTH
+    const doScroll = () => {
+      let scrollPos: number
+      if (dimension === 'week' || dimension === 'month') {
+        scrollPos = (todayOffset - 2) * DAY_WIDTH
+      } else {
+        const today = new Date()
+        scrollPos = (todayOffset - today.getDay()) * DAY_WIDTH
+      }
+      el.scrollLeft = Math.max(0, scrollPos)
     }
-    el.scrollLeft = Math.max(0, scrollPos)
+
+    // First try: immediate scroll
+    doScroll()
+    
+    // Second try: after browser layout (for initial load)
+    const rafId = requestAnimationFrame(() => {
+      if (el.scrollLeft === 0) {
+        doScroll()
+      }
+    })
+    
+    return () => cancelAnimationFrame(rafId)
   }, [datePanelWidth, DAY_WIDTH, totalDays, todayOffset, dimension])
 
   const totalWidth = totalDays * DAY_WIDTH
