@@ -14,7 +14,14 @@ export function DetailPanel() {
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
 
-  const task = tasks?.find((t) => t.id === selectedTaskId)
+  const rawTask = tasks?.find((t) => t.id === selectedTaskId)
+  // Normalize task data to prevent null reference errors from Supabase
+  const task = rawTask ? {
+    ...rawTask,
+    tags: rawTask.tags || [],
+    depends_on: rawTask.depends_on || [],
+    children: rawTask.children || [],
+  } : null
   const [editingField, setEditingField] = useState<EditingField>(null)
   const [editValue, setEditValue] = useState<string>('')
   const [showConfirm, setShowConfirm] = useState(false)

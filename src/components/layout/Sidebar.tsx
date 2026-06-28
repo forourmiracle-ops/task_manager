@@ -1,50 +1,23 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '@/store'
-import { useTasks, useCreateTask } from '@/hooks/useTasks'
-import { buildTaskTree, flattenTasks, STATUS_LABELS, PRIORITY_LABELS } from '@/lib/utils'
+import { useTasks } from '@/hooks/useTasks'
+import { buildTaskTree, flattenTasks } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { Task, TaskStatus, TaskPriority } from '@/types'
+import type { Task } from '@/types'
 
 const MAX_DEPTH = 4
 
 export function Sidebar() {
   const { data: tasks, isLoading } = useTasks()
-  const createTask = useCreateTask()
   const {
     selectedTaskId,
     setSelectedTaskId,
     sidebarOpen,
     setSidebarOpen,
-    isCreating,
-    creatingParentId,
     startCreating,
-    stopCreating,
     searchQuery,
     setSearchQuery,
   } = useAppStore()
-
-  const [newTitle, setNewTitle] = useState('')
-  const [newStartDate, setNewStartDate] = useState('')
-  const [newDueDate, setNewDueDate] = useState('')
-  const [newPriority, setNewPriority] = useState<TaskPriority>('medium')
-  const [newStatus, setNewStatus] = useState<TaskStatus>('todo')
-  const [showMoreFields, setShowMoreFields] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (isCreating) {
-      setTimeout(() => inputRef.current?.focus(), 50)
-    }
-  }, [isCreating, creatingParentId])
-
-  const resetForm = () => {
-    setNewTitle('')
-    setNewStartDate('')
-    setNewDueDate('')
-    setNewPriority('medium')
-    setNewStatus('todo')
-    setShowMoreFields(false)
-  }
 
   const tree = tasks ? buildTaskTree(tasks) : []
 
@@ -63,45 +36,7 @@ export function Sidebar() {
     return getTaskDepth(taskId) < MAX_DEPTH - 1
   }
 
-  const handleCreate = () => {
-    if (!newTitle.trim()) return
-    createTask.mutate(
-      {
-        title: newTitle.trim(),
-        parent_id: creatingParentId,
-        start_date: newStartDate || null,
-        due_date: newDueDate || null,
-        priority: newPriority,
-        status: newStatus,
-      },
-      {
-        onSuccess: (task) => {
-          resetForm()
-          stopCreating()
-          setSelectedTaskId(task.id)
-        },
-      }
-    )
-  }
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleCreate()
-    }
-    if (e.key === 'Escape') {
-      stopCreating()
-      resetForm()
-    }
-  }
-
   if (!sidebarOpen) return null
-
-  const getCreatingLabel = () => {
-    if (!creatingParentId) return '新项目名称'
-    const parent = tasks?.find((t) => t.id === creatingParentId)
-    return `在「${parent?.title || '...'}」下添加子任务`
-  }
 
   return (
     <aside className="border-r border-border bg-sidebar flex flex-col h-full" style={{ width: 256, minWidth: 256, flexShrink: 0 }}>
@@ -125,104 +60,21 @@ export function Sidebar() {
         />
       </div>
 
-      {/* Quick Create (Top) */}
-      {isCreating && (
-        <div className="p-2 border-b border-border bg-accent/30">
-          <p className="text-[10px] text-muted-foreground mb-1.5">{getCreatingLabel()}</p>
-          <div className="flex gap-1 mb-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="输入名称，回车确认..."
-              className="flex-1 px-2 py-1.5 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <button
-              onClick={handleCreate}
-              className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90"
-            >
-              确定
-            </button>
-          </div>
-
-          {/* Toggle more fields */}
-          <button
-            onClick={() => setShowMoreFields(!showMoreFields)}
-            className="text-[10px] text-muted-foreground hover:text-foreground mb-1"
-          >
-            {showMoreFields ? '收起字段 ▲' : '展开更多字段 ▼'}
-          </button>
-
-          {showMoreFields && (
-            <div className="space-y-1.5 mb-1">
-              <div className="grid grid-cols-2 gap-1">
-                <div>
-                  <label className="text-[10px] text-muted-foreground">开始日期</label>
-                  <input
-                    type="date"
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground">截止日期</label>
-                  <input
-                    type="date"
-                    value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                <div>
-                  <label className="text-[10px] text-muted-foreground">优先级</label>
-                  <select
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
-                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
-                  >
-                    {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground">状态</label>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as TaskStatus)}
-                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
-                  >
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={() => {
-              stopCreating()
-              resetForm()
-            }}
-            className="text-[10px] text-muted-foreground hover:text-foreground mt-1"
-          >
-            取消
-          </button>
-        </div>
-      )}
+      {/* Quick Create Button */}
+      <div className="p-2 border-b border-border">
+        <button
+          onClick={() => startCreating(null)}
+          className="w-full py-1.5 text-xs bg-primary text-primary-foreground rounded hover:opacity-90"
+        >
+          + 新建项目
+        </button>
+      </div>
 
       {/* Task List */}
       <div className="flex-1 overflow-auto p-2">
         {isLoading ? (
           <div className="text-xs text-muted-foreground p-2">加载中...</div>
-        ) : tree.length === 0 && !isCreating ? (
+        ) : tree.length === 0 ? (
           <div className="text-xs text-muted-foreground p-2 text-center py-8">
             <p>暂无任务</p>
             <button
@@ -240,7 +92,6 @@ export function Sidebar() {
             onAddChild={(id) => {
               if (canAddChild(id)) {
                 startCreating(id)
-                setNewTitle('')
               }
             }}
             searchQuery={searchQuery}
@@ -252,17 +103,12 @@ export function Sidebar() {
 
       {/* Bottom Action */}
       <div className="p-3 border-t border-border">
-        {!isCreating && (
-          <button
-            onClick={() => {
-              startCreating(null)
-              setNewTitle('')
-            }}
-            className="w-full py-1.5 text-xs border border-dashed border-border rounded text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-          >
-            + 新建项目
-          </button>
-        )}
+        <button
+          onClick={() => startCreating(null)}
+          className="w-full py-1.5 text-xs border border-dashed border-border rounded text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+        >
+          + 新建项目
+        </button>
       </div>
     </aside>
   )
