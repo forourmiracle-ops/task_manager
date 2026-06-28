@@ -1,21 +1,36 @@
 import { useState, type FormEvent } from 'react'
 import { useAppStore } from '@/store'
-import { useTasks, useUpdateTask, useDeleteTask, useCreateTask } from '@/hooks/useTasks'
+import { useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
 import type { Task } from '@/types'
 
+const MAX_DEPTH = 4
+
 export function DetailPanel() {
-  const { selectedTaskId, setSelectedTaskId, detailPanelOpen, setDetailPanelOpen } = useAppStore()
+  const { selectedTaskId, setSelectedTaskId, detailPanelOpen, setDetailPanelOpen, startCreating } = useAppStore()
   const { data: tasks } = useTasks()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
-  const createTask = useCreateTask()
 
   const task = tasks?.find((t) => t.id === selectedTaskId)
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState<Partial<Task>>({})
 
   if (!detailPanelOpen || !task) return null
+
+  const getTaskDepth = (taskId: string): number => {
+    if (!tasks) return 0
+    let depth = 0
+    let current = tasks.find((t) => t.id === taskId)
+    while (current?.parent_id) {
+      depth++
+      current = tasks.find((t) => t.id === current!.parent_id)
+    }
+    return depth
+  }
+
+  const currentDepth = getTaskDepth(task.id)
+  const canAddChild = currentDepth < MAX_DEPTH - 1
 
   const startEdit = () => {
     setForm({ ...task })
@@ -41,10 +56,8 @@ export function DetailPanel() {
   }
 
   const handleAddChild = () => {
-    createTask.mutate(
-      { title: '新子任务', parent_id: task.id },
-      { onSuccess: () => {} }
-    )
+    if (!canAddChild) return
+    startCreating(task.id)
   }
 
   const updateField = (field: string, value: unknown) => {
@@ -53,10 +66,18 @@ export function DetailPanel() {
 
   const subtasks = tasks?.filter((t) => t.parent_id === task.id) || []
 
+  const depthLabels = ['项目', '阶段', '任务组', '子任务']
+  const currentLevelLabel = depthLabels[currentDepth] || `第${currentDepth + 1}层`
+
   return (
     <aside className="w-72 min-w-[288px] border-l border-border bg-background flex flex-col h-full overflow-auto">
       <div className="p-3 border-b border-border flex items-center justify-between">
-        <h3 className="text-sm font-semibold">任务详情</h3>
+        <div className="flex items-center gap-2">
+          <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+            {currentLevelLabel}
+          </span>
+          <h3 className="text-sm font-semibold">任务详情</h3>
+        </div>
         <button
           onClick={() => {
             setDetailPanelOpen(false)
@@ -258,24 +279,30 @@ export function DetailPanel() {
                 <label className="text-[10px] text-muted-foreground uppercase">
                   子任务 ({subtasks.length})
                 </label>
-                <button
-                  onClick={handleAddChild}
-                  className="text-[10px] text-primary hover:underline"
-                >
-                  + 添加
-                </button>
+                {canAddChild ? (
+                  <button
+                    onClick={handleAddChild}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    + 添加
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">
+                    已达最深层级
+                  </span>
+                )}
               </div>
               {subtasks.length > 0 ? (
                 <ul className="space-y-1">
                   {subtasks.map((st) => (
                     <li
                       key={st.id}
-                      className="flex items-center gap-2 text-xs px-2 py-1 rounded hover:bg-accent/50 cursor-pointer"
+                      className="flex items-center gap-2 text-xs px-2 py-1 rounded hover:bg-accent/50 cursor-pointer group"
                       onClick={() => setSelectedTaskId(st.id)}
                     >
                       <span
                         className={cn(
-                          'w-1.5 h-1.5 rounded-full',
+                          'w-1.5 h-1.5 rounded-full flex-shrink-0',
                           st.status === 'done' && 'bg-green-500',
                           st.status === 'in_progress' && 'bg-blue-500',
                           st.status === 'blocked' && 'bg-red-500',
@@ -283,12 +310,27 @@ export function DetailPanel() {
                         )}
                       />
                       <span className="flex-1 truncate">{st.title}</span>
+                      {st.progress_percent > 0 && (
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                          {st.progress_percent}%
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className="text-xs text-muted-foreground">暂无子任务</p>
               )}
+            </div>
+
+            {/* Breadcrumb / Path */}
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase">层级路径</label>
+              <TaskBreadcrumb
+                taskId={task.id}
+                tasks={tasks || []}
+                onSelect={(id) => setSelectedTaskId(id)}
+              />
             </div>
 
             {/* Actions */}
@@ -310,5 +352,45 @@ export function DetailPanel() {
         )}
       </div>
     </aside>
+  )
+}
+
+function TaskBreadcrumb({
+  taskId,
+  tasks,
+  onSelect,
+}: {
+  taskId: string
+  tasks: Task[]
+  onSelect: (id: string) => void
+}) {
+  const getPath = (): Task[] => {
+    const path: Task[] = []
+    let current = tasks.find((t) => t.id === taskId)
+    while (current) {
+      path.unshift(current)
+      current = current.parent_id ? tasks.find((t) => t.id === current!.parent_id) : undefined
+    }
+    return path
+  }
+
+  const path = getPath()
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1">
+      {path.map((t, i) => (
+        <div key={t.id} className="flex items-center gap-1">
+          <button
+            onClick={() => onSelect(t.id)}
+            className="text-xs text-primary hover:underline truncate max-w-[100px]"
+          >
+            {t.title}
+          </button>
+          {i < path.length - 1 && (
+            <span className="text-muted-foreground text-xs">/</span>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }
