@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks, useCreateTask } from '@/hooks/useTasks'
-import { buildTaskTree, flattenTasks } from '@/lib/utils'
+import { buildTaskTree, flattenTasks, STATUS_LABELS, PRIORITY_LABELS } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { Task } from '@/types'
+import type { Task, TaskStatus, TaskPriority } from '@/types'
 
 const MAX_DEPTH = 4
 
@@ -24,6 +24,11 @@ export function Sidebar() {
   } = useAppStore()
 
   const [newTitle, setNewTitle] = useState('')
+  const [newStartDate, setNewStartDate] = useState('')
+  const [newDueDate, setNewDueDate] = useState('')
+  const [newPriority, setNewPriority] = useState<TaskPriority>('medium')
+  const [newStatus, setNewStatus] = useState<TaskStatus>('todo')
+  const [showMoreFields, setShowMoreFields] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -31,6 +36,15 @@ export function Sidebar() {
       setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [isCreating, creatingParentId])
+
+  const resetForm = () => {
+    setNewTitle('')
+    setNewStartDate('')
+    setNewDueDate('')
+    setNewPriority('medium')
+    setNewStatus('todo')
+    setShowMoreFields(false)
+  }
 
   const tree = tasks ? buildTaskTree(tasks) : []
 
@@ -52,10 +66,17 @@ export function Sidebar() {
   const handleCreate = () => {
     if (!newTitle.trim()) return
     createTask.mutate(
-      { title: newTitle.trim(), parent_id: creatingParentId },
+      {
+        title: newTitle.trim(),
+        parent_id: creatingParentId,
+        start_date: newStartDate || null,
+        due_date: newDueDate || null,
+        priority: newPriority,
+        status: newStatus,
+      },
       {
         onSuccess: (task) => {
-          setNewTitle('')
+          resetForm()
           stopCreating()
           setSelectedTaskId(task.id)
         },
@@ -64,10 +85,13 @@ export function Sidebar() {
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') handleCreate()
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleCreate()
+    }
     if (e.key === 'Escape') {
       stopCreating()
-      setNewTitle('')
+      resetForm()
     }
   }
 
@@ -105,7 +129,7 @@ export function Sidebar() {
       {isCreating && (
         <div className="p-2 border-b border-border bg-accent/30">
           <p className="text-[10px] text-muted-foreground mb-1.5">{getCreatingLabel()}</p>
-          <div className="flex gap-1">
+          <div className="flex gap-1 mb-2">
             <input
               ref={inputRef}
               type="text"
@@ -122,12 +146,72 @@ export function Sidebar() {
               确定
             </button>
           </div>
+
+          {/* Toggle more fields */}
+          <button
+            onClick={() => setShowMoreFields(!showMoreFields)}
+            className="text-[10px] text-muted-foreground hover:text-foreground mb-1"
+          >
+            {showMoreFields ? '收起字段 ▲' : '展开更多字段 ▼'}
+          </button>
+
+          {showMoreFields && (
+            <div className="space-y-1.5 mb-1">
+              <div className="grid grid-cols-2 gap-1">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">开始日期</label>
+                  <input
+                    type="date"
+                    value={newStartDate}
+                    onChange={(e) => setNewStartDate(e.target.value)}
+                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">截止日期</label>
+                  <input
+                    type="date"
+                    value={newDueDate}
+                    onChange={(e) => setNewDueDate(e.target.value)}
+                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">优先级</label>
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
+                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
+                  >
+                    {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">状态</label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value as TaskStatus)}
+                    className="w-full px-1.5 py-1 text-xs border border-border rounded bg-background"
+                  >
+                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => {
               stopCreating()
-              setNewTitle('')
+              resetForm()
             }}
-            className="text-[10px] text-muted-foreground hover:text-foreground mt-1.5"
+            className="text-[10px] text-muted-foreground hover:text-foreground mt-1"
           >
             取消
           </button>

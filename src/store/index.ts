@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { ViewType } from '@/types'
 
+export type ThemeMode = 'light' | 'dark' | 'eye-care'
+
+const STORED_THEME = (localStorage.getItem('taskflow-theme') || 'light') as ThemeMode
+const STORED_FONT_SIZE = Number(localStorage.getItem('taskflow-font-size') || '4')
+
 interface AppState {
   // Navigation
   currentView: ViewType
@@ -32,7 +37,29 @@ interface AppState {
   // Detail panel
   detailPanelOpen: boolean
   setDetailPanelOpen: (open: boolean) => void
+
+  // Theme
+  theme: ThemeMode
+  setTheme: (theme: ThemeMode) => void
+
+  // Font size (1-8)
+  fontSize: number
+  setFontSize: (size: number) => void
 }
+
+function applyTheme(theme: ThemeMode) {
+  document.documentElement.setAttribute('data-theme', theme)
+  localStorage.setItem('taskflow-theme', theme)
+}
+
+function applyFontSize(size: number) {
+  document.documentElement.style.setProperty('--font-scale', String(size))
+  localStorage.setItem('taskflow-font-size', String(size))
+}
+
+// Initialize on load
+applyTheme(STORED_THEME)
+applyFontSize(STORED_FONT_SIZE)
 
 export const useAppStore = create<AppState>((set) => ({
   currentView: 'gantt',
@@ -61,4 +88,16 @@ export const useAppStore = create<AppState>((set) => ({
 
   detailPanelOpen: false,
   setDetailPanelOpen: (open) => set({ detailPanelOpen: open }),
+
+  theme: STORED_THEME,
+  setTheme: (theme) => {
+    applyTheme(theme)
+    set({ theme })
+  },
+
+  fontSize: STORED_FONT_SIZE,
+  setFontSize: (size) => {
+    applyFontSize(Math.max(1, Math.min(8, Math.round(size))))
+    set({ fontSize: Math.max(1, Math.min(8, Math.round(size))) })
+  },
 }))
