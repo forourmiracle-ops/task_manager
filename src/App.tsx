@@ -5,6 +5,7 @@ import { GanttView } from '@/components/gantt/GanttView'
 import { BoardView } from '@/components/board/BoardView'
 import { CalendarView } from '@/components/calendar/CalendarView'
 import { AIAssistantView } from '@/components/ai/AIAssistantView'
+import { SettingsView } from '@/components/settings/SettingsView'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
 import type { ViewType } from '@/types'
 
@@ -52,14 +53,7 @@ export default function App() {
       case 'ai':
         return <AIAssistantView />
       case 'settings':
-        return (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <p className="text-sm">设置页面</p>
-              <p className="text-xs mt-2">功能开发中...</p>
-            </div>
-          </div>
-        )
+        return <SettingsView />
     }
   }
 
