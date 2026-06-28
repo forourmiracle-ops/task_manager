@@ -300,6 +300,27 @@ export function GanttView() {
     return () => clearTimeout(timer)
   }, [datePanelWidth, DAY_WIDTH, totalDays, todayOffset, dimension])
 
+  // Fallback: ensure scroll is positioned after everything is fully rendered.
+  // Runs once on mount with a longer delay to catch any async layout shifts.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const el = dateScrollRef.current
+      if (!el || !datePanelWidth || !DAY_WIDTH || initialScrollDone.current) return
+      let scrollPos: number
+      if (dimension === 'week' || dimension === 'month') {
+        scrollPos = (todayOffset - 2) * DAY_WIDTH
+      } else {
+        const today = new Date()
+        const dayOfWeek = today.getDay()
+        scrollPos = (todayOffset - dayOfWeek) * DAY_WIDTH
+      }
+      el.scrollLeft = Math.max(0, scrollPos)
+      initialScrollDone.current = true
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const totalWidth = totalDays * DAY_WIDTH
 
   const getTaskBarStyle = (task: Task) => {

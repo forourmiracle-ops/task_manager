@@ -179,8 +179,6 @@ export function CreateTaskDialog() {
                 type="date"
                 value={startDate}
                 onChange={(e) => { setStartDate(e.target.value); setDateError(null) }}
-                {...(isSubtask && parentTask?.start_date ? { min: parentTask.start_date } : {})}
-                {...(isSubtask && parentTask?.due_date ? { max: dueDate || parentTask.due_date } : {})}
                 className={`w-full px-3 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring ${dateError ? 'border-red-400 bg-red-50/30' : 'border-border'}`}
               />
             </div>
@@ -193,8 +191,6 @@ export function CreateTaskDialog() {
                 type="date"
                 value={dueDate}
                 onChange={(e) => { setDueDate(e.target.value); setDateError(null) }}
-                {...(isSubtask && parentTask?.start_date ? { min: startDate || parentTask.start_date } : {})}
-                {...(isSubtask && parentTask?.due_date ? { max: parentTask.due_date } : {})}
                 className={`w-full px-3 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring ${dateError ? 'border-red-400 bg-red-50/30' : 'border-border'}`}
               />
             </div>
