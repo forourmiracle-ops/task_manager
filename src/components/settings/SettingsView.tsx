@@ -15,22 +15,22 @@ export function SettingsView() {
   return (
     <div className="flex-1 flex justify-center overflow-auto bg-background">
       <div className="w-full max-w-lg p-6 space-y-8">
-        <div>
-          <h2 className="text-sm font-semibold mb-1">设置</h2>
-          <p className="text-xs text-muted-foreground">个性化您的 TaskFlow 体验</p>
+        <div className="pb-2 border-b border-border">
+          <h2 className="text-base font-bold tracking-tight">设置</h2>
+          <p className="text-xs text-muted-foreground mt-1">个性化您的 TaskFlow 体验</p>
         </div>
 
         {/* Theme Selection */}
         <section>
-          <h3 className="text-xs font-medium mb-3 uppercase text-muted-foreground tracking-wide">主题模式</h3>
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">主题模式</h3>
           <div className="space-y-2">
             {THEME_OPTIONS.map((opt) => (
               <label
                 key={opt.value}
-                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                   theme === opt.value
-                    ? 'border-primary bg-accent'
-                    : 'border-border hover:bg-accent/50'
+                    ? 'border-primary bg-primary/5 shadow-sm'
+                    : 'border-border hover:bg-accent/50 hover:border-primary/20'
                 }`}
               >
                 <input
@@ -39,12 +39,17 @@ export function SettingsView() {
                   value={opt.value}
                   checked={theme === opt.value}
                   onChange={() => setTheme(opt.value)}
-                  className="mt-0.5"
+                  className="mt-0.5 accent-primary"
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-base">{opt.icon}</span>
-                    <span className="text-sm font-medium">{opt.label}</span>
+                    <span className="text-sm font-semibold">{opt.label}</span>
+                    {theme === opt.value && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground font-medium">
+                        当前
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
                 </div>
@@ -55,11 +60,11 @@ export function SettingsView() {
 
         {/* Font Size */}
         <section>
-          <h3 className="text-xs font-medium mb-3 uppercase text-muted-foreground tracking-wide">字体大小</h3>
-          <div className="space-y-3">
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">字体大小</h3>
+          <div className="space-y-4 bg-muted/20 rounded-xl p-4 border border-border/50">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">当前档位</span>
-              <span className="text-sm font-semibold bg-accent px-2 py-0.5 rounded">
+              <span className="text-sm font-bold bg-background border border-border px-3 py-1 rounded-lg shadow-sm">
                 {fontSize} / 8 — {FONT_SIZE_LABELS[fontSize - 1]} ({FONT_SIZE_SAMPLES[fontSize - 1]})
               </span>
             </div>
@@ -73,12 +78,11 @@ export function SettingsView() {
                 step={1}
                 value={fontSize}
                 onChange={(e) => setFontSize(Number(e.target.value))}
-                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary relative z-10"
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary relative z-10"
                 style={{
                   background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${((fontSize - 1) / 7) * 100}%, hsl(var(--muted)) ${((fontSize - 1) / 7) * 100}%, hsl(var(--muted)) 100%)`,
                 }}
               />
-              {/* Tick marks */}
               <div className="absolute top-1/2 left-0 right-0 flex justify-between px-0 pointer-events-none" style={{ transform: 'translateY(-50%)', zIndex: 5 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div
@@ -94,24 +98,23 @@ export function SettingsView() {
               </div>
             </div>
 
-            {/* Labels under slider */}
             <div className="flex justify-between text-[10px] text-muted-foreground">
               {FONT_SIZE_LABELS.map((label, i) => (
-                <span
+                <button
                   key={i}
-                  className={`cursor-pointer transition-colors ${fontSize === i + 1 ? 'text-primary font-semibold' : 'hover:text-foreground'}`}
+                  type="button"
                   onClick={() => setFontSize(i + 1)}
+                  className={`transition-colors hover:text-foreground ${fontSize === i + 1 ? 'text-primary font-bold' : ''}`}
                 >
                   {label}
-                </span>
+                </button>
               ))}
             </div>
 
-            {/* Preview */}
-            <div className="p-3 bg-muted/50 rounded-lg border border-border">
-              <p className="text-xs text-muted-foreground mb-2">预览效果</p>
+            <div className="p-3 bg-background rounded-lg border border-border/50 shadow-sm">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-2">预览效果</p>
               <p className="text-sm leading-relaxed">
-                这是一段预览文字，用于展示当前字体大小效果。您可以拖动滑块来调整字体大小，找到最适合您的阅读体验。
+                这是一段预览文字，用于展示当前字体大小效果。
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 The quick brown fox jumps over the lazy dog.
@@ -122,11 +125,12 @@ export function SettingsView() {
 
         {/* About */}
         <section className="border-t border-border pt-4">
-          <h3 className="text-xs font-medium mb-2 uppercase text-muted-foreground tracking-wide">关于</h3>
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>TaskFlow — 轻量级工作任务管理系统</p>
+          <h3 className="text-[10px] font-bold mb-2 uppercase text-muted-foreground tracking-wider">关于</h3>
+          <div className="text-xs text-muted-foreground space-y-1 bg-muted/20 rounded-xl p-4 border border-border/50">
+            <p className="font-semibold text-foreground">TaskFlow</p>
+            <p>轻量级工作任务管理系统</p>
             <p>版本 1.0.0</p>
-            <p>技术栈：React + TypeScript + Vite + Tailwind CSS</p>
+            <p className="text-[10px]">React + TypeScript + Vite + Tailwind CSS</p>
           </div>
         </section>
       </div>
