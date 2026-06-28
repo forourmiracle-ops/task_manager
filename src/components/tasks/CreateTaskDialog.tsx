@@ -18,6 +18,7 @@ export function CreateTaskDialog() {
   const [progress, setProgress] = useState(0)
   const [estimatedHours, setEstimatedHours] = useState('')
   const [tags, setTags] = useState('')
+  const [dateError, setDateError] = useState<string | null>(null)
 
   const titleRef = useRef<HTMLInputElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -41,6 +42,7 @@ export function CreateTaskDialog() {
     setProgress(0)
     setEstimatedHours('')
     setTags('')
+    setDateError(null)
   }
 
   const handleSubmit = () => {
@@ -49,18 +51,19 @@ export function CreateTaskDialog() {
     // Validate subtask dates against parent
     if (isSubtask && parentTask) {
       if (parentTask.start_date && startDate && startDate < parentTask.start_date) {
-        alert(`子任务开始日期不能早于父任务开始日期（${parentTask.start_date}）`)
+        setDateError(`子任务开始日期不能早于父任务开始日期（${parentTask.start_date}）`)
         return
       }
       if (parentTask.due_date && dueDate && dueDate > parentTask.due_date) {
-        alert(`子任务截止日期不能晚于父任务截止日期（${parentTask.due_date}）`)
+        setDateError(`子任务截止日期不能晚于父任务截止日期（${parentTask.due_date}）`)
         return
       }
       if (startDate && dueDate && startDate > dueDate) {
-        alert('开始日期不能晚于截止日期')
+        setDateError('开始日期不能晚于截止日期')
         return
       }
     }
+    setDateError(null)
 
     createTask.mutate(
       {
@@ -175,10 +178,10 @@ export function CreateTaskDialog() {
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => { setStartDate(e.target.value); setDateError(null) }}
                 {...(isSubtask && parentTask?.start_date ? { min: parentTask.start_date } : {})}
                 {...(isSubtask && parentTask?.due_date ? { max: dueDate || parentTask.due_date } : {})}
-                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
+                className={`w-full px-3 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring ${dateError ? 'border-red-400 bg-red-50/30' : 'border-border'}`}
               />
             </div>
             <div>
@@ -189,13 +192,16 @@ export function CreateTaskDialog() {
               <input
                 type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={(e) => { setDueDate(e.target.value); setDateError(null) }}
                 {...(isSubtask && parentTask?.start_date ? { min: startDate || parentTask.start_date } : {})}
                 {...(isSubtask && parentTask?.due_date ? { max: parentTask.due_date } : {})}
-                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
+                className={`w-full px-3 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring ${dateError ? 'border-red-400 bg-red-50/30' : 'border-border'}`}
               />
             </div>
           </div>
+          {dateError && (
+            <p className="text-[11px] text-red-500 font-medium -mt-1">{dateError}</p>
+          )}
 
           {/* Status + Priority */}
           <div className="grid grid-cols-2 gap-3">
