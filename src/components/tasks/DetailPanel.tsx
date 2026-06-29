@@ -210,11 +210,11 @@ export function DetailPanel() {
 
     const handleMouseDown = (e: MouseEvent) => {
       try {
-        // If a date input is focused, the user may be interacting with the native date picker
-        // calendar popup (which renders in the browser's top layer, outside our DOM tree).
-        // Don't commit on mousedown in this case — let Enter or switching fields handle it.
-        const activeEl = document.activeElement
-        if (activeEl instanceof HTMLInputElement && activeEl.type === 'date') return
+        // For date fields, skip mousedown commit entirely. The native date picker
+        // calendar popup renders outside our DOM tree, so composedPath() won't
+        // include our editor element. Use Enter or click another field to commit.
+        const field = editingFieldRef.current
+        if (field === 'start_date' || field === 'due_date') return
 
         // Check if click target is the editor element itself
         const target = e.target as Element
