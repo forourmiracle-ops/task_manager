@@ -37,6 +37,7 @@ export function DetailPanel() {
   const editingFieldRef = useRef<EditableField | null>(null)
   const editValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
+  const committingRef = useRef(false)
 
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
@@ -148,14 +149,16 @@ export function DetailPanel() {
   }
 
   const commitEdit = (valueOverride?: string) => {
+    if (committingRef.current) return
+    committingRef.current = true
     try {
       const field = editingFieldRef.current
       // Use override (e.g. from select onChange) or fall back to ref
       const value = valueOverride ?? editValueRef.current
-      if (!field) return
+      if (!field) { committingRef.current = false; return }
 
       const t = taskRef.current
-      if (!t) { setEditingField(null); setEditValue(''); return }
+      if (!t) { setEditingField(null); setEditValue(''); committingRef.current = false; return }
 
       // Validate subtask dates against parent
       if ((field === 'start_date' || field === 'due_date') && t.parent_id && tasks) {
@@ -195,10 +198,12 @@ export function DetailPanel() {
           },
         })
       }
+      committingRef.current = false
     } catch (err) {
       console.error('commitEdit error:', err)
       setEditingField(null)
       setEditValue('')
+      committingRef.current = false
     }
   }
 
@@ -210,16 +215,9 @@ export function DetailPanel() {
 
     const handleMouseDown = (e: MouseEvent) => {
       try {
-        // For date fields, the native date picker popup renders in the browser's
-        // top layer, outside document.body. Distinguish between calendar clicks
-        // (skip) and real clicks on our UI (commit).
+        // Date fields use onBlur for commit, skip mousedown entirely
         const field = editingFieldRef.current
-        if (field === 'start_date' || field === 'due_date') {
-          if (e.target instanceof Node && document.body.contains(e.target)) {
-            commitEdit()
-          }
-          return
-        }
+        if (field === 'start_date' || field === 'due_date') return
 
         // Check if click target is the editor element itself
         const target = e.target as Element
@@ -387,6 +385,7 @@ export function DetailPanel() {
               type="date"
               value={val}
               onChange={(e) => { editValueRef.current = e.target.value; setValidationError(null) }}
+              onBlur={() => commitEdit()}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
                 baseClass,
