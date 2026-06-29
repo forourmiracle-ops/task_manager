@@ -4,6 +4,7 @@ import { useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
 import { CommentSection } from '@/components/tasks/CommentSection'
 import { DependencyPicker } from '@/components/tasks/DependencyPicker'
+import { showDraftToast } from '@/components/ui/DraftToast'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 
 const MAX_DEPTH = 4
@@ -40,6 +41,7 @@ export function DetailPanel() {
   const editValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
   const committingRef = useRef(false)
+  const isComposingRef = useRef(false)
 
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
@@ -175,19 +177,42 @@ export function DetailPanel() {
       if ((field === 'start_date' || field === 'due_date') && t.parent_id && tasks) {
         const parent = tasks.find((p) => p.id === t.parent_id)
         if (parent) {
+          let conflictMessage = ''
+
           if (field === 'start_date' && value && parent.start_date && value < parent.start_date) {
-            setValidationError(`不能早于父任务开始日期（${parent.start_date}）`)
-            return
+            conflictMessage = `不能早于父任务开始日期（${parent.start_date}）`
+          } else if (field === 'due_date' && value && parent.due_date && value > parent.due_date) {
+            conflictMessage = `不能晚于父任务截止日期（${parent.due_date}）`
+          } else {
+            // Check start <= due cross-field
+            const newStart = field === 'start_date' ? value : (t.start_date || '')
+            const newDue = field === 'due_date' ? value : (t.due_date || '')
+            if (newStart && newDue && newStart > newDue) {
+              conflictMessage = '开始日期不能晚于截止日期'
+            }
           }
-          if (field === 'due_date' && value && parent.due_date && value > parent.due_date) {
-            setValidationError(`不能晚于父任务截止日期（${parent.due_date}）`)
-            return
-          }
-          // Check start <= due cross-field
-          const newStart = field === 'start_date' ? value : (t.start_date || '')
-          const newDue = field === 'due_date' ? value : (t.due_date || '')
-          if (newStart && newDue && newStart > newDue) {
-            setValidationError('开始日期不能晚于截止日期')
+
+          if (conflictMessage) {
+            // Save as draft despite conflict
+            setValidationError(conflictMessage)
+            const payload = buildPayload(field, value)
+            const oldValue = field === 'start_date' ? (t.start_date || '') : (t.due_date || '')
+            setEditingField(null)
+            setEditValue('')
+            committingRef.current = false
+
+            if (payload) {
+              updateTask.mutate(payload, {
+                onSuccess: () => {
+                  showDraftToast({
+                    message: `日期与父任务冲突：${conflictMessage}`,
+                    onUndo: () => {
+                      updateTask.mutate({ id: t.id, [field]: oldValue || null } as Partial<Task> & { id: string })
+                    },
+                  })
+                },
+              })
+            }
             return
           }
         }
@@ -354,7 +379,14 @@ export function DetailPanel() {
             data-detail-editor
             autoFocus
             value={val}
-            onChange={(e) => setEditValue(e.target.value)}
+            onCompositionStart={() => { isComposingRef.current = true }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false
+              setEditValue((e.target as HTMLTextAreaElement).value)
+            }}
+            onChange={(e) => {
+              if (!isComposingRef.current) setEditValue(e.target.value)
+            }}
             rows={3}
             className={`${baseClass} resize-none`}
           />
@@ -450,7 +482,14 @@ export function DetailPanel() {
             autoFocus
             type="text"
             value={val}
-            onChange={(e) => setEditValue(e.target.value)}
+            onCompositionStart={() => { isComposingRef.current = true }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false
+              setEditValue((e.target as HTMLInputElement).value)
+            }}
+            onChange={(e) => {
+              if (!isComposingRef.current) setEditValue(e.target.value)
+            }}
             className={baseClass}
           />
         )
