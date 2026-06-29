@@ -1,10 +1,10 @@
 {
   "statistics": {
-    "total_tasks": 2,
-    "success_count": 2,
+    "total_tasks": 4,
+    "success_count": 4,
     "failed_count": 0,
     "total_tokens": 0,
-    "total_duration_sec": 0
+    "total_duration_sec": 2635
   },
   "recent_tasks": [
     {
@@ -22,6 +22,22 @@
       "domain": "任务管理系统",
       "trace": "分析问题→发现activeElement不可靠→改用editingFieldRef→构建→推送",
       "context": "原生日期选择器弹出层在浏览器顶层渲染，activeElement可能变化，改用ref直接判断字段类型更可靠"
+    },
+    {
+      "timestamp": "2026-06-29 04:41:41",
+      "task_desc": "fix: 日期选择器改用onBlur提交 — 标准表单模式，原生选择器弹出时input保持聚焦不触发blur，选完日期或点击外部后失焦自然提交",
+      "result": "success",
+      "domain": "任务管理系统",
+      "trace": "分析根因→多次尝试受控/非受控/ref/mousedown方案均失败→改用onBlur标准表单模式→构建→推送",
+      "context": "原生日期选择器弹出层在浏览器顶层渲染，任何mousedown/document.body.contains检测都不可靠。onBlur是标准表单模式：选择器弹出时input保持聚焦，失焦时自然提交"
+    },
+    {
+      "timestamp": "2026-06-29 11:29:58",
+      "task_desc": "多平台化改造：评论系统+任务依赖+Store拆分+甘特图依赖连线",
+      "result": "success",
+      "domain": "任务管理系统",
+      "trace": "Read→Write→Edit→tsc→vite→git→push",
+      "context": "基于Gemini三维度分析精选4个改造项，全部完成并通过构建验证"
     }
   ],
   "task_type_counts": {
@@ -48,6 +64,32 @@
         {
           "result": "success",
           "ts": "2026-06-29T03:57:46.796590"
+        }
+      ]
+    },
+    "fix: 日期选择器改用onBlur": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-29T04:41:41.494174"
+        }
+      ]
+    },
+    "多平台化改造：评论系统+任务依赖+S": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-29T11:29:58.082240"
         }
       ]
     }

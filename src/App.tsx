@@ -8,6 +8,7 @@ import { AIAssistantView } from '@/components/ai/AIAssistantView'
 import { SettingsView } from '@/components/settings/SettingsView'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
+import { DraftToastContainer } from '@/components/ui/DraftToast'
 import type { ViewType } from '@/types'
 
 const VIEW_LABELS: Record<ViewType, { label: string; icon: React.ReactNode }> = {
@@ -184,6 +185,9 @@ export default function App() {
 
       {/* Create Task Dialog */}
       <CreateTaskDialog />
+
+      {/* Draft Toast */}
+      <DraftToastContainer />
     </div>
   )
 }

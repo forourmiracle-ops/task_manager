@@ -3,10 +3,12 @@ import type { Dimension } from '@/types'
 
 export type ThemeMode = 'light' | 'dark' | 'eye-care'
 export type DefaultDimension = 'auto' | Dimension
+export type ViewStartMode = 'periodStart' | 'fromToday'
 
 const STORED_THEME = (localStorage.getItem('taskflow-theme') || 'light') as ThemeMode
 const STORED_FONT_SIZE = Number(localStorage.getItem('taskflow-font-size') || '4')
 const STORED_DEFAULT_DIMENSION = (localStorage.getItem('taskflow-default-dimension') || 'auto') as DefaultDimension
+const STORED_VIEW_START = (localStorage.getItem('taskflow-view-start') || 'periodStart') as ViewStartMode
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.setAttribute('data-theme', theme)
@@ -29,6 +31,8 @@ export interface SettingsSlice {
   setFontSize: (size: number) => void
   defaultDimension: DefaultDimension
   setDefaultDimension: (dim: DefaultDimension) => void
+  viewStartMode: ViewStartMode
+  setViewStartMode: (mode: ViewStartMode) => void
 }
 
 export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSlice> = (set) => ({
@@ -49,5 +53,11 @@ export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSl
   setDefaultDimension: (dim) => {
     localStorage.setItem('taskflow-default-dimension', dim)
     set({ defaultDimension: dim })
+  },
+
+  viewStartMode: STORED_VIEW_START,
+  setViewStartMode: (mode) => {
+    localStorage.setItem('taskflow-view-start', mode)
+    set({ viewStartMode: mode })
   },
 })

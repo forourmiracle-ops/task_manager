@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import { useAppStore } from '@/store'
+import type { ViewStartMode } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
 import type { Task } from '@/types'
@@ -93,6 +94,46 @@ function addDays(date: Date, days: number): Date {
   return d
 }
 
+// Compute scroll target based on viewStartMode and dimension
+function getScrollTarget(
+  viewStartMode: ViewStartMode,
+  dimension: Dimension,
+  todayOffset: number,
+  startDate: Date,
+  dayWidth: number,
+): number {
+  const today = new Date()
+  if (viewStartMode === 'fromToday') {
+    return todayOffset * dayWidth
+  }
+  // periodStart: align to period boundary
+  switch (dimension) {
+    case 'week': {
+      const dayOfWeek = today.getDay()
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      return (todayOffset + mondayOffset) * dayWidth
+    }
+    case 'month': {
+      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+      return daysBetween(startDate, firstOfMonth) * dayWidth
+    }
+    case 'quarter': {
+      const quarterStart = Math.floor(today.getMonth() / 3) * 3
+      const firstOfQuarter = new Date(today.getFullYear(), quarterStart, 1)
+      return daysBetween(startDate, firstOfQuarter) * dayWidth
+    }
+    case 'halfyear': {
+      const halfStart = today.getMonth() < 6 ? 0 : 6
+      const firstOfHalf = new Date(today.getFullYear(), halfStart, 1)
+      return daysBetween(startDate, firstOfHalf) * dayWidth
+    }
+    case 'year': {
+      const firstOfYear = new Date(today.getFullYear(), 0, 1)
+      return daysBetween(startDate, firstOfYear) * dayWidth
+    }
+  }
+}
+
 // SVG dependency line renderer
 function DependencyLines({
   tasks,
@@ -180,7 +221,7 @@ function DependencyLines({
 }
 
 export function GanttView() {
-  const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension } = useAppStore()
+  const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension, viewStartMode, setViewStartMode } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
   const dateScrollRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
@@ -353,6 +394,8 @@ export function GanttView() {
         roots.push(node)
       }
     })
+    // Sort roots by sort_order to maintain stable order
+    roots.sort((a, b) => a.sort_order - b.sort_order)
 
     const filterExpanded = (list: Task[]): Task[] => {
       return list.flatMap((node) => {
@@ -371,18 +414,12 @@ export function GanttView() {
     const el = dateScrollRef.current
     if (!el || DAY_WIDTH <= 0) return
 
-    const scrollPos = (() => {
-      if (dimension === 'week' || dimension === 'month') {
-        return (todayOffset - 2) * DAY_WIDTH
-      }
-      const today = new Date()
-      return (todayOffset - today.getDay()) * DAY_WIDTH
-    })()
+    const scrollPos = getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
 
     requestAnimationFrame(() => {
       el.scrollLeft = Math.max(0, scrollPos)
     })
-  }, [todayOffset, dimension, DAY_WIDTH, allFlatTasks.length])
+  }, [todayOffset, dimension, DAY_WIDTH, allFlatTasks.length, viewStartMode])
 
   const totalWidth = totalDays * DAY_WIDTH
 
@@ -494,16 +531,18 @@ export function GanttView() {
         </select>
         <button
           type="button"
+          className="px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border rounded-full hover:bg-accent transition-colors"
+          onClick={() => setViewStartMode(viewStartMode === 'periodStart' ? 'fromToday' : 'periodStart')}
+          title={viewStartMode === 'periodStart' ? '当前：对齐周期边界' : '当前：从今日起算'}
+        >
+          {viewStartMode === 'periodStart' ? '周期对齐' : '今日起算'}
+        </button>
+        <button
+          type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
           onClick={() => {
             if (dateScrollRef.current && DAY_WIDTH > 0 && datePanelWidth > 0) {
-              let scrollPos: number
-              if (dimension === 'week' || dimension === 'month') {
-                scrollPos = (todayOffset - 2) * DAY_WIDTH
-              } else {
-                const today = new Date()
-                scrollPos = (todayOffset - today.getDay()) * DAY_WIDTH
-              }
+              const scrollPos = getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
               dateScrollRef.current.scrollLeft = Math.max(0, scrollPos)
             }
           }}

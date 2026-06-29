@@ -110,11 +110,24 @@ export function useUpdateTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: updateTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
+    onMutate: async (updated) => {
+      await queryClient.cancelQueries({ queryKey: [TASKS_KEY] })
+      const previous = queryClient.getQueryData<Task[]>([TASKS_KEY])
+      if (previous) {
+        queryClient.setQueryData<Task[]>([TASKS_KEY], (old) =>
+          old?.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)) ?? []
+        )
+      }
+      return { previous }
     },
-    onError: (err) => {
-      console.error('更新任务失败:', err)
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData([TASKS_KEY], context.previous)
+      }
+      console.error('更新任务失败:', _err)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
     },
   })
 }
