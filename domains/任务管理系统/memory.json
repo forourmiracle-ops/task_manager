@@ -1,7 +1,7 @@
 {
   "statistics": {
-    "total_tasks": 1,
-    "success_count": 1,
+    "total_tasks": 2,
+    "success_count": 2,
     "failed_count": 0,
     "total_tokens": 0,
     "total_duration_sec": 0
@@ -14,6 +14,14 @@
       "domain": "任务管理系统",
       "trace": "Read→分析代码→发现useEffect([])+early return race→提案callback ref方案→用户确认→Edit(3处)→Build→Push",
       "context": "isLoading=true时组件提前返回loading spinner，datePanelRef.current=null，useEffect([])执行后永久退出。数据加载后甘特图渲染但effect不再触发，datePanelWidth永久为0，DAY_WIDTH使用fallback 480px"
+    },
+    {
+      "timestamp": "2026-06-29 03:57:46",
+      "task_desc": "fix: 日期选择器上下按钮跳转问题第二轮修复 — 改用editingFieldRef.current直接判断字段类型替代document.activeElement检查",
+      "result": "success",
+      "domain": "任务管理系统",
+      "trace": "分析问题→发现activeElement不可靠→改用editingFieldRef→构建→推送",
+      "context": "原生日期选择器弹出层在浏览器顶层渲染，activeElement可能变化，改用ref直接判断字段类型更可靠"
     }
   ],
   "task_type_counts": {
@@ -27,6 +35,19 @@
         {
           "result": "success",
           "ts": "2026-06-28T22:46:25.782233"
+        }
+      ]
+    },
+    "fix: 日期选择器上下按钮跳转问题": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-29T03:57:46.796590"
         }
       ]
     }

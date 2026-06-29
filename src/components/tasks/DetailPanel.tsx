@@ -210,11 +210,16 @@ export function DetailPanel() {
 
     const handleMouseDown = (e: MouseEvent) => {
       try {
-        // For date fields, skip mousedown commit entirely. The native date picker
-        // calendar popup renders outside our DOM tree, so composedPath() won't
-        // include our editor element. Use Enter or click another field to commit.
+        // For date fields, the native date picker popup renders in the browser's
+        // top layer, outside document.body. Distinguish between calendar clicks
+        // (skip) and real clicks on our UI (commit).
         const field = editingFieldRef.current
-        if (field === 'start_date' || field === 'due_date') return
+        if (field === 'start_date' || field === 'due_date') {
+          if (e.target instanceof Node && document.body.contains(e.target)) {
+            commitEdit()
+          }
+          return
+        }
 
         // Check if click target is the editor element itself
         const target = e.target as Element
@@ -380,7 +385,7 @@ export function DetailPanel() {
               data-detail-editor
               autoFocus
               type="date"
-              value={val}
+              defaultValue={val}
               onChange={(e) => { setValidationError(null); setEditValue(e.target.value) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
