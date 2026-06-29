@@ -2,10 +2,12 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
+import { CommentSection } from '@/components/tasks/CommentSection'
+import { DependencyPicker } from '@/components/tasks/DependencyPicker'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 
 const MAX_DEPTH = 4
-type EditableField = 'title' | 'description' | 'status' | 'priority' | 'start_date' | 'due_date' | 'progress_percent' | 'estimated_hours' | 'tags'
+type EditableField = 'title' | 'description' | 'status' | 'priority' | 'start_date' | 'due_date' | 'progress_percent' | 'estimated_hours' | 'tags' | 'depends_on'
 
 export function DetailPanel() {
   const { selectedTaskId, setSelectedTaskId, detailPanelOpen, setDetailPanelOpen, startCreating } = useAppStore()
@@ -135,6 +137,15 @@ export function DetailPanel() {
           const currentTags = t.tags || []
           if (JSON.stringify(newTags) !== JSON.stringify(currentTags)) {
             payload.tags = newTags
+            changed = true
+          }
+          break
+        }
+        case 'depends_on': {
+          const ids = value ? (JSON.parse(value) as string[]) : []
+          const current = t.depends_on || []
+          if (JSON.stringify(ids) !== JSON.stringify(current)) {
+            payload.depends_on = ids
             changed = true
           }
           break
@@ -303,6 +314,7 @@ export function DetailPanel() {
         case 'progress_percent': value = String(task.progress_percent || 0); break
         case 'estimated_hours': value = task.estimated_hours ? String(task.estimated_hours) : ''; break
         case 'tags': value = (task.tags || []).join(', '); break
+        case 'depends_on': value = JSON.stringify(task.depends_on || []); break
       }
       setEditingField(field)
       setEditValue(value)
@@ -421,6 +433,14 @@ export function DetailPanel() {
             onChange={(e) => setEditValue(e.target.value)}
             placeholder="用逗号分隔"
             className={baseClass}
+          />
+        )
+      case 'depends_on':
+        return (
+          <DependencyPicker
+            taskId={taskRef.current?.id || ''}
+            selected={val ? (JSON.parse(val) as string[]) : []}
+            onChange={(ids) => { editValueRef.current = JSON.stringify(ids); setEditValue(JSON.stringify(ids)) }}
           />
         )
       default:
@@ -586,6 +606,26 @@ export function DetailPanel() {
           )}
         </Field>
 
+        <Field label="依赖任务" field="depends_on" fullWidth>
+          {(task.depends_on || []).length > 0 ? (
+            <ul className="space-y-0.5">
+              {task.depends_on!.map((depId) => {
+                const dep = tasks?.find((t) => t.id === depId)
+                return dep ? (
+                  <li key={depId} className="flex items-center gap-1.5 text-xs">
+                    <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', STATUS_COLORS[dep.status]?.replace(/bg-\S+/, '').trim() || 'bg-gray-300')} />
+                    <span className="truncate cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedTaskId(depId)}>
+                      {dep.title}
+                    </span>
+                  </li>
+                ) : null
+              })}
+            </ul>
+          ) : (
+            <span className="text-xs text-muted-foreground">点击添加依赖...</span>
+          )}
+        </Field>
+
         {/* Subtasks */}
         <div className="rounded-xl border border-border/50 bg-muted/20 p-3.5">
           <div className="flex items-center justify-between mb-2.5">
@@ -635,6 +675,9 @@ export function DetailPanel() {
           <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">层级路径</label>
           <TaskBreadcrumb taskId={task.id} tasks={tasks || []} onSelect={(id) => setSelectedTaskId(id)} />
         </div>
+
+        {/* Comments */}
+        <CommentSection taskId={task.id} />
       </div>
 
       {/* Footer */}
