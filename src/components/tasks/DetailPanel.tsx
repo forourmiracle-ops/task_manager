@@ -36,10 +36,12 @@ export function DetailPanel() {
   const [editValue, setEditValue] = useState('')
   const [savedField, setSavedField] = useState<EditableField | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
 
   // Refs to avoid stale closures
   const editingFieldRef = useRef<EditableField | null>(null)
   const editValueRef = useRef('')
+  const originalValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
   const committingRef = useRef(false)
   const isComposingRef = useRef(false)
@@ -211,6 +213,7 @@ export function DetailPanel() {
                 })
               },
               onSettled: () => { committingRef.current = false },
+              onError: () => { committingRef.current = false },
             })
             return
           }
@@ -262,13 +265,20 @@ export function DetailPanel() {
         const path = e.composedPath()
         const isInsideEditor = path.some((el) => {
           if (el instanceof Element) {
-            return el.hasAttribute?.('data-detail-editor')
+            return el.hasAttribute?.('data-detail-editor') || el.hasAttribute?.('data-save-confirm')
           }
           return false
         })
         if (isInsideEditor) return
 
-        commitEdit()
+        // Check if value changed — if so, show save confirm dialog
+        const current = editValueRef.current
+        if (current !== originalValueRef.current) {
+          setShowSaveConfirm(true)
+        } else {
+          setEditingField(null)
+          setEditValue('')
+        }
       } catch (err) {
         console.error('DetailPanel mousedown error:', err)
         setEditingField(null)
@@ -282,8 +292,13 @@ export function DetailPanel() {
           e.preventDefault()
           commitEdit()
         } else if (e.key === 'Escape') {
-          setEditingField(null)
-          setEditValue('')
+          const current = editValueRef.current
+          if (current !== originalValueRef.current) {
+            setShowSaveConfirm(true)
+          } else {
+            setEditingField(null)
+            setEditValue('')
+          }
         }
       } catch (err) {
         console.error('DetailPanel keyDown error:', err)
@@ -342,7 +357,9 @@ export function DetailPanel() {
       }
       setEditingField(field)
       setEditValue(value)
+      originalValueRef.current = value
       setValidationError(null)
+      setShowSaveConfirm(false)
     } catch (err) {
       console.error('startEditing error:', err)
     }
@@ -731,6 +748,52 @@ export function DetailPanel() {
           点击任意字段即可编辑，失焦或回车自动保存
         </p>
       </div>
+
+      {/* Save confirmation dialog */}
+      {showSaveConfirm && (
+        <div className="absolute inset-0 z-20 flex items-end justify-center bg-background/80 backdrop-blur-sm" data-save-confirm>
+          <div className="m-4 w-full border border-border rounded-xl bg-popover shadow-lg p-4">
+            <p className="text-sm font-semibold text-center mb-3">是否保存更改？</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowSaveConfirm(false)
+                  setEditingField(null)
+                  setEditValue('')
+                }}
+                className="flex-1 py-2 text-xs font-medium border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                放弃
+              </button>
+              <button
+                onClick={() => {
+                  setShowSaveConfirm(false)
+                  commitEdit()
+                  const t = taskRef.current
+                  if (t) {
+                    showDraftToast({
+                      message: '已保存为草稿',
+                      onUndo: () => {},
+                    })
+                  }
+                }}
+                className="flex-1 py-2 text-xs font-medium border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50 transition-colors"
+              >
+                保存为草稿
+              </button>
+              <button
+                onClick={() => {
+                  setShowSaveConfirm(false)
+                  commitEdit()
+                }}
+                className="flex-1 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 shadow-sm transition-all"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
