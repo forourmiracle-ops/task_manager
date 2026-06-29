@@ -385,8 +385,8 @@ export function DetailPanel() {
               data-detail-editor
               autoFocus
               type="date"
-              defaultValue={val}
-              onChange={(e) => { setValidationError(null); setEditValue(e.target.value) }}
+              value={val}
+              onChange={(e) => { editValueRef.current = e.target.value; setValidationError(null) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
                 baseClass,
