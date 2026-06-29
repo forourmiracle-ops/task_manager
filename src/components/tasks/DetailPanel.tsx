@@ -210,11 +210,21 @@ export function DetailPanel() {
 
     const handleMouseDown = (e: MouseEvent) => {
       try {
-        // Use composedPath() to penetrate shadow DOM (native date picker buttons)
+        // If a date input is focused, the user may be interacting with the native date picker
+        // calendar popup (which renders in the browser's top layer, outside our DOM tree).
+        // Don't commit on mousedown in this case — let Enter or switching fields handle it.
+        const activeEl = document.activeElement
+        if (activeEl instanceof HTMLInputElement && activeEl.type === 'date') return
+
+        // Check if click target is the editor element itself
+        const target = e.target as Element
+        if (target?.hasAttribute?.('data-detail-editor')) return
+
+        // Also check composedPath for other editors (textarea, select, etc.)
         const path = e.composedPath()
         const isInsideEditor = path.some((el) => {
           if (el instanceof Element) {
-            return el.closest?.('[data-detail-editor]') !== undefined
+            return el.hasAttribute?.('data-detail-editor')
           }
           return false
         })
@@ -371,7 +381,7 @@ export function DetailPanel() {
               autoFocus
               type="date"
               value={val}
-              onChange={(e) => { setValidationError(null); commitEdit(e.target.value) }}
+              onChange={(e) => { setValidationError(null); setEditValue(e.target.value) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit() } }}
               className={cn(
                 baseClass,
