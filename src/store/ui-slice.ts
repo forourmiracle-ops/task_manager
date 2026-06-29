@@ -15,6 +15,8 @@ export interface UISlice {
   setCreatingParentId: (id: string | null) => void
   startCreating: (parentId: string | null) => void
   stopCreating: () => void
+  importDialogOpen: boolean
+  setImportDialogOpen: (open: boolean) => void
 }
 
 export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
@@ -35,4 +37,7 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
   isCreating: false,
   startCreating: (parentId) => set({ isCreating: true, creatingParentId: parentId }),
   stopCreating: () => set({ isCreating: false, creatingParentId: null }),
+
+  importDialogOpen: false,
+  setImportDialogOpen: (open) => set({ importDialogOpen: open }),
 })

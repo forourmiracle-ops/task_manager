@@ -9,6 +9,8 @@ interface HierarchyTreeProps {
   onSelect: (id: string) => void
 }
 
+const MAX_DEPTH = 4
+
 export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
   const updateTask = useUpdateTask()
 
@@ -25,38 +27,27 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
     return chain
   }, [task, tasks])
 
-  // Get siblings at each level
-  const getSiblings = (parentId: string | null) =>
-    tasks.filter((t) => t.parent_id === parentId).sort((a, b) => a.sort_order - b.sort_order)
-
   // Get children of a task
   const getChildren = (taskId: string) =>
     tasks.filter((t) => t.parent_id === taskId).sort((a, b) => a.sort_order - b.sort_order)
 
-  const promoteOneLevel = (taskId: string) => {
-    const t = tasks.find((t) => t.id === taskId)
-    if (!t?.parent_id) return
-    const parent = tasks.find((p) => p.id === t.parent_id)
-    const grandparentId = parent?.parent_id || null
-    updateTask.mutate({ id: taskId, parent_id: grandparentId })
-  }
-
-  const promoteToRoot = (taskId: string) => {
-    updateTask.mutate({ id: taskId, parent_id: null })
+  const promoteToLevel = (taskId: string, targetParentId: string | null) => {
+    updateTask.mutate({ id: taskId, parent_id: targetParentId })
   }
 
   const moveToSibling = (taskId: string, siblingId: string) => {
-    const sibling = tasks.find((t) => t.id === siblingId)
-    if (!sibling) return
-    updateTask.mutate({ id: taskId, parent_id: sibling.id })
+    updateTask.mutate({ id: taskId, parent_id: siblingId })
   }
 
-  const renderNode = (t: Task, depth: number, isCurrent: boolean, isRoot: boolean) => {
-    const children = getChildren(t.id)
+  const renderNode = (t: Task, depth: number, isCurrent: boolean) => {
+    const nodeChildren = getChildren(t.id)
     const hasParent = !!t.parent_id
-    const canPromote = hasParent && !isRoot && !isCurrent
     const canPromoteToRoot = hasParent && !isCurrent
-    const siblings = getSiblings(t.parent_id || null)
+    const canPromoteOneLevel = hasParent && depth > 1 && !isCurrent
+
+    // For promotion: find the parent's parent
+    const parent = hasParent ? tasks.find((p) => p.id === t.parent_id) : null
+    const grandparentId = parent?.parent_id || null
 
     return (
       <div key={t.id}>
@@ -68,26 +59,26 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
           style={{ paddingLeft: depth * 18 + 8 }}
           onClick={() => !isCurrent && onSelect(t.id)}
         >
-          {/* Tree lines */}
+          {/* Tree connector */}
           {depth > 0 && (
-            <span className="text-muted-foreground/40 select-none flex-shrink-0">
-              {depth > 1 ? '│' : ''}
+            <span className="text-muted-foreground/30 select-none flex-shrink-0 text-[10px]">
+              {'├'}
             </span>
           )}
           <span className="flex-shrink-0 w-3 text-center text-[10px] text-muted-foreground/50">
-            {children.length > 0 ? '▸' : '·'}
+            {nodeChildren.length > 0 ? '▸' : '·'}
           </span>
 
           {/* Title */}
           <span className="truncate text-xs flex-1">{t.title}</span>
 
-          {/* Action buttons */}
+          {/* Action buttons — only on non-current nodes */}
           {!isCurrent && (
             <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              {canPromote && (
+              {canPromoteOneLevel && (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); promoteOneLevel(t.id) }}
+                  onClick={(e) => { e.stopPropagation(); promoteToLevel(t.id, grandparentId) }}
                   className="w-4 h-4 flex items-center justify-center rounded text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                   title="提升一级"
                 >
@@ -97,24 +88,23 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
               {canPromoteToRoot && (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); promoteToRoot(t.id) }}
+                  onClick={(e) => { e.stopPropagation(); promoteToLevel(t.id, null) }}
                   className="w-4 h-4 flex items-center justify-center rounded text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                   title="提升到顶层"
                 >
                   ↗
                 </button>
               )}
-              {siblings.length > 1 && (
+              {depth < MAX_DEPTH - 1 && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    const idx = siblings.findIndex((s) => s.id === t.id)
-                    const prev = idx > 0 ? siblings[idx - 1] : null
-                    if (prev) moveToSibling(t.id, prev.id)
+                    // Move current task under this node
+                    moveToSibling(task.id, t.id)
                   }}
                   className="w-4 h-4 flex items-center justify-center rounded text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                  title="移至同级"
+                  title="移至其下"
                 >
                   →
                 </button>
@@ -123,19 +113,134 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
           )}
         </div>
 
-        {/* Children */}
-        {children.map((child) => {
-          const isCurrentChild = child.id === task.id
-          return renderNode(child, depth + 1, isCurrentChild, false)
-        })}
+        {/* Render children recursively — but only expand for ancestors and current task */}
+        {(isCurrent || ancestors.some((a) => a.id === t.id)) && nodeChildren.length > 0 && (
+          nodeChildren.map((child) => {
+            const isCurrentChild = child.id === task.id
+            const isAncestor = ancestors.some((a) => a.id === child.id)
+            return renderNode(child, depth + 1, isCurrentChild || isAncestor)
+          })
+        )}
       </div>
     )
   }
 
-  // Render: root-level siblings of ancestors, then ancestors, then current task, then children
-  const rootSiblings = getSiblings(null)
-  const currentSiblings = getSiblings(task.parent_id || null)
-  const children = getChildren(task.id)
+  // Build the full chain from root to current task
+  // Find the root of the ancestor chain
+  const rootId = ancestors.length > 0 ? ancestors[0].id : task.id
+  const root = tasks.find((t) => t.id === rootId) || task
+
+  // Render from root, expanding the ancestor chain
+  const renderAncestorChain = (t: Task, depth: number): React.ReactNode => {
+    const isCurrent = t.id === task.id
+    const isAncestor = ancestors.some((a) => a.id === t.id)
+    const nodeChildren = getChildren(t.id)
+
+    // Find the next ancestor in the chain
+    const nextAncestor = ancestors.find((a) => {
+      // Check if this ancestor is a child of the current node
+      return a.parent_id === t.id
+    })
+
+    return (
+      <div key={t.id}>
+        <div
+          className={cn(
+            'flex items-center gap-1.5 py-1 px-2 rounded-md transition-colors group',
+            isCurrent ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-accent/50 cursor-pointer',
+          )}
+          style={{ paddingLeft: depth * 18 + 8 }}
+          onClick={() => !isCurrent && onSelect(t.id)}
+        >
+          {depth > 0 && (
+            <span className="text-muted-foreground/30 select-none flex-shrink-0 text-[10px]">
+              {'├'}
+            </span>
+          )}
+          <span className="flex-shrink-0 w-3 text-center text-[10px] text-muted-foreground/50">
+            {nodeChildren.length > 0 ? '▸' : '·'}
+          </span>
+          <span className="truncate text-xs flex-1">{t.title}</span>
+
+          {/* Action buttons — only on non-current nodes */}
+          {!isCurrent && (
+            <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {depth > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); promoteToLevel(t.id, null) }}
+                  className="w-4 h-4 flex items-center justify-center rounded text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  title="提升到顶层"
+                >
+                  ↗
+                </button>
+              )}
+              {depth < MAX_DEPTH - 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    moveToSibling(task.id, t.id)
+                  }}
+                  className="w-4 h-4 flex items-center justify-center rounded text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  title="移至其下"
+                >
+                  →
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+
+        {/* Render children: only ancestors and the current task's children */}
+        {nodeChildren
+          .filter((child) => {
+            // Show if it's the next ancestor in the chain, or if it's the current task
+            return child.id === nextAncestor?.id || child.id === task.id
+          })
+          .map((child) => {
+            if (child.id === task.id) {
+              // Current task: show with its children
+              return renderNodeWithChildren(child, depth + 1)
+            }
+            // Next ancestor: continue the chain
+            return renderAncestorChain(child, depth + 1)
+          })}
+      </div>
+    )
+  }
+
+  // Render current task with its children
+  const renderNodeWithChildren = (t: Task, depth: number) => {
+    const nodeChildren = getChildren(t.id)
+    const isCurrent = t.id === task.id
+
+    return (
+      <div key={t.id}>
+        <div
+          className={cn(
+            'flex items-center gap-1.5 py-1 px-2 rounded-md transition-colors',
+            isCurrent ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-accent/50 cursor-pointer',
+          )}
+          style={{ paddingLeft: depth * 18 + 8 }}
+          onClick={() => !isCurrent && onSelect(t.id)}
+        >
+          {depth > 0 && (
+            <span className="text-muted-foreground/30 select-none flex-shrink-0 text-[10px]">
+              {'├'}
+            </span>
+          )}
+          <span className="flex-shrink-0 w-3 text-center text-[10px] text-muted-foreground/50">
+            {nodeChildren.length > 0 ? '▸' : '·'}
+          </span>
+          <span className="truncate text-xs flex-1">{t.title}</span>
+        </div>
+
+        {/* Current task's children */}
+        {isCurrent && nodeChildren.map((child) => renderNode(child, depth + 1, false))}
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-border/50 bg-muted/20 p-3.5">
@@ -143,19 +248,7 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
         层级调整
       </label>
       <div className="space-y-0">
-        {/* Root-level siblings (ancestors' siblings) */}
-        {rootSiblings.map((t) => {
-          const isAncestor = ancestors.some((a) => a.id === t.id)
-          return renderNode(t, 0, t.id === task.id, isAncestor)
-        })}
-
-        {/* Current task's siblings */}
-        {currentSiblings
-          .filter((t) => !rootSiblings.some((r) => r.id === t.id))
-          .map((t) => renderNode(t, 1, t.id === task.id, false))}
-
-        {/* Children of current task */}
-        {children.map((child) => renderNode(child, 2, false, false))}
+        {renderAncestorChain(root, 0)}
       </div>
     </div>
   )

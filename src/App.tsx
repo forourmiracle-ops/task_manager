@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { GanttView } from '@/components/gantt/GanttView'
@@ -9,6 +9,9 @@ import { SettingsView } from '@/components/settings/SettingsView'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
 import { DraftToastContainer } from '@/components/ui/DraftToast'
+import { ImportDialog } from '@/components/ui/ImportDialog'
+import { CheatSheet } from '@/components/ui/CheatSheet'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import type { ViewType } from '@/types'
 
 const VIEW_LABELS: Record<ViewType, { label: string; icon: React.ReactNode }> = {
@@ -65,23 +68,27 @@ export default function App() {
     sidebarOpen,
     setSidebarOpen,
     startCreating,
+    importDialogOpen,
+    setImportDialogOpen,
   } = useAppStore()
 
-  // Keyboard shortcuts
+  useKeyboardShortcuts()
+
+  const [cheatSheetOpen, setCheatSheetOpen] = useState(false)
+
+  // ? key to open cheat sheet
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'n' && e.ctrlKey) {
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        const target = e.target as HTMLElement
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
         e.preventDefault()
-        startCreating(null)
-      }
-      if (e.key === 'b' && e.ctrlKey) {
-        e.preventDefault()
-        setSidebarOpen(!sidebarOpen)
+        setCheatSheetOpen((prev) => !prev)
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sidebarOpen, setSidebarOpen, startCreating])
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const renderView = () => {
     switch (currentView) {
@@ -188,6 +195,12 @@ export default function App() {
 
       {/* Draft Toast */}
       <DraftToastContainer />
+
+      {/* CheatSheet */}
+      <CheatSheet open={cheatSheetOpen} onClose={() => setCheatSheetOpen(false)} />
+
+      {/* Import Dialog */}
+      <ImportDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} />
     </div>
   )
 }

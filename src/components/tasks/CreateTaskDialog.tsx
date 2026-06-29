@@ -19,6 +19,7 @@ export function CreateTaskDialog() {
   const [estimatedHours, setEstimatedHours] = useState('')
   const [tags, setTags] = useState('')
   const [dateError, setDateError] = useState<string | null>(null)
+  const [keepOpen, setKeepOpen] = useState(false)
 
   const titleRef = useRef<HTMLInputElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -81,7 +82,11 @@ export function CreateTaskDialog() {
       {
         onSuccess: () => {
           resetForm()
-          stopCreating()
+          if (keepOpen) {
+            setTimeout(() => titleRef.current?.focus(), 50)
+          } else {
+            stopCreating()
+          }
         },
       }
     )
@@ -280,13 +285,24 @@ export function CreateTaskDialog() {
             disabled={!title.trim() || createTask.isPending}
             className="flex-1 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 shadow-sm transition-all"
           >
-            {createTask.isPending ? '创建中...' : '创建'}
+            {createTask.isPending ? '创建中...' : keepOpen ? '保存并继续' : '创建'}
           </button>
         </div>
 
-        <p className="text-[10px] text-muted-foreground text-center pb-2.5">
-          Ctrl+Enter 快速创建 · Esc 取消
-        </p>
+        <div className="flex items-center justify-between px-4 pb-2.5">
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={keepOpen}
+              onChange={(e) => setKeepOpen(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-border accent-primary cursor-pointer"
+            />
+            连续添加
+          </label>
+          <span className="text-[10px] text-muted-foreground">
+            Ctrl+Enter 快速创建 · Esc 取消
+          </span>
+        </div>
       </div>
     </div>
   )

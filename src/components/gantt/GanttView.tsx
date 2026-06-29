@@ -1,9 +1,12 @@
 import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
 import type { ViewStartMode } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
 import { useUpdateTask } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
+import { showDraftToast } from '@/components/ui/DraftToast'
+import { exportToCSV, exportToJSON, downloadFile } from '@/lib/export'
 import type { Task } from '@/types'
 
 type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
@@ -224,7 +227,7 @@ function DependencyLines({
 const goTodayLabels = ['回到今天', '今日置首', '回到今天']
 
 export function GanttView() {
-  const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension, viewStartMode, setViewStartMode } = useAppStore()
+  const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension, viewStartMode, setViewStartMode, setImportDialogOpen } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
   const updateTask = useUpdateTask()
   const updateTaskRef = useRef(updateTask)
@@ -289,6 +292,31 @@ export function GanttView() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [goTodayStage, setGoTodayStage] = useState(0) // 0=idle, 1=centered, 2=first
   const goTodayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Drag state for visual feedback — ref for immediate access during sync drag events
+  interface DragState {
+    sourceId: string
+    targetIdx: number | null
+  }
+  const dragStateRef = useRef<DragState | null>(null)
+  const [dragState, setDragState] = useState<DragState | null>(null)
+
+  const updateDragState = (next: DragState | null | ((prev: DragState | null) => DragState | null)) => {
+    const resolved = typeof next === 'function' ? next(dragStateRef.current) : next
+    dragStateRef.current = resolved
+    setDragState(resolved)
+  }
+
+  // Drag undo snapshot
+  interface DragSnapshot {
+    sourceId: string
+    oldSortOrder: number
+    oldParentId: string | null
+  }
+  const dragSnapshotRef = useRef<DragSnapshot | null>(null)
+
+  // Export dropdown
+  const [showExportMenu, setShowExportMenu] = useState(false)
 
   // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
@@ -366,6 +394,32 @@ export function GanttView() {
     setExpandedIds(new Set(taskIds))
   }, [taskIds])
 
+  // Ctrl+Z to undo last drag
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        const snap = dragSnapshotRef.current
+        if (!snap) return
+        // Don't prevent default if inside an input/textarea
+        const target = e.target as HTMLElement
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
+        e.preventDefault()
+        updateTask.mutate({
+          id: snap.sourceId,
+          sort_order: snap.oldSortOrder,
+          parent_id: snap.oldParentId,
+        })
+        showDraftToast({
+          message: '已撤销拖拽排序',
+          onUndo: () => {},
+        })
+        dragSnapshotRef.current = null
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [updateTask])
+
   // Visible date range from scroll position
   const viewportRange = useMemo(() => {
     if (!scrollWidth) return { start: startDate, end: endDate }
@@ -416,8 +470,17 @@ export function GanttView() {
     return flattenTasks(filterExpanded(roots)).sort((a, b) => a.sort_order - b.sort_order)
   }, [allFlatTasks, viewportRange, expandedIds])
 
+  // Virtual list for performance
+  const virtualizer = useVirtualizer({
+    count: visibleTasks.length,
+    getScrollElement: () => taskListRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 5,
+  })
+  const virtualItems = virtualizer.getVirtualItems()
+
   // Scroll to today on first load and when dimension/size/data changes.
-  // rAF delays scrollLeft by one frame so browser finishes layout first.
+  // Double rAF ensures browser finishes layout (scrollWidth may not be updated yet).
   useLayoutEffect(() => {
     const el = dateScrollRef.current
     if (!el || DAY_WIDTH <= 0) return
@@ -425,7 +488,9 @@ export function GanttView() {
     const scrollPos = getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
 
     requestAnimationFrame(() => {
-      el.scrollLeft = Math.max(0, scrollPos)
+      requestAnimationFrame(() => {
+        el.scrollLeft = Math.max(0, scrollPos)
+      })
     })
   }, [todayOffset, dimension, DAY_WIDTH, allFlatTasks.length, viewStartMode])
 
@@ -545,6 +610,47 @@ export function GanttView() {
         >
           {viewStartMode === 'periodStart' ? '周期对齐' : '今日起算'}
         </button>
+        {/* Export dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            className="px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border rounded-full hover:bg-accent transition-colors"
+            onClick={() => setShowExportMenu(!showExportMenu)}
+          >
+            导出
+          </button>
+          {showExportMenu && (
+            <div className="absolute top-full right-0 mt-1 border border-border rounded-lg bg-background shadow-lg z-30 py-1 min-w-[100px]">
+              <button
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-accent transition-colors"
+                onClick={() => {
+                  downloadFile(exportToCSV(allFlatTasks), 'tasks.csv', 'text/csv;charset=utf-8')
+                  setShowExportMenu(false)
+                }}
+              >
+                CSV 格式
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-accent transition-colors"
+                onClick={() => {
+                  downloadFile(exportToJSON(allFlatTasks), 'tasks.json', 'application/json')
+                  setShowExportMenu(false)
+                }}
+              >
+                JSON 格式
+              </button>
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          className="px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border rounded-full hover:bg-accent transition-colors"
+          onClick={() => setImportDialogOpen(true)}
+        >
+          导入
+        </button>
         <button
           type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
@@ -587,14 +693,17 @@ export function GanttView() {
 
           <div
             ref={taskListRef}
-            className="flex-1 overflow-hidden"
+            className="flex-1 overflow-auto"
             onScroll={(e) => {
               if (dateScrollRef.current) {
                 dateScrollRef.current.scrollTop = (e.target as HTMLElement).scrollTop
               }
             }}
           >
-            {visibleTasks.map((task, idx) => {
+            <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+              {virtualItems.map((virtualItem) => {
+                const task = visibleTasks[virtualItem.index]
+                const idx = virtualItem.index
               const isSelected = selectedTaskId === task.id
               const depth = task.depth ?? 0
               const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
@@ -614,26 +723,57 @@ export function GanttView() {
                     e.dataTransfer.setDragImage(img, 0, 0)
                     e.dataTransfer.effectAllowed = 'move'
                     e.dataTransfer.setData('text/plain', task.id)
+                    updateDragState({ sourceId: task.id, targetIdx: null })
                   }}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    const cur = dragStateRef.current
+                    if (cur?.sourceId !== task.id) {
+                      updateDragState({ sourceId: cur?.sourceId || '', targetIdx: idx })
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragStateRef.current?.targetIdx === idx) {
+                      updateDragState(prev => prev ? { ...prev, targetIdx: null } : null)
+                    }
+                  }}
+                  onDragEnd={() => updateDragState(null)}
                   onDrop={(e) => {
                     e.preventDefault()
+                    updateDragState(null)
                     const sourceId = e.dataTransfer.getData('text/plain')
                     if (sourceId === task.id) return
                     const sourceIdx = visibleTasks.findIndex(t => t.id === sourceId)
                     const targetIdx = visibleTasks.findIndex(t => t.id === task.id)
                     if (sourceIdx === -1 || targetIdx === -1) return
+
+                    // Save snapshot for undo
+                    const sourceTask = visibleTasks.find(t => t.id === sourceId)
+                    if (sourceTask) {
+                      dragSnapshotRef.current = {
+                        sourceId,
+                        oldSortOrder: sourceTask.sort_order,
+                        oldParentId: sourceTask.parent_id || null,
+                      }
+                    }
+
                     const prevTask = targetIdx > 0 ? visibleTasks[targetIdx - 1] : null
                     const newSort = prevTask ? (prevTask.sort_order + task.sort_order) / 2 : task.sort_order - 1
                     updateTaskRef.current?.mutate({ id: sourceId, sort_order: newSort, parent_id: task.parent_id })
                   }}
                   className={cn(
                     'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative',
-                    isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                    isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5',
+                    dragState?.sourceId === task.id && 'opacity-40 border-2 border-dashed border-primary',
                   )}
-                  style={{ height: ROW_HEIGHT }}
+                  style={{ position: 'absolute', top: `${virtualItem.start}px`, left: 0, width: '100%', height: ROW_HEIGHT }}
                   onClick={() => handleTaskClick(task.id)}
                 >
+                  {/* Drag insertion indicator */}
+                  {dragState?.targetIdx === idx && dragState.sourceId !== task.id && (
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-20 rounded-full" />
+                  )}
                   {/* Child tree connector line */}
                   {isChild && (
                     <div className="absolute left-0 top-0 bottom-0 border-l-2 border-muted-foreground/20" style={{ left: 12 + (depth - 1) * 16 }} />
@@ -698,6 +838,7 @@ export function GanttView() {
               </div>
             )}
           </div>
+          </div>
         </div>
 
         {/* ====== RIGHT PANEL: Unified scroll container ====== */}
@@ -759,7 +900,7 @@ export function GanttView() {
               </div>
 
               {/* Bar area */}
-              <div style={{ height: visibleTasks.length * ROW_HEIGHT, position: 'relative' }}>
+              <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                 {/* Dependency lines SVG overlay */}
                 <DependencyLines
                   tasks={visibleTasks}
@@ -788,7 +929,9 @@ export function GanttView() {
                 )}
 
                 {/* Task bars */}
-                {visibleTasks.map((task, idx) => {
+                {virtualItems.map((virtualItem) => {
+                  const task = visibleTasks[virtualItem.index]
+                  const idx = virtualItem.index
                   const { left, width } = getTaskBarStyle(task)
                   const isSelected = selectedTaskId === task.id
                   const progressPercent = task.progress_percent || 0
@@ -819,25 +962,56 @@ export function GanttView() {
                         e.dataTransfer.setDragImage(img, 0, 0)
                         e.dataTransfer.effectAllowed = 'move'
                         e.dataTransfer.setData('text/plain', task.id)
+                        updateDragState({ sourceId: task.id, targetIdx: null })
                       }}
-                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        const cur = dragStateRef.current
+                        if (cur?.sourceId !== task.id) {
+                          updateDragState({ sourceId: cur?.sourceId || '', targetIdx: idx })
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragStateRef.current?.targetIdx === idx) {
+                          updateDragState(prev => prev ? { ...prev, targetIdx: null } : null)
+                        }
+                      }}
+                      onDragEnd={() => updateDragState(null)}
                       onDrop={(e) => {
                         e.preventDefault()
+                        updateDragState(null)
                         const sourceId = e.dataTransfer.getData('text/plain')
                         if (sourceId === task.id) return
                         const sourceIdx = visibleTasks.findIndex(t => t.id === sourceId)
                         const targetIdx = visibleTasks.findIndex(t => t.id === task.id)
                         if (sourceIdx === -1 || targetIdx === -1) return
+
+                        // Save snapshot for undo
+                        const sourceTask = visibleTasks.find(t => t.id === sourceId)
+                        if (sourceTask) {
+                          dragSnapshotRef.current = {
+                            sourceId,
+                            oldSortOrder: sourceTask.sort_order,
+                            oldParentId: sourceTask.parent_id || null,
+                          }
+                        }
+
                         const prevTask = targetIdx > 0 ? visibleTasks[targetIdx - 1] : null
                         const newSort = prevTask ? (prevTask.sort_order + task.sort_order) / 2 : task.sort_order - 1
                         updateTaskRef.current?.mutate({ id: sourceId, sort_order: newSort, parent_id: task.parent_id })
                       }}
                       className={cn(
                         'border-b border-border/50 transition-colors relative',
-                        idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                        idx % 2 === 0 ? 'bg-background' : 'bg-muted/5',
+                        dragState?.sourceId === task.id && 'opacity-40 border-2 border-dashed border-primary',
                       )}
-                      style={{ height: ROW_HEIGHT }}
+                      style={{ position: 'absolute', top: `${virtualItem.start}px`, left: 0, width: '100%', height: ROW_HEIGHT }}
                     >
+                      {/* Drag insertion indicator */}
+                      {dragState?.targetIdx === idx && dragState.sourceId !== task.id && (
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-20 rounded-full" />
+                      )}
                       {/* Weekend/holiday shading */}
                       {Array.from({ length: totalDays }).map((_, i) => {
                         const d = new Date(startDate)
