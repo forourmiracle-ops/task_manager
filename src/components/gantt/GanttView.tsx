@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } fr
 import { useAppStore } from '@/store'
 import type { ViewStartMode } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
+import { useUpdateTask } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
 import type { Task } from '@/types'
 
@@ -220,9 +221,14 @@ function DependencyLines({
   )
 }
 
+const goTodayLabels = ['回到今天', '今日置首', '回到今天']
+
 export function GanttView() {
   const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension, viewStartMode, setViewStartMode } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
+  const updateTask = useUpdateTask()
+  const updateTaskRef = useRef(updateTask)
+  updateTaskRef.current = updateTask
   const dateScrollRef = useRef<HTMLDivElement>(null)
   const taskListRef = useRef<HTMLDivElement>(null)
   const datePanelRef = useRef<HTMLDivElement>(null)
@@ -281,6 +287,8 @@ export function GanttView() {
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollWidth, setScrollWidth] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [goTodayStage, setGoTodayStage] = useState(0) // 0=idle, 1=centered, 2=first
+  const goTodayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Scale dimensions by font size (1-8). At 4 -> ~1.0
   const scale = useMemo(() => 0.55 + fontSize * 0.12, [fontSize])
@@ -405,7 +413,7 @@ export function GanttView() {
       })
     }
 
-    return flattenTasks(filterExpanded(roots))
+    return flattenTasks(filterExpanded(roots)).sort((a, b) => a.sort_order - b.sort_order)
   }, [allFlatTasks, viewportRange, expandedIds])
 
   // Scroll to today on first load and when dimension/size/data changes.
@@ -541,13 +549,25 @@ export function GanttView() {
           type="button"
           className="px-3 py-1 text-[11px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 transition-colors"
           onClick={() => {
-            if (dateScrollRef.current && DAY_WIDTH > 0 && datePanelWidth > 0) {
-              const scrollPos = getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
-              dateScrollRef.current.scrollLeft = Math.max(0, scrollPos)
+            if (!dateScrollRef.current || DAY_WIDTH <= 0 || datePanelWidth <= 0) return
+            if (goTodayTimerRef.current) clearTimeout(goTodayTimerRef.current)
+
+            const next = (goTodayStage + 1) % 3
+            setGoTodayStage(next)
+
+            const base = getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
+            if (next === 1) {
+              // First click: center today
+              dateScrollRef.current.scrollLeft = Math.max(0, base - datePanelWidth / 2 + DAY_WIDTH / 2)
+            } else {
+              // Second click: today as first item
+              dateScrollRef.current.scrollLeft = Math.max(0, base)
             }
+
+            goTodayTimerRef.current = setTimeout(() => setGoTodayStage(0), 300)
           }}
         >
-          回到今天
+          {goTodayLabels[goTodayStage]}
         </button>
       </div>
 
@@ -588,6 +608,25 @@ export function GanttView() {
                 <div
                   key={task.id}
                   data-task-row
+                  draggable
+                  onDragStart={(e) => {
+                    const img = new Image(); img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs='
+                    e.dataTransfer.setDragImage(img, 0, 0)
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('text/plain', task.id)
+                  }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const sourceId = e.dataTransfer.getData('text/plain')
+                    if (sourceId === task.id) return
+                    const sourceIdx = visibleTasks.findIndex(t => t.id === sourceId)
+                    const targetIdx = visibleTasks.findIndex(t => t.id === task.id)
+                    if (sourceIdx === -1 || targetIdx === -1) return
+                    const prevTask = targetIdx > 0 ? visibleTasks[targetIdx - 1] : null
+                    const newSort = prevTask ? (prevTask.sort_order + task.sort_order) / 2 : task.sort_order - 1
+                    updateTaskRef.current?.mutate({ id: sourceId, sort_order: newSort, parent_id: task.parent_id })
+                  }}
                   className={cn(
                     'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative',
                     isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'
@@ -774,6 +813,25 @@ export function GanttView() {
                   return (
                     <div
                       key={task.id}
+                      draggable
+                      onDragStart={(e) => {
+                        const img = new Image(); img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs='
+                        e.dataTransfer.setDragImage(img, 0, 0)
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('text/plain', task.id)
+                      }}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        const sourceId = e.dataTransfer.getData('text/plain')
+                        if (sourceId === task.id) return
+                        const sourceIdx = visibleTasks.findIndex(t => t.id === sourceId)
+                        const targetIdx = visibleTasks.findIndex(t => t.id === task.id)
+                        if (sourceIdx === -1 || targetIdx === -1) return
+                        const prevTask = targetIdx > 0 ? visibleTasks[targetIdx - 1] : null
+                        const newSort = prevTask ? (prevTask.sort_order + task.sort_order) / 2 : task.sort_order - 1
+                        updateTaskRef.current?.mutate({ id: sourceId, sort_order: newSort, parent_id: task.parent_id })
+                      }}
                       className={cn(
                         'border-b border-border/50 transition-colors relative',
                         idx % 2 === 0 ? 'bg-background' : 'bg-muted/5'

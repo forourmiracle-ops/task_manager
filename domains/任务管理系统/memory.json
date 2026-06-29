@@ -1,10 +1,10 @@
 {
   "statistics": {
-    "total_tasks": 4,
-    "success_count": 4,
+    "total_tasks": 5,
+    "success_count": 5,
     "failed_count": 0,
     "total_tokens": 0,
-    "total_duration_sec": 2635
+    "total_duration_sec": 6919
   },
   "recent_tasks": [
     {
@@ -38,6 +38,14 @@
       "domain": "任务管理系统",
       "trace": "Read→Write→Edit→tsc→vite→git→push",
       "context": "基于Gemini三维度分析精选4个改造项，全部完成并通过构建验证"
+    },
+    {
+      "timestamp": "2026-06-29 12:41:22",
+      "task_desc": "UX修复：中文输入法composition事件+甘特图乐观更新+草稿暂存DraftToast+视图起始模式全局设置",
+      "result": "success",
+      "domain": "任务管理系统",
+      "trace": "Read→Edit→Write→tsc→vite→git→push",
+      "context": "四个问题均为用户反馈的实际体验问题，设计方案均通过brainstorming流程确认"
     }
   ],
   "task_type_counts": {
@@ -90,6 +98,19 @@
         {
           "result": "success",
           "ts": "2026-06-29T11:29:58.082240"
+        }
+      ]
+    },
+    "UX修复：中文输入法composit": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-06-29T12:41:22.843148"
         }
       ]
     }

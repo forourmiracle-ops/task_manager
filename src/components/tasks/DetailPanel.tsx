@@ -4,6 +4,7 @@ import { useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
 import { CommentSection } from '@/components/tasks/CommentSection'
 import { DependencyPicker } from '@/components/tasks/DependencyPicker'
+import { HierarchyTree } from '@/components/tasks/HierarchyTree'
 import { showDraftToast } from '@/components/ui/DraftToast'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 
@@ -195,24 +196,22 @@ export function DetailPanel() {
           if (conflictMessage) {
             // Save as draft despite conflict
             setValidationError(conflictMessage)
-            const payload = buildPayload(field, value)
+            const payload = buildPayload(field, value) || { id: t.id, [field]: value || null }
             const oldValue = field === 'start_date' ? (t.start_date || '') : (t.due_date || '')
             setEditingField(null)
             setEditValue('')
-            committingRef.current = false
 
-            if (payload) {
-              updateTask.mutate(payload, {
-                onSuccess: () => {
-                  showDraftToast({
-                    message: `日期与父任务冲突：${conflictMessage}`,
-                    onUndo: () => {
-                      updateTask.mutate({ id: t.id, [field]: oldValue || null } as Partial<Task> & { id: string })
-                    },
-                  })
-                },
-              })
-            }
+            updateTask.mutate(payload as Partial<Task> & { id: string }, {
+              onSuccess: () => {
+                showDraftToast({
+                  message: `日期与父任务冲突：${conflictMessage}`,
+                  onUndo: () => {
+                    updateTask.mutate({ id: t.id, [field]: oldValue || null } as Partial<Task> & { id: string })
+                  },
+                })
+              },
+              onSettled: () => { committingRef.current = false },
+            })
             return
           }
         }
@@ -709,11 +708,12 @@ export function DetailPanel() {
           )}
         </div>
 
-        {/* Breadcrumb */}
-        <div className="rounded-xl border border-border/50 bg-muted/20 p-3.5">
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">层级路径</label>
-          <TaskBreadcrumb taskId={task.id} tasks={tasks || []} onSelect={(id) => setSelectedTaskId(id)} />
-        </div>
+        {/* Hierarchy tree */}
+        <HierarchyTree
+          task={task}
+          tasks={tasks || []}
+          onSelect={(id) => setSelectedTaskId(id)}
+        />
 
         {/* Comments */}
         <CommentSection taskId={task.id} />
@@ -732,43 +732,5 @@ export function DetailPanel() {
         </p>
       </div>
     </aside>
-  )
-}
-
-function TaskBreadcrumb({
-  taskId,
-  tasks,
-  onSelect,
-}: {
-  taskId: string
-  tasks: Task[]
-  onSelect: (id: string) => void
-}) {
-  const path = useMemo(() => {
-    const result: Task[] = []
-    let current = tasks.find((t) => t.id === taskId)
-    while (current) {
-      result.unshift(current)
-      current = current.parent_id ? tasks.find((t) => t.id === current!.parent_id) : undefined
-    }
-    return result
-  }, [taskId, tasks])
-
-  if (path.length === 0) return null
-
-  return (
-    <div className="flex flex-wrap items-center gap-1 mt-1.5">
-      {path.map((t, i) => (
-        <div key={t.id} className="flex items-center gap-1">
-          <button
-            onClick={() => onSelect(t.id)}
-            className="text-xs text-primary hover:underline truncate max-w-[120px] font-semibold"
-          >
-            {t.title}
-          </button>
-          {i < path.length - 1 && <span className="text-muted-foreground text-xs">/</span>}
-        </div>
-      ))}
-    </div>
   )
 }
