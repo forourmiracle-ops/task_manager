@@ -103,7 +103,7 @@ export function DependencyPicker({ taskId, selected, onChange }: DependencyPicke
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+        <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-[hsl(var(--card))] shadow-lg">
           {available.length === 0 ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">
               {search ? '无匹配任务' : '无可用任务'}
