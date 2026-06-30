@@ -336,14 +336,18 @@ export function GanttView() {
   const HEADER_HEIGHT = useMemo(() => Math.round(66 * scale), [scale])
   const MONTH_HEADER_HEIGHT = useMemo(() => Math.round(28 * scale), [scale])
 
-  // Sync dimension with defaultDimension setting
+  // Sync dimension with defaultDimension setting — only on explicit defaultDimension changes, not autoDimension
+  const prevDefaultDimRef = useRef(defaultDimension)
   useEffect(() => {
-    if (defaultDimension === 'auto') {
-      setDimension(autoDimension)
-    } else {
-      setDimension(defaultDimension as Dimension)
+    if (defaultDimension !== prevDefaultDimRef.current) {
+      prevDefaultDimRef.current = defaultDimension
+      if (defaultDimension === 'auto') {
+        setDimension(autoDimension)
+      } else {
+        setDimension(defaultDimension as Dimension)
+      }
     }
-  }, [defaultDimension, autoDimension])
+  }, [defaultDimension])
 
   // Chart range: 10 years for true infinite scrolling (today - 5yr to today + 5yr)
   const { startDate, endDate, totalDays, monthHeaders, todayOffset } = useMemo<{
@@ -456,8 +460,8 @@ export function GanttView() {
         roots.push(node)
       }
     })
-    // Sort roots by sort_order to maintain stable order
-    roots.sort((a, b) => a.sort_order - b.sort_order)
+    // Sort roots by sort_order to maintain stable order, tiebreak by id
+    roots.sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id))
 
     const filterExpanded = (list: Task[]): Task[] => {
       return list.flatMap((node) => {
@@ -467,7 +471,7 @@ export function GanttView() {
       })
     }
 
-    return flattenTasks(filterExpanded(roots)).sort((a, b) => a.sort_order - b.sort_order)
+    return flattenTasks(filterExpanded(roots)).sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id))
   }, [allFlatTasks, viewportRange, expandedIds])
 
   // Virtual list for performance
