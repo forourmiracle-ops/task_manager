@@ -62,8 +62,8 @@ export function DraftToastContainer() {
     <div
       ref={containerRef}
       className={cn(
-        'fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-amber-200 bg-amber-50/95 backdrop-blur-sm shadow-lg px-4 py-3 flex items-start gap-3 transition-all duration-300 ease-out',
-        visible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+        'fixed top-1/4 left-1/2 -translate-x-1/2 z-50 max-w-sm rounded-xl border border-amber-200 bg-amber-50/95 backdrop-blur-sm shadow-lg px-4 py-3 flex items-start gap-3 transition-all duration-300 ease-out',
+        visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
       )}
     >
       {/* Icon */}
