@@ -460,8 +460,12 @@ export function GanttView() {
         roots.push(node)
       }
     })
-    // Sort roots by sort_order to maintain stable order, tiebreak by id
-    roots.sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id))
+    // Sort roots by sort_order, then sort children recursively
+    const sortChildren = (list: Task[]) => {
+      list.sort((a, b) => a.sort_order - b.sort_order)
+      list.forEach((n) => { if (n.children?.length) sortChildren(n.children) })
+    }
+    sortChildren(roots)
 
     const filterExpanded = (list: Task[]): Task[] => {
       return list.flatMap((node) => {
@@ -471,7 +475,7 @@ export function GanttView() {
       })
     }
 
-    return flattenTasks(filterExpanded(roots)).sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id))
+    return flattenTasks(filterExpanded(roots))
   }, [allFlatTasks, viewportRange, expandedIds])
 
   // Virtual list for performance
