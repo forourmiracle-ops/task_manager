@@ -262,6 +262,34 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
             {nodeChildren.length > 0 ? '▸' : '·'}
           </span>
           <span className="truncate text-xs flex-1">{t.title}</span>
+
+          {/* Action buttons for current task */}
+          {isCurrent && task.parent_id && (
+            <span className="flex items-center gap-0.5 ml-1">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); promoteToLevel(task.id, null) }}
+                className="px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary border border-border rounded hover:bg-primary/5 transition-colors"
+                title="提升到顶层"
+              >
+                提升到顶层
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const parent = tasks.find((p) => p.id === task.parent_id)
+                  if (parent?.parent_id !== undefined) {
+                    promoteToLevel(task.id, parent.parent_id)
+                  }
+                }}
+                className="px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary border border-border rounded hover:bg-primary/5 transition-colors"
+                title="提升一级"
+              >
+                提升一级
+              </button>
+            </span>
+          )}
         </div>
 
         {/* Current task's children */}
