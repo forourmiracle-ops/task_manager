@@ -226,6 +226,10 @@ function DependencyLines({
 
 const goTodayLabels = ['回到今天', '今日置首', '回到今天']
 
+// Module-level variable to persist dimension across view switches within the same session
+// Resets on page refresh (app restart)
+let lastSelectedDimension: Dimension | null = null
+
 export function GanttView() {
   const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension, viewStartMode, setViewStartMode, setImportDialogOpen } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
@@ -283,6 +287,7 @@ export function GanttView() {
   }, [allFlatTasks])
 
   const [dimension, setDimension] = useState<Dimension>(() => {
+    if (lastSelectedDimension) return lastSelectedDimension
     if (defaultDimension === 'auto') return autoDimension
     return (defaultDimension as Dimension) || 'quarter'
   })
@@ -584,7 +589,10 @@ export function GanttView() {
           <button
             type="button"
             key={key}
-            onClick={() => setDimension(key)}
+            onClick={() => {
+              lastSelectedDimension = key
+              setDimension(key)
+            }}
             className={cn(
               'px-3 py-1 text-[11px] rounded-full font-medium transition-all',
               dimension === key
@@ -601,7 +609,10 @@ export function GanttView() {
         </span>
         <select
           value={defaultDimension}
-          onChange={(e) => setDefaultDimension(e.target.value as 'auto' | Dimension)}
+          onChange={(e) => {
+            lastSelectedDimension = null
+            setDefaultDimension(e.target.value as 'auto' | Dimension)
+          }}
           className="text-[11px] px-2 py-1 rounded-full border border-border bg-background text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
           title="默认维度"
         >
@@ -669,13 +680,14 @@ export function GanttView() {
             const next = (goTodayStage + 1) % 3
             setGoTodayStage(next)
 
-            const base = getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
+            // Always scroll to today, regardless of viewStartMode
+            const todayScroll = todayOffset * DAY_WIDTH
             if (next === 1) {
               // First click: center today
-              dateScrollRef.current.scrollLeft = Math.max(0, base - datePanelWidth / 2 + DAY_WIDTH / 2)
+              dateScrollRef.current.scrollLeft = Math.max(0, todayScroll - datePanelWidth / 2 + DAY_WIDTH / 2)
             } else {
               // Second click: today as first item
-              dateScrollRef.current.scrollLeft = Math.max(0, base)
+              dateScrollRef.current.scrollLeft = Math.max(0, todayScroll)
             }
 
             goTodayTimerRef.current = setTimeout(() => setGoTodayStage(0), 300)
