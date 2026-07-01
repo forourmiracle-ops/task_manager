@@ -90,21 +90,6 @@ export default function App() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const renderView = () => {
-    switch (currentView) {
-      case 'gantt':
-        return <GanttView />
-      case 'board':
-        return <BoardView />
-      case 'calendar':
-        return <CalendarView />
-      case 'ai':
-        return <AIAssistantView />
-      case 'settings':
-        return <SettingsView />
-    }
-  }
-
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top Navigation */}
@@ -165,10 +150,14 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content — all views kept mounted, CSS toggled for instant switching */}
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        {renderView()}
+        <div className={currentView === 'gantt' ? 'flex-1' : 'hidden'}><GanttView /></div>
+        <div className={currentView === 'board' ? 'flex-1' : 'hidden'}><BoardView /></div>
+        <div className={currentView === 'calendar' ? 'flex-1' : 'hidden'}><CalendarView /></div>
+        <div className={currentView === 'ai' ? 'flex-1' : 'hidden'}><AIAssistantView /></div>
+        <div className={currentView === 'settings' ? 'flex-1' : 'hidden'}><SettingsView /></div>
         <DetailPanel />
       </div>
 

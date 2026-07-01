@@ -87,7 +87,8 @@ export function useTasks() {
   return useQuery({
     queryKey: [TASKS_KEY],
     queryFn: fetchTasks,
-    staleTime: 30_000, // 30s cache before refetch
+    staleTime: Infinity, // data is local, only changes via mutations
+    gcTime: Infinity,    // keep cache forever, never garbage collect
     refetchOnWindowFocus: false,
     retry: 1,
   })
