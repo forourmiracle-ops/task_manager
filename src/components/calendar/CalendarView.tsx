@@ -39,8 +39,10 @@ export const CalendarView = memo(function CalendarView() {
     return tasks.filter((t) => t.start_date || t.due_date)
   }, [tasks])
 
-  // Precompute date→task map — O(1) lookup instead of O(n) filter per cell
+  // Precompute date→task map — O(1) lookup instead of O(n) filter per cell.
+  // Safety cap: skip tasks spanning >365 days to prevent unbounded loop.
   const dateTaskMap = useMemo(() => {
+    const MAX_DAYS = 365
     const map = new Map<string, Task[]>()
     for (let i = 0; i < tasksWithDates.length; i++) {
       const t = tasksWithDates[i]
@@ -48,6 +50,8 @@ export const CalendarView = memo(function CalendarView() {
       const end = t.due_date || t.start_date!
       const s = new Date(start)
       const e = new Date(end)
+      const spanDays = Math.ceil((e.getTime() - s.getTime()) / 86400000)
+      if (spanDays > MAX_DAYS) continue
       for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
         const ds = d.toISOString().slice(0, 10)
         const arr = map.get(ds)

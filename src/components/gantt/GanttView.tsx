@@ -467,16 +467,17 @@ export const GanttView = memo(function GanttView() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [updateTask])
 
-  // Visible date range from scroll position
+  // Visible date range from scroll position.
+  // Use datePanelWidth as fallback so initial render (scrollWidth=0) doesn't span the full 10-year range.
   const viewportRange = useMemo(() => {
-    if (!scrollWidth) return { start: startDate, end: endDate }
+    const effectiveWidth = scrollWidth || datePanelWidth || 800
     const startIndex = Math.floor(scrollLeft / DAY_WIDTH)
-    const endIndex = Math.ceil((scrollLeft + scrollWidth) / DAY_WIDTH)
+    const endIndex = Math.ceil((scrollLeft + effectiveWidth) / DAY_WIDTH)
     return {
       start: addDays(startDate, Math.max(0, startIndex)),
       end: addDays(startDate, Math.min(totalDays - 1, endIndex)),
     }
-  }, [scrollLeft, scrollWidth, startDate, endDate, totalDays, DAY_WIDTH])
+  }, [scrollLeft, scrollWidth, datePanelWidth, startDate, endDate, totalDays, DAY_WIDTH])
 
   // Filter visible tasks by viewport date overlap + expanded state.
   // Single-pass filter, zero copies. Uses pre-computed parentMap for O(depth) ancestor checks.
@@ -493,14 +494,17 @@ export const GanttView = memo(function GanttView() {
     })
   }, [allFlatTasks, viewportRange, expandedIds, parentMap])
 
-  // Only render day cells visible in the horizontal viewport — reduces ~3650 DOM nodes to ~50-100
+  // Only render day cells visible in the horizontal viewport — reduces ~3650 DOM nodes to ~50-100.
+  // CRITICAL: uses datePanelWidth fallback. Without it, initial scrollWidth=0 causes ALL 3650 days
+  // to render (day headers + per-row weekend shadings), consuming extreme memory and hanging the browser.
   const visibleDayRange = useMemo(() => {
-    if (!scrollWidth || DAY_WIDTH <= 0) return { start: 0, end: totalDays }
+    const effectiveWidth = scrollWidth || datePanelWidth || 800
+    if (DAY_WIDTH <= 0) return { start: 0, end: totalDays }
     const pad = 2 // small buffer to avoid pop-in at edges
     const start = Math.max(0, Math.floor(scrollLeft / DAY_WIDTH) - pad)
-    const end = Math.min(totalDays, Math.ceil((scrollLeft + scrollWidth) / DAY_WIDTH) + pad)
+    const end = Math.min(totalDays, Math.ceil((scrollLeft + effectiveWidth) / DAY_WIDTH) + pad)
     return { start, end }
-  }, [scrollLeft, scrollWidth, DAY_WIDTH, totalDays])
+  }, [scrollLeft, scrollWidth, datePanelWidth, DAY_WIDTH, totalDays])
 
   // Virtual list for performance
   const virtualizer = useVirtualizer({
