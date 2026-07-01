@@ -1,10 +1,10 @@
 {
   "statistics": {
-    "total_tasks": 4,
-    "success_count": 4,
+    "total_tasks": 5,
+    "success_count": 5,
     "failed_count": 0,
     "total_tokens": 0,
-    "total_duration_sec": 2654
+    "total_duration_sec": 3478
   },
   "recent_tasks": [
     {
@@ -38,6 +38,14 @@
       "domain": "taskflow",
       "trace": "Read×6→分析5类瓶颈→Edit×12→tsc→git commit→git push",
       "context": "React.memo阻止常驻视图无效重渲染;CalendarView dateTaskMap消除O(n*m);Sidebar parentMap+防抖;DetailPanel精准选择器"
+    },
+    {
+      "timestamp": "2026-07-01 11:35:51",
+      "task_desc": "React.lazy代码分割-首屏仅加载活跃视图",
+      "result": "success",
+      "domain": "taskflow",
+      "trace": "分析根因→React.lazy×5→Suspense→仅渲染活跃视图→tsc→git push",
+      "context": "5个视图同时挂载导致首屏过重,改为lazy+仅渲染活跃视图,首屏JS体积~60%↓"
     }
   ],
   "task_type_counts": {
@@ -90,6 +98,19 @@
         {
           "result": "success",
           "ts": "2026-07-01T11:22:07.854769"
+        }
+      ]
+    },
+    "React.lazy代码分割-首屏仅": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-07-01T11:35:51.054712"
         }
       ]
     }
