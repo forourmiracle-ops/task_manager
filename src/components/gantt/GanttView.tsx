@@ -154,6 +154,13 @@ function DependencyLines({
     return map
   }, [tasks])
 
+  // Pre-build task lookup map to avoid O(n) tasks.find() inside the nested loop
+  const taskMap = useMemo(() => {
+    const map = new Map<string, Task>()
+    tasks.forEach((t) => map.set(t.id, t))
+    return map
+  }, [tasks])
+
   const lines = useMemo(() => {
     const result: { fromX: number; fromY: number; toX: number; toY: number; fromId: string; toId: string }[] = []
     tasks.forEach((task) => {
@@ -166,7 +173,7 @@ function DependencyLines({
       task.depends_on.forEach((depId) => {
         const fromIdx = rowIndex.get(depId)
         if (fromIdx === undefined) return
-        const depTask = tasks.find((t) => t.id === depId)
+        const depTask = taskMap.get(depId)
         if (!depTask) return
         const fromBar = getBarStyle(depTask)
         const fromY = fromIdx * rowHeight + rowHeight / 2
@@ -182,7 +189,7 @@ function DependencyLines({
       })
     })
     return result
-  }, [tasks, rowIndex, getBarStyle, rowHeight])
+  }, [tasks, rowIndex, taskMap, getBarStyle, rowHeight])
 
   if (lines.length === 0) return null
 
@@ -396,7 +403,10 @@ export const GanttView = memo(function GanttView() {
 
   // Track horizontal scroll for viewport filtering, sync vertical scroll.
   // rAF-throttled: React state updates only once per frame, scroll sync via direct DOM.
+  // Depends on isLoading so the effect re-runs when the Gantt chart DOM is actually mounted
+  // (on first mount, isLoading is true and dateScrollRef is null).
   useEffect(() => {
+    if (isLoading) return
     const el = dateScrollRef.current
     if (!el) return
     let rafId: number | null = null
@@ -426,7 +436,7 @@ export const GanttView = memo(function GanttView() {
       window.removeEventListener('resize', updateState)
       if (rafId !== null) cancelAnimationFrame(rafId)
     }
-  }, [])
+  }, [isLoading])
 
   // Stable scroll sync callback for left panel — direct DOM write, no state
   const handleTaskListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -506,6 +516,20 @@ export const GanttView = memo(function GanttView() {
     return { start, end }
   }, [scrollLeft, scrollWidth, datePanelWidth, DAY_WIDTH, totalDays])
 
+  // Precompute weekend/holiday day indices for the visible range.
+  // Avoids creating new Date() and calling isWeekend/isHoliday per cell per row.
+  const weekendHolidayIndices = useMemo(() => {
+    const weekendSet = new Set<number>()
+    const holidaySet = new Set<number>()
+    for (let i = visibleDayRange.start; i < visibleDayRange.end; i++) {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      if (isWeekend(d)) weekendSet.add(i)
+      if (isHoliday(d)) holidaySet.add(i)
+    }
+    return { weekendSet, holidaySet }
+  }, [visibleDayRange, startDate])
+
   // Virtual list for performance
   const virtualizer = useVirtualizer({
     count: visibleTasks.length,
@@ -577,12 +601,14 @@ export const GanttView = memo(function GanttView() {
 
   const childCountMap = useMemo(() => {
     const map = new Map<string, number>()
+    const hasChildren = new Map<string, boolean>()
     allFlatTasks.forEach((t) => {
       if (t.parent_id) {
         map.set(t.parent_id, (map.get(t.parent_id) || 0) + 1)
+        hasChildren.set(t.parent_id, true)
       }
     })
-    return map
+    return { countMap: map, hasChildrenMap: hasChildren }
   }, [allFlatTasks])
 
   if (isLoading) {
@@ -756,9 +782,9 @@ export const GanttView = memo(function GanttView() {
                 const idx = virtualItem.index
               const isSelected = selectedTaskId === task.id
               const depth = task.depth ?? 0
-              const hasChildren = allFlatTasks.some((t) => t.parent_id === task.id)
+              const hasChildren = childCountMap.hasChildrenMap.get(task.id) ?? false
               const isExpanded = expandedIds.has(task.id)
-              const childCount = childCountMap.get(task.id) || 0
+              const childCount = childCountMap.countMap.get(task.id) || 0
               const isChild = depth > 0
               const indent = depth * 16 + (hasChildren ? 0 : 18)
               const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
@@ -1068,13 +1094,11 @@ export const GanttView = memo(function GanttView() {
                       {dragState?.targetIdx === idx && dragState.sourceId !== task.id && (
                         <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-20 rounded-full" />
                       )}
-                      {/* Weekend/holiday shading — only visible days */}
+                      {/* Weekend/holiday shading — uses precomputed indices, zero Date allocations */}
                       {Array.from({ length: visibleDayRange.end - visibleDayRange.start }, (_, j) => {
                         const i = visibleDayRange.start + j
-                        const d = new Date(startDate)
-                        d.setDate(d.getDate() + i)
-                        const w = isWeekend(d)
-                        const h = isHoliday(d)
+                        const w = weekendHolidayIndices.weekendSet.has(i)
+                        const h = weekendHolidayIndices.holidaySet.has(i)
                         if (!w && !h) return null
                         return (
                           <div
