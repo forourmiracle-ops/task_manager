@@ -1,0 +1,97 @@
+{
+  "statistics": {
+    "total_tasks": 4,
+    "success_count": 4,
+    "failed_count": 0,
+    "total_tokens": 0,
+    "total_duration_sec": 2654
+  },
+  "recent_tasks": [
+    {
+      "timestamp": "2026-07-01 10:37:53",
+      "task_desc": "修复今天标识对齐和日期头部透明",
+      "result": "success",
+      "domain": "taskflow",
+      "trace": "Read→Edit×2→tsc检查→git commit→git push",
+      "context": "position:relative覆盖了sticky导致两个bug"
+    },
+    {
+      "timestamp": "2026-07-01 10:46:41",
+      "task_desc": "0延迟滚动同步+视图瞬间切换性能优化",
+      "result": "success",
+      "domain": "taskflow",
+      "trace": "Read→分析瓶颈→Edit×5→tsc→git commit→git push",
+      "context": "滚动用rAF节流+视图常驻挂载+数据缓存永久化"
+    },
+    {
+      "timestamp": "2026-07-01 11:10:41",
+      "task_desc": "甘特图内存优化-消除深拷贝+视口裁剪+预计算",
+      "result": "success",
+      "domain": "taskflow",
+      "trace": "Read×5→分析4个内存热点→Edit×5→tsc→git commit→git push",
+      "context": "visibleTasks从3次深拷贝改为单次filter+parentMap;日期网格从3650裁剪到50-100;barStyle预计算"
+    },
+    {
+      "timestamp": "2026-07-01 11:22:07",
+      "task_desc": "全应用流畅优化-memo+预计算+防抖+精准选择器",
+      "result": "success",
+      "domain": "taskflow",
+      "trace": "Read×6→分析5类瓶颈→Edit×12→tsc→git commit→git push",
+      "context": "React.memo阻止常驻视图无效重渲染;CalendarView dateTaskMap消除O(n*m);Sidebar parentMap+防抖;DetailPanel精准选择器"
+    }
+  ],
+  "task_type_counts": {
+    "修复今天标识对齐和日期头部透明": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-07-01T10:37:53.409801"
+        }
+      ]
+    },
+    "0延迟滚动同步+视图瞬间切换性能优化": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-07-01T10:46:41.524215"
+        }
+      ]
+    },
+    "甘特图内存优化-消除深拷贝+视口裁剪": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-07-01T11:10:41.357939"
+        }
+      ]
+    },
+    "全应用流畅优化-memo+预计算+防": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-07-01T11:22:07.854769"
+        }
+      ]
+    }
+  }
+}

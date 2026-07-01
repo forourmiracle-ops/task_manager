@@ -89,4 +89,4 @@ export const BoardView = memo(function BoardView() {
       ))}
     </div>
   )
-}
+})

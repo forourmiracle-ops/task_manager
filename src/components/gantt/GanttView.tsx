@@ -1134,4 +1134,4 @@ export const GanttView = memo(function GanttView() {
       </div>
     </div>
   )
-}
+})

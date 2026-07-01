@@ -163,4 +163,4 @@ export const SettingsView = memo(function SettingsView() {
       </div>
     </div>
   )
-}
+})

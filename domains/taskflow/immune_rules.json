@@ -1,0 +1,19 @@
+{
+  "schema_version": "5.1",
+  "rules": [
+    {
+      "id": "rule_1782902273414_0",
+      "scenario": "修复今天标识对齐和日期头部透明",
+      "rule": "每次代码修改完成后必须git push，这是第4次被提醒，已成固定流程",
+      "severity": "warning",
+      "source_lesson": "任务失败教训自动提取",
+      "source_experience_id": "lesson_1782902273412_0",
+      "error_type": "",
+      "error_category": "",
+      "created_at": "2026-07-01T10:37:53.411193",
+      "timestamp": "2026-07-01T10:37:53.411193"
+    }
+  ],
+  "total_rules": 1,
+  "last_updated": "2026-07-01T10:37:53.411193"
+}

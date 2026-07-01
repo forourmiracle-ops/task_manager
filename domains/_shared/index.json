@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "大一统自进化系统 — 领域索引（由upgrade_agent.py --deploy智能生成）",
-  "last_updated": "2026-06-28T22:46:25.779444",
+  "last_updated": "2026-07-01T10:37:53.406225",
   "domains": {
     "docs": {
       "name": "文档管理",
@@ -62,9 +62,19 @@
       "auto_created": true,
       "source": "log_auto_create",
       "created_date": "2026-06-28"
+    },
+    "taskflow": {
+      "trigger_keywords": [
+        "taskflow"
+      ],
+      "anti_trigger_keywords": [],
+      "description": "由log自动创建 (2026-07-01)",
+      "auto_created": true,
+      "source": "log_auto_create",
+      "created_date": "2026-07-01"
     }
   },
   "cross_domain_links": [],
   "total_experiences": 0,
-  "total_domains": 6
+  "total_domains": 7
 }

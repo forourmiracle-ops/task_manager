@@ -1,0 +1,43 @@
+{
+  "schema_version": "5.1",
+  "experiences": [
+    {
+      "id": "lesson_1782902273412_0",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "修复今天标识对齐和日期头部透明",
+      "keywords": [
+        "今天标识",
+        "头部透明",
+        "复今天标",
+        "每次代码",
+        "代码修改",
+        "码修改完",
+        "这是第",
+        "次被提醒"
+      ],
+      "lang": "zh",
+      "steps": [
+        "教训: 每次代码修改完成后必须git push，这是第4次被提醒，已成固定流程"
+      ],
+      "insight": "每次代码修改完成后必须git push，这是第4次被提醒，已成固定流程",
+      "trace": "Read→Edit×2→tsc检查→git commit→git push",
+      "context": "position:relative覆盖了sticky导致两个bug",
+      "why_failed": "",
+      "confidence": 0.7,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "修复今天标识对齐和日期头部透明",
+      "agent": "admin",
+      "tags": [
+        "from_log_lesson",
+        "failure"
+      ],
+      "timestamp": "2026-07-01T10:37:53.411193",
+      "updated_at": "2026-07-01T10:37:53.411193"
+    }
+  ],
+  "total_count": 1,
+  "last_updated": "2026-07-01T10:37:53.411193"
+}
