@@ -379,23 +379,46 @@ export function GanttView() {
     return { startDate: start, endDate: end, totalDays: total, monthHeaders: months, todayOffset: offset }
   }, [])
 
-  // Track horizontal scroll for viewport filtering, sync vertical scroll
+  // Track horizontal scroll for viewport filtering, sync vertical scroll.
+  // rAF-throttled: React state updates only once per frame, scroll sync via direct DOM.
   useEffect(() => {
     const el = dateScrollRef.current
     if (!el) return
-    const update = () => {
-      setScrollLeft(el.scrollLeft)
-      setScrollWidth(el.clientWidth)
+    let rafId: number | null = null
+    const updateDOM = () => {
       if (taskListRef.current) taskListRef.current.scrollTop = el.scrollTop
     }
-    update()
-    el.addEventListener('scroll', update, { passive: true })
-    window.addEventListener('resize', update)
-    return () => {
-      el.removeEventListener('scroll', update)
-      window.removeEventListener('resize', update)
+    const updateState = () => {
+      setScrollLeft(el.scrollLeft)
+      setScrollWidth(el.clientWidth)
     }
-  }, [DAY_WIDTH])
+    const onScroll = () => {
+      updateDOM()
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null
+          updateState()
+        })
+      }
+    }
+    // Initial sync
+    updateDOM()
+    updateState()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', updateState)
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', updateState)
+      if (rafId !== null) cancelAnimationFrame(rafId)
+    }
+  }, [])
+
+  // Stable scroll sync callback for left panel — direct DOM write, no state
+  const handleTaskListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (dateScrollRef.current) {
+      dateScrollRef.current.scrollTop = (e.target as HTMLElement).scrollTop
+    }
+  }, [])
 
   // Initialize all tasks as expanded
   const taskIds = useMemo(() => allFlatTasks.map((t) => t.id), [allFlatTasks])
@@ -714,11 +737,8 @@ export function GanttView() {
           <div
             ref={taskListRef}
             className="flex-1 overflow-auto"
-            onScroll={(e) => {
-              if (dateScrollRef.current) {
-                dateScrollRef.current.scrollTop = (e.target as HTMLElement).scrollTop
-              }
-            }}
+            style={{ willChange: 'scroll-position', contain: 'layout style' }}
+            onScroll={handleTaskListScroll}
           >
             <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
               {virtualItems.map((virtualItem) => {
@@ -866,6 +886,7 @@ export function GanttView() {
           <div
             ref={dateScrollRef}
             className="flex-1 overflow-auto"
+            style={{ willChange: 'scroll-position', contain: 'layout style' }}
             onClick={handleDatePanelClick}
           >
             <div style={{ minWidth: totalWidth }}>
