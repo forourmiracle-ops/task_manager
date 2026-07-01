@@ -403,9 +403,10 @@ export const GanttView = memo(function GanttView() {
 
   // Track horizontal scroll for viewport filtering, sync vertical scroll.
   // rAF-throttled: React state updates only once per frame, scroll sync via direct DOM.
-  // Depends on isLoading so the effect re-runs when the Gantt chart DOM is actually mounted
-  // (on first mount, isLoading is true and dateScrollRef is null).
-  useEffect(() => {
+  // Uses useLayoutEffect so the scroll listener is attached synchronously after the DOM
+  // is painted, avoiding the timing issue where useEffect([isLoading]) causes a
+  // re-render cascade that results in a blank screen.
+  useLayoutEffect(() => {
     if (isLoading) return
     const el = dateScrollRef.current
     if (!el) return
