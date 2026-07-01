@@ -263,21 +263,36 @@ export function GanttView() {
     return flattenTasks(tree).filter((t) => t.start_date && t.due_date)
   }, [tasks])
 
-  // Auto-detect dimension from task periods and overall span
+  // Pre-compute parent map for O(1) ancestor lookups — used by visibleTasks filter
+  const parentMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    if (!tasks) return map
+    for (let i = 0; i < tasks.length; i++) {
+      map.set(tasks[i].id, tasks[i].parent_id ?? null)
+    }
+    return map
+  }, [tasks])
+
+  // Auto-detect dimension from task periods and overall span.
+  // Uses for-loop + raw timestamps to avoid intermediate Date objects for comparison.
   const autoDimension = useMemo(() => {
-    if (allFlatTasks.length === 0) return 'quarter'
+    const len = allFlatTasks.length
+    if (len === 0) return 'quarter'
     let totalDuration = 0
-    let minStart: Date | null = null
-    let maxEnd: Date | null = null
-    allFlatTasks.forEach((t) => {
+    let minTs = Infinity
+    let maxTs = -Infinity
+    for (let i = 0; i < len; i++) {
+      const t = allFlatTasks[i]
       const s = new Date(t.start_date!)
       const e = new Date(t.due_date!)
       totalDuration += daysBetween(s, e)
-      if (!minStart || s < minStart) minStart = s
-      if (!maxEnd || e > maxEnd) maxEnd = e
-    })
-    const avgDays = totalDuration / allFlatTasks.length
-    const overallSpan = minStart && maxEnd ? daysBetween(minStart, maxEnd) : 0
+      const sTs = s.getTime()
+      const eTs = e.getTime()
+      if (sTs < minTs) minTs = sTs
+      if (eTs > maxTs) maxTs = eTs
+    }
+    const avgDays = totalDuration / len
+    const overallSpan = minTs < Infinity ? (maxTs - minTs) / 86400000 : 0
     const effectiveDays = Math.max(avgDays, overallSpan * 0.6)
     if (effectiveDays < 7) return 'week'
     if (effectiveDays < 30) return 'month'
@@ -463,48 +478,29 @@ export function GanttView() {
     }
   }, [scrollLeft, scrollWidth, startDate, endDate, totalDays, DAY_WIDTH])
 
-  // Filter visible tasks by viewport date overlap
+  // Filter visible tasks by viewport date overlap + expanded state.
+  // Single-pass filter, zero copies. Uses pre-computed parentMap for O(depth) ancestor checks.
   const visibleTasks = useMemo(() => {
-    const visibleIds = new Set(
-      allFlatTasks
-        .filter((t) => overlapsRange(t.start_date!, t.due_date!, viewportRange.start, viewportRange.end))
-        .map((t) => t.id)
-    )
-
-    const map = new Map<string, Task & { children?: Task[] }>()
-    allFlatTasks.forEach((t) => {
-      if (visibleIds.has(t.id)) {
-        map.set(t.id, { ...t, children: [] })
+    return allFlatTasks.filter((t) => {
+      if (!overlapsRange(t.start_date!, t.due_date!, viewportRange.start, viewportRange.end)) return false
+      // Check if all ancestors are expanded
+      let currentId: string | null = t.parent_id ?? null
+      while (currentId) {
+        if (!expandedIds.has(currentId)) return false
+        currentId = parentMap.get(currentId) ?? null
       }
+      return true
     })
+  }, [allFlatTasks, viewportRange, expandedIds, parentMap])
 
-    const roots: Task[] = []
-    map.forEach((node) => {
-      if (node.parent_id && map.has(node.parent_id)) {
-        const parent = map.get(node.parent_id)!
-        parent.children = parent.children || []
-        parent.children.push(node)
-      } else {
-        roots.push(node)
-      }
-    })
-    // Sort roots by sort_order, then sort children recursively
-    const sortChildren = (list: Task[]) => {
-      list.sort((a, b) => a.sort_order - b.sort_order)
-      list.forEach((n) => { if (n.children?.length) sortChildren(n.children) })
-    }
-    sortChildren(roots)
-
-    const filterExpanded = (list: Task[]): Task[] => {
-      return list.flatMap((node) => {
-        const isExpanded = expandedIds.has(node.id)
-        const children = isExpanded && node.children ? filterExpanded(node.children) : []
-        return [{ ...node, children }]
-      })
-    }
-
-    return flattenTasks(filterExpanded(roots))
-  }, [allFlatTasks, viewportRange, expandedIds])
+  // Only render day cells visible in the horizontal viewport — reduces ~3650 DOM nodes to ~50-100
+  const visibleDayRange = useMemo(() => {
+    if (!scrollWidth || DAY_WIDTH <= 0) return { start: 0, end: totalDays }
+    const pad = 2 // small buffer to avoid pop-in at edges
+    const start = Math.max(0, Math.floor(scrollLeft / DAY_WIDTH) - pad)
+    const end = Math.min(totalDays, Math.ceil((scrollLeft + scrollWidth) / DAY_WIDTH) + pad)
+    return { start, end }
+  }, [scrollLeft, scrollWidth, DAY_WIDTH, totalDays])
 
   // Virtual list for performance
   const virtualizer = useVirtualizer({
@@ -532,13 +528,23 @@ export function GanttView() {
 
   const totalWidth = totalDays * DAY_WIDTH
 
-  const getTaskBarStyle = (task: Task) => {
-    const s = new Date(task.start_date!)
-    const e = new Date(task.due_date!)
-    const left = daysBetween(startDate, s) * DAY_WIDTH
-    const width = Math.max((daysBetween(s, e) + 1) * DAY_WIDTH, 4)
-    return { left, width }
-  }
+  // Precompute all task bar positions — avoids new Date() on every render
+  const taskBarStyles = useMemo(() => {
+    const styles = new Map<string, { left: number; width: number }>()
+    for (let i = 0; i < allFlatTasks.length; i++) {
+      const t = allFlatTasks[i]
+      const s = new Date(t.start_date!)
+      const e = new Date(t.due_date!)
+      const left = daysBetween(startDate, s) * DAY_WIDTH
+      const width = Math.max((daysBetween(s, e) + 1) * DAY_WIDTH, 4)
+      styles.set(t.id, { left, width })
+    }
+    return styles
+  }, [allFlatTasks, startDate, DAY_WIDTH])
+
+  const getTaskBarStyle = useCallback((task: Task) => {
+    return taskBarStyles.get(task.id) ?? { left: 0, width: 4 }
+  }, [taskBarStyles])
 
   const handleTaskClick = (id: string) => {
     try {
@@ -915,7 +921,8 @@ export function GanttView() {
                 className="sticky z-10 border-b border-border"
                 style={{ top: MONTH_HEADER_HEIGHT, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT, backgroundColor: 'hsl(var(--background))' }}
               >
-                {Array.from({ length: totalDays }).map((_, i) => {
+                {Array.from({ length: visibleDayRange.end - visibleDayRange.start }, (_, j) => {
+                  const i = visibleDayRange.start + j
                   const d = new Date(startDate)
                   d.setDate(d.getDate() + i)
                   const w = isWeekend(d)
@@ -1057,8 +1064,9 @@ export function GanttView() {
                       {dragState?.targetIdx === idx && dragState.sourceId !== task.id && (
                         <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-20 rounded-full" />
                       )}
-                      {/* Weekend/holiday shading */}
-                      {Array.from({ length: totalDays }).map((_, i) => {
+                      {/* Weekend/holiday shading — only visible days */}
+                      {Array.from({ length: visibleDayRange.end - visibleDayRange.start }, (_, j) => {
+                        const i = visibleDayRange.start + j
                         const d = new Date(startDate)
                         d.setDate(d.getDate() + i)
                         const w = isWeekend(d)
