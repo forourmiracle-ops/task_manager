@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import { useTasks, useUpdateTask } from '@/hooks/useTasks'
 import { useAppStore } from '@/store'
 import { buildTaskTree, flattenTasks, STATUS_LABELS } from '@/lib/utils'
@@ -6,7 +6,7 @@ import type { TaskStatus } from '@/types'
 
 const COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'done', 'blocked']
 
-export function BoardView() {
+export const BoardView = memo(function BoardView() {
   const { data: tasks, isLoading } = useTasks()
   const updateTask = useUpdateTask()
   const { setSelectedTaskId } = useAppStore()

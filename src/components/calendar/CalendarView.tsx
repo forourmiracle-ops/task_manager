@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo, useCallback } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
 import { cn, STATUS_COLORS } from '@/lib/utils'
@@ -25,7 +25,7 @@ type CalendarMode = 'month' | 'week' | 'day'
 
 const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六']
 
-export function CalendarView() {
+export const CalendarView = memo(function CalendarView() {
   const { setSelectedTaskId } = useAppStore()
   const { data: tasks } = useTasks()
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -39,16 +39,30 @@ export function CalendarView() {
     return tasks.filter((t) => t.start_date || t.due_date)
   }, [tasks])
 
-  const getTasksForDate = (dateStr: string): Task[] => {
-    return tasksWithDates.filter((t) => {
-      if (!t.start_date && !t.due_date) return false
+  // Precompute date→task map — O(1) lookup instead of O(n) filter per cell
+  const dateTaskMap = useMemo(() => {
+    const map = new Map<string, Task[]>()
+    for (let i = 0; i < tasksWithDates.length; i++) {
+      const t = tasksWithDates[i]
       const start = t.start_date || t.due_date!
       const end = t.due_date || t.start_date!
-      return dateStr >= start && dateStr <= end
-    })
+      const s = new Date(start)
+      const e = new Date(end)
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const ds = d.toISOString().slice(0, 10)
+        const arr = map.get(ds)
+        if (arr) arr.push(t)
+        else map.set(ds, [t])
+      }
+    }
+    return map
+  }, [tasksWithDates])
+
+  const getTasksForDate = (dateStr: string): Task[] => {
+    return dateTaskMap.get(dateStr) || []
   }
 
-  const navigate = (delta: number) => {
+  const navigate = useCallback((delta: number) => {
     const d = new Date(currentDate)
     if (mode === 'month') {
       d.setMonth(d.getMonth() + delta)
@@ -58,11 +72,11 @@ export function CalendarView() {
       d.setDate(d.getDate() + delta)
     }
     setCurrentDate(d)
-  }
+  }, [currentDate, mode])
 
-  const goToday = () => setCurrentDate(new Date())
+  const goToday = useCallback(() => setCurrentDate(new Date()), [])
 
-  const titleText = () => {
+  const titleText = useMemo(() => {
     if (mode === 'month') return `${year}年${month + 1}月`
     if (mode === 'week') {
       const start = new Date(currentDate)
@@ -72,7 +86,7 @@ export function CalendarView() {
       return `${start.getMonth() + 1}月${start.getDate()}日 - ${end.getMonth() + 1}月${end.getDate()}日`
     }
     return `${year}年${month + 1}月${currentDate.getDate()}日`
-  }
+  }, [mode, year, month, currentDate])
 
   const renderMonthView = () => {
     const firstDay = new Date(year, month, 1)
@@ -324,7 +338,7 @@ export function CalendarView() {
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="text-xs px-1.5 py-0.5 hover:bg-accent rounded">◀</button>
-          <span className="text-sm font-medium">{titleText()}</span>
+          <span className="text-sm font-medium">{titleText}</span>
           <button onClick={() => navigate(1)} className="text-xs px-1.5 py-0.5 hover:bg-accent rounded">▶</button>
           <button onClick={goToday} className="text-xs px-2 py-0.5 border border-border rounded hover:bg-accent">今天</button>
         </div>

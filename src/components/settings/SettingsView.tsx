@@ -1,4 +1,5 @@
 import { useAppStore, type ThemeMode, type DefaultDimension } from '@/store'
+import { memo } from 'react'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
 const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
@@ -18,7 +19,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
   { value: 'eye-care', label: '护眼模式', desc: '暖色背景，降低蓝光伤害', icon: '👁' },
 ]
 
-export function SettingsView() {
+export const SettingsView = memo(function SettingsView() {
   const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension } = useAppStore()
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
@@ -6,7 +6,7 @@ import type { Task } from '@/types'
 
 const MAX_DEPTH = 4
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const { data: tasks, isLoading } = useTasks()
   const {
     selectedTaskId,
@@ -20,20 +20,44 @@ export function Sidebar() {
 
   const tree = useMemo(() => (tasks ? buildTaskTree(tasks) : []), [tasks])
 
-  const getTaskDepth = (taskId: string): number => {
-    if (!tasks) return 0
+  // Precompute parent map for O(1) depth lookups
+  const parentMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    if (!tasks) return map
+    for (let i = 0; i < tasks.length; i++) {
+      map.set(tasks[i].id, tasks[i].parent_id ?? null)
+    }
+    return map
+  }, [tasks])
+
+  const getTaskDepth = useCallback((taskId: string): number => {
     let depth = 0
-    let current = tasks.find((t) => t.id === taskId)
-    while (current?.parent_id) {
+    let currentId: string | null = parentMap.get(taskId) ?? null
+    while (currentId) {
       depth++
-      current = tasks.find((t) => t.id === current!.parent_id)
+      currentId = parentMap.get(currentId) ?? null
     }
     return depth
-  }
+  }, [parentMap])
 
-  const canAddChild = (taskId: string): boolean => {
+  const canAddChild = useCallback((taskId: string): boolean => {
     return getTaskDepth(taskId) < MAX_DEPTH - 1
-  }
+  }, [getTaskDepth])
+
+  // Debounced search — only update after user stops typing
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedQuery(value), 150)
+  }, [setSearchQuery])
+
+  // Stable callbacks
+  const handleSelect = useCallback((id: string) => setSelectedTaskId(id), [setSelectedTaskId])
+  const handleAddChild = useCallback((id: string) => {
+    if (canAddChild(id)) startCreating(id)
+  }, [canAddChild, startCreating])
 
   if (!sidebarOpen) return null
 
@@ -64,7 +88,7 @@ export function Sidebar() {
             type="text"
             placeholder="搜索任务..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background focus:outline-none focus:ring-1.5 focus:ring-ring placeholder:text-muted-foreground/60"
           />
         </div>
@@ -103,13 +127,9 @@ export function Sidebar() {
           <TaskTreeList
             tasks={tree}
             selectedId={selectedTaskId}
-            onSelect={(id) => setSelectedTaskId(id)}
-            onAddChild={(id) => {
-              if (canAddChild(id)) {
-                startCreating(id)
-              }
-            }}
-            searchQuery={searchQuery}
+            onSelect={handleSelect}
+            onAddChild={handleAddChild}
+            searchQuery={debouncedQuery}
             depth={0}
             canAddChild={canAddChild}
           />
@@ -132,7 +152,7 @@ export function Sidebar() {
   )
 }
 
-function TaskTreeList({
+const TaskTreeList = memo(function TaskTreeList({
   tasks,
   selectedId,
   onSelect,
@@ -171,9 +191,9 @@ function TaskTreeList({
       ))}
     </ul>
   )
-}
+})
 
-function TaskNode({
+const TaskNode = memo(function TaskNode({
   task,
   selectedId,
   onSelect,
@@ -287,4 +307,4 @@ function TaskNode({
       )}
     </li>
   )
-}
+})

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
+import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
 import type { ViewStartMode } from '@/store'
@@ -230,7 +230,7 @@ const goTodayLabels = ['回到今天', '今日置首', '回到今天']
 // Resets on page refresh (app restart)
 let lastSelectedDimension: Dimension | null = null
 
-export function GanttView() {
+export const GanttView = memo(function GanttView() {
   const { selectedTaskId, setSelectedTaskId, fontSize, defaultDimension, setDefaultDimension, viewStartMode, setViewStartMode, setImportDialogOpen } = useAppStore()
   const { data: tasks, isLoading } = useTasks()
   const updateTask = useUpdateTask()
