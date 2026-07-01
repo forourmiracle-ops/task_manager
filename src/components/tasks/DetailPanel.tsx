@@ -800,4 +800,4 @@ export const DetailPanel = memo(function DetailPanel() {
       )}
     </aside>
   )
-}
+})
