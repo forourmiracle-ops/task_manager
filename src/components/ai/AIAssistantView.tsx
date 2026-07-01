@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, memo, type FormEvent, type KeyboardEvent } from 'react'
 import { useTasks } from '@/hooks/useTasks'
 
 interface Message {
@@ -6,7 +6,7 @@ interface Message {
   content: string
 }
 
-export function AIAssistantView() {
+export const AIAssistantView = memo(function AIAssistantView() {
   const { data: tasks } = useTasks()
   const [messages, setMessages] = useState<Message[]>([
     {

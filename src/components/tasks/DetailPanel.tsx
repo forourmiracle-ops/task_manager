@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, memo } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
@@ -11,8 +11,12 @@ import type { Task, TaskStatus, TaskPriority } from '@/types'
 const MAX_DEPTH = 4
 type EditableField = 'title' | 'description' | 'status' | 'priority' | 'start_date' | 'due_date' | 'progress_percent' | 'estimated_hours' | 'tags' | 'depends_on'
 
-export function DetailPanel() {
-  const { selectedTaskId, setSelectedTaskId, detailPanelOpen, setDetailPanelOpen, startCreating } = useAppStore()
+export const DetailPanel = memo(function DetailPanel() {
+  const selectedTaskId = useAppStore((s) => s.selectedTaskId)
+  const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
+  const detailPanelOpen = useAppStore((s) => s.detailPanelOpen)
+  const setDetailPanelOpen = useAppStore((s) => s.setDetailPanelOpen)
+  const startCreating = useAppStore((s) => s.startCreating)
   const { data: tasks } = useTasks()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
