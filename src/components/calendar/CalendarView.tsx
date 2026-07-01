@@ -377,7 +377,7 @@ export const CalendarView = memo(function CalendarView() {
       {mode === 'day' && renderDayView()}
     </div>
   )
-}
+})
 
 function getStatusColor(status: string): string {
   switch (status) {

@@ -166,4 +166,4 @@ export const AIAssistantView = memo(function AIAssistantView() {
       </form>
     </div>
   )
-}
+})
