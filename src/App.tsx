@@ -1,11 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
-import { GanttView } from '@/components/gantt/GanttView'
-import { BoardView } from '@/components/board/BoardView'
-import { CalendarView } from '@/components/calendar/CalendarView'
-import { AIAssistantView } from '@/components/ai/AIAssistantView'
-import { SettingsView } from '@/components/settings/SettingsView'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
 import { DraftToastContainer } from '@/components/ui/DraftToast'
@@ -13,6 +8,22 @@ import { ImportDialog } from '@/components/ui/ImportDialog'
 import { CheatSheet } from '@/components/ui/CheatSheet'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import type { ViewType } from '@/types'
+
+// Lazy-loaded views — code-split into separate chunks, loaded on first access
+const GanttView = lazy(() => import('@/components/gantt/GanttView').then(m => ({ default: m.GanttView })))
+const BoardView = lazy(() => import('@/components/board/BoardView').then(m => ({ default: m.BoardView })))
+const CalendarView = lazy(() => import('@/components/calendar/CalendarView').then(m => ({ default: m.CalendarView })))
+const AIAssistantView = lazy(() => import('@/components/ai/AIAssistantView').then(m => ({ default: m.AIAssistantView })))
+const SettingsView = lazy(() => import('@/components/settings/SettingsView').then(m => ({ default: m.SettingsView })))
+
+const ViewSkeleton = () => (
+  <div className="flex-1 flex items-center justify-center">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <span className="text-xs text-muted-foreground">加载中...</span>
+    </div>
+  </div>
+)
 
 const VIEW_LABELS: Record<ViewType, { label: string; icon: React.ReactNode }> = {
   gantt: {
@@ -150,14 +161,16 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main Content — all views kept mounted, CSS toggled for instant switching */}
+      {/* Main Content — only active view rendered, lazy-loaded on demand */}
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <div className={currentView === 'gantt' ? 'flex-1' : 'hidden'}><GanttView /></div>
-        <div className={currentView === 'board' ? 'flex-1' : 'hidden'}><BoardView /></div>
-        <div className={currentView === 'calendar' ? 'flex-1' : 'hidden'}><CalendarView /></div>
-        <div className={currentView === 'ai' ? 'flex-1' : 'hidden'}><AIAssistantView /></div>
-        <div className={currentView === 'settings' ? 'flex-1' : 'hidden'}><SettingsView /></div>
+        <Suspense fallback={<ViewSkeleton />}>
+          {currentView === 'gantt' && <div className="flex-1"><GanttView /></div>}
+          {currentView === 'board' && <div className="flex-1"><BoardView /></div>}
+          {currentView === 'calendar' && <div className="flex-1"><CalendarView /></div>}
+          {currentView === 'ai' && <div className="flex-1"><AIAssistantView /></div>}
+          {currentView === 'settings' && <div className="flex-1"><SettingsView /></div>}
+        </Suspense>
         <DetailPanel />
       </div>
 
