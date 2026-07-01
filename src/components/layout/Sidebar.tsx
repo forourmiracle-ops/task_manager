@@ -150,7 +150,7 @@ export const Sidebar = memo(function Sidebar() {
       </div>
     </aside>
   )
-}
+})
 
 const TaskTreeList = memo(function TaskTreeList({
   tasks,
