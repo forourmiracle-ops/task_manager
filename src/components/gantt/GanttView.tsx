@@ -871,24 +871,28 @@ export function GanttView() {
             <div style={{ minWidth: totalWidth }}>
               {/* Month headers — sticky */}
               <div
-                className="sticky top-0 z-20 border-b border-border bg-muted/10 flex"
-                style={{ height: MONTH_HEADER_HEIGHT }}
+                className="sticky top-0 z-20 border-b border-border"
+                style={{ height: MONTH_HEADER_HEIGHT, backgroundColor: 'hsl(var(--muted) / 0.1)' }}
               >
-                {monthHeaders.map((mh, i) => (
-                  <div
-                    key={i}
-                    className="flex-shrink-0 flex items-center justify-center border-r border-border font-bold text-[11px] text-foreground/80"
-                    style={{ width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT }}
-                  >
-                    {mh.label}
-                  </div>
-                ))}
+                {monthHeaders.reduce<{ els: React.ReactNode[]; offset: number }>((acc, mh, i) => {
+                  acc.els.push(
+                    <div
+                      key={i}
+                      className="absolute flex items-center justify-center border-r border-border font-bold text-[11px] text-foreground/80"
+                      style={{ left: acc.offset * DAY_WIDTH, width: mh.days * DAY_WIDTH, height: MONTH_HEADER_HEIGHT }}
+                    >
+                      {mh.label}
+                    </div>
+                  )
+                  acc.offset += mh.days
+                  return acc
+                }, { els: [], offset: 0 }).els}
               </div>
 
               {/* Day headers — sticky below month header */}
               <div
-                className="sticky z-10 border-b border-border bg-background flex"
-                style={{ top: MONTH_HEADER_HEIGHT, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
+                className="sticky z-10 border-b border-border"
+                style={{ top: MONTH_HEADER_HEIGHT, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT, backgroundColor: 'hsl(var(--background))' }}
               >
                 {Array.from({ length: totalDays }).map((_, i) => {
                   const d = new Date(startDate)
@@ -900,12 +904,12 @@ export function GanttView() {
                     <div
                       key={i}
                       className={cn(
-                        'flex-shrink-0 flex flex-col items-center justify-center border-r border-border/60',
+                        'absolute flex flex-col items-center justify-center border-r border-border/60',
                         w && !h && 'bg-red-50/20',
                         h && 'bg-amber-50/30',
                         isToday && 'bg-blue-50/50'
                       )}
-                      style={{ width: DAY_WIDTH, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
+                      style={{ left: i * DAY_WIDTH, width: DAY_WIDTH, height: HEADER_HEIGHT - MONTH_HEADER_HEIGHT }}
                     >
                       <span className={cn('text-[11px] font-semibold leading-tight', isToday ? 'text-blue-600' : w ? 'text-red-400' : h ? 'text-amber-600' : 'text-foreground/60')}>
                         {d.getDate()}
