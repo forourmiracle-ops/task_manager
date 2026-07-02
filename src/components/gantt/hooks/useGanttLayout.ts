@@ -35,7 +35,7 @@ export function getScrollTarget(
       return firstTask ?? 0
     }
     default:
-      return 0
+      return todayOffset * DAY_WIDTH
   }
 }
 

@@ -21,8 +21,6 @@ import { GanttErrorBoundary } from './GanttErrorBoundary'
 
 type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
 
-const MIN_DAY_WIDTH = 3
-
 const DIMENSION_DAYS: Record<Dimension, number> = {
   week: 7,
   month: 30,
@@ -32,7 +30,9 @@ const DIMENSION_DAYS: Record<Dimension, number> = {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// GanttView — Main orchestrator component
+// GanttView — Main orchestrator
+// Chart structure is always rendered; loading/empty states use overlays
+// so the scroll container ref is stable and effects run once on mount.
 // ──────────────────────────────────────────────────────────────────────────────
 export const GanttView = memo(function GanttView() {
   // ── Zustand global state ──────────────────────────────────────────────────
@@ -51,6 +51,7 @@ export const GanttView = memo(function GanttView() {
   // ── Data (useGanttData) ───────────────────────────────────────────────────
   const { isLoading, allFlatTasks, parentMap, childCountMap, taskDateRange } = useGanttData()
   const { startDate, endDate, totalDays, monthHeaders, todayOffset } = taskDateRange
+  const isEmpty = !isLoading && allFlatTasks.length === 0
 
   // ── Auto dimension ────────────────────────────────────────────────────────
   const autoDimension = useMemo((): Dimension => {
@@ -103,7 +104,7 @@ export const GanttView = memo(function GanttView() {
   interface DragSnapshot { sourceId: string; oldSortOrder: number; oldParentId: string | null }
   const dragSnapshotRef = useRef<DragSnapshot | null>(null)
 
-  // ── Scroll (useGanttScroll) ───────────────────────────────────────────────
+  // ── Scroll (useGanttScroll) — no isLoading param, stable [] dependency ────
   const {
     dateScrollRef,
     taskListRef,
@@ -112,7 +113,7 @@ export const GanttView = memo(function GanttView() {
     datePanelWidth,
     datePanelCallbackRef,
     handleTaskListScroll,
-  } = useGanttScroll(isLoading)
+  } = useGanttScroll()
 
   // ── Viewport (useGanttViewport) ───────────────────────────────────────────
   const {
@@ -257,16 +258,11 @@ export const GanttView = memo(function GanttView() {
       el.scrollTo({ left: todayOffset * DAY_WIDTH - panelWidth / 2, behavior: 'smooth' })
     } else if (next === 2) {
       el.scrollTo({ left: 0, behavior: 'smooth' })
-    } else {
-      // Reset — no action needed
     }
   }, [goTodayStage, todayOffset, DAY_WIDTH])
 
   const handleExportPNG = useCallback(() => {
-    try {
-      // Simple CSV export as fallback
-      exportToCSV(visibleTasks, 'gantt-tasks.csv')
-    } catch { /* ignore */ }
+    try { exportToCSV(visibleTasks, 'gantt-tasks.csv') } catch { /* ignore */ }
   }, [visibleTasks])
 
   const handleExportCSV = useCallback(() => {
@@ -288,39 +284,10 @@ export const GanttView = memo(function GanttView() {
     updateTask.mutate({ id: sourceId, sort_order: newSort })
   }, [updateTask])
 
-  // ── Loading / Empty states ────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-xs text-muted-foreground">加载中...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (allFlatTasks.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center bg-muted/20 rounded-2xl p-10 border border-dashed border-border">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/30 flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
-              <rect x="2" y="3" width="12" height="10" rx="1" />
-              <path d="M2 7h12M6 7v6M10 7v6" />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-foreground mb-1">暂无含日期的任务</p>
-          <p className="text-xs text-muted-foreground">创建任务时设置开始和截止日期即可在甘特图中显示</p>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render — chart structure always exists, overlays for loading/empty ────
   return (
     <GanttErrorBoundary>
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
         {/* Toolbar */}
         <GanttToolbar
           dimension={dimension}
@@ -338,7 +305,7 @@ export const GanttView = memo(function GanttView() {
           canUndo={dragSnapshotRef.current !== null}
         />
 
-        {/* Gantt body: two-panel layout */}
+        {/* Gantt body: two-panel layout — always rendered */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
@@ -377,7 +344,7 @@ export const GanttView = memo(function GanttView() {
               weekendHolidayIndices={weekendHolidayIndices}
             />
 
-            {/* Scrollable task rows area */}
+            {/* Scrollable task rows area — always rendered, ref always valid */}
             <div
               ref={dateScrollRef}
               className="flex-1 overflow-auto"
@@ -404,6 +371,32 @@ export const GanttView = memo(function GanttView() {
             </div>
           </div>
         </div>
+
+        {/* Loading overlay — semi-transparent, doesn't rebuild DOM */}
+        {isLoading && (
+          <div className="absolute inset-0 top-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              <p className="text-xs text-muted-foreground">加载中...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty overlay — shown when loaded but no tasks with dates */}
+        {isEmpty && (
+          <div className="absolute inset-0 top-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
+            <div className="text-center bg-muted/20 rounded-2xl p-10 border border-dashed border-border">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/30 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
+                  <rect x="2" y="3" width="12" height="10" rx="1" />
+                  <path d="M2 7h12M6 7v6M10 7v6" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-foreground mb-1">暂无含日期的任务</p>
+              <p className="text-xs text-muted-foreground">创建任务时设置开始和截止日期即可在甘特图中显示</p>
+            </div>
+          </div>
+        )}
       </div>
     </GanttErrorBoundary>
   )
