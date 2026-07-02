@@ -25,6 +25,7 @@ interface GanttTaskPanelProps {
   onTaskClick: (id: string) => void
   toggleExpanded: (e: React.MouseEvent, id: string) => void
   handleTaskListScroll: (e: React.UIEvent<HTMLDivElement>) => void
+  onTaskDrop: (sourceId: string, targetId: string, newSort: number) => void
   virtualizer: any
 }
 
@@ -44,6 +45,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
   onTaskClick,
   toggleExpanded,
   handleTaskListScroll,
+  onTaskDrop,
   virtualizer,
 }: GanttTaskPanelProps) {
   return (
@@ -134,8 +136,10 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                   const newSort = prevTask
                     ? (prevTask.sort_order + task.sort_order) / 2
                     : task.sort_order - 1
-                  // Note: the actual mutation is handled by the parent via the dragSnapshotRef
-                  // The parent should listen for drop completion and call mutate
+                  // Update the sort order via parent callback
+                  if (sourceTask) {
+                    onTaskDrop(sourceId, task.id, newSort)
+                  }
                 }}
                 className={cn(
                   'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative',
