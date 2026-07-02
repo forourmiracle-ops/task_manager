@@ -48,7 +48,6 @@ export const DetailPanel = memo(function DetailPanel() {
   const originalValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
   const committingRef = useRef(false)
-  const isComposingRef = useRef(false)
 
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
@@ -399,14 +398,7 @@ export const DetailPanel = memo(function DetailPanel() {
             data-detail-editor
             autoFocus
             value={val}
-            onCompositionStart={() => { isComposingRef.current = true }}
-            onCompositionEnd={(e) => {
-              isComposingRef.current = false
-              setEditValue((e.target as HTMLTextAreaElement).value)
-            }}
-            onChange={(e) => {
-              if (!isComposingRef.current) setEditValue(e.target.value)
-            }}
+            onChange={(e) => setEditValue(e.target.value)}
             rows={3}
             className={`${baseClass} resize-none`}
           />
@@ -502,14 +494,7 @@ export const DetailPanel = memo(function DetailPanel() {
             autoFocus
             type="text"
             value={val}
-            onCompositionStart={() => { isComposingRef.current = true }}
-            onCompositionEnd={(e) => {
-              isComposingRef.current = false
-              setEditValue((e.target as HTMLInputElement).value)
-            }}
-            onChange={(e) => {
-              if (!isComposingRef.current) setEditValue(e.target.value)
-            }}
+            onChange={(e) => setEditValue(e.target.value)}
             className={baseClass}
           />
         )
