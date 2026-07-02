@@ -1,0 +1,8 @@
+{
+  "schema_version": "4.0",
+  "domain": "agent",
+  "description": "工作流自相关任务处理与经验积累",
+  "experiences": [],
+  "created_by": "dynamic_domain_router_v4.6.1",
+  "created_date": "2026-07-02"
+}
