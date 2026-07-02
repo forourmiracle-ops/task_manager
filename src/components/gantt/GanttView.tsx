@@ -218,7 +218,7 @@ export const GanttView = memo(function GanttView() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleTaskClick = useCallback((id: string) => {
-    try { setSelectedTaskId(id) } catch { /* ignore */ }
+    setSelectedTaskId(id)
   }, [setSelectedTaskId])
 
   const handleDatePanelClick = useCallback((e: React.MouseEvent) => {
@@ -307,7 +307,7 @@ export const GanttView = memo(function GanttView() {
         />
 
         {/* Gantt body: two-panel layout — always rendered, overlays inside */}
-        <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 flex overflow-hidden relative min-w-0">
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
             virtualItems={virtualItems}
