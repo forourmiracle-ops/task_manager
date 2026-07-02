@@ -5,7 +5,7 @@ import type { ViewStartMode } from '@/store'
 import { useUpdateTask } from '@/hooks/useTasks'
 import { cn } from '@/lib/utils'
 import { showDraftToast } from '@/components/ui/DraftToast'
-import { exportToCSV } from '@/lib/export'
+import { exportToCSV, downloadFile } from '@/lib/export'
 import type { Task } from '@/types'
 
 import { useGanttData } from './hooks/useGanttData'
@@ -103,6 +103,12 @@ export const GanttView = memo(function GanttView() {
   // Drag undo snapshot
   interface DragSnapshot { sourceId: string; oldSortOrder: number; oldParentId: string | null }
   const dragSnapshotRef = useRef<DragSnapshot | null>(null)
+  const [canUndo, setCanUndo] = useState(false)
+
+  const handleSaveUndoSnapshot = useCallback((snapshot: DragSnapshot) => {
+    dragSnapshotRef.current = snapshot
+    setCanUndo(true)
+  }, [])
 
   // ── Scroll (useGanttScroll) — no isLoading param, stable [] dependency ────
   const {
@@ -194,28 +200,6 @@ export const GanttView = memo(function GanttView() {
     el.scrollLeft = Math.max(0, scrollTarget)
   }, [scrollTarget, DAY_WIDTH, allFlatTasks.length])
 
-  // ── Ctrl+Z undo ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        const snap = dragSnapshotRef.current
-        if (!snap) return
-        const target = e.target as HTMLElement
-        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-        e.preventDefault()
-        updateTask.mutate({
-          id: snap.sourceId,
-          sort_order: snap.oldSortOrder,
-          parent_id: snap.oldParentId,
-        })
-        showDraftToast({ message: '已撤销拖拽排序', onUndo: () => {} })
-        dragSnapshotRef.current = null
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [updateTask])
-
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleTaskClick = useCallback((id: string) => {
     setSelectedTaskId(id)
@@ -261,11 +245,11 @@ export const GanttView = memo(function GanttView() {
   }, [goTodayStage, todayOffset, DAY_WIDTH])
 
   const handleExportPNG = useCallback(() => {
-    try { exportToCSV(visibleTasks, 'gantt-tasks.csv') } catch { /* ignore */ }
+    try { downloadFile(exportToCSV(visibleTasks), 'gantt-tasks.csv', 'text/csv') } catch { /* ignore */ }
   }, [visibleTasks])
 
   const handleExportCSV = useCallback(() => {
-    exportToCSV(visibleTasks, 'gantt-tasks.csv')
+    downloadFile(exportToCSV(visibleTasks), 'gantt-tasks.csv', 'text/csv')
   }, [visibleTasks])
 
   const handleUndo = useCallback(() => {
@@ -275,9 +259,31 @@ export const GanttView = memo(function GanttView() {
       id: snap.sourceId,
       sort_order: snap.oldSortOrder,
       parent_id: snap.oldParentId,
+    }, {
+      onSuccess: () => {
+        showDraftToast({ message: '已撤销拖拽排序', onUndo: () => {} })
+        dragSnapshotRef.current = null
+        setCanUndo(false)
+      },
     })
-    dragSnapshotRef.current = null
   }, [updateTask])
+
+  // ── Ctrl+Z undo ───────────────────────────────────────────────────────────
+  // handleUndo is stable (useCallback), add it to dependency to get fresh ref
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        const snap = dragSnapshotRef.current
+        if (!snap) return
+        const target = e.target as HTMLElement
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
+        e.preventDefault()
+        handleUndo()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleUndo])
 
   const handleTaskDrop = useCallback((sourceId: string, _targetId: string, newSort: number) => {
     updateTask.mutate({ id: sourceId, sort_order: newSort })
@@ -303,7 +309,7 @@ export const GanttView = memo(function GanttView() {
           onExportPNG={handleExportPNG}
           onExportCSV={handleExportCSV}
           onUndo={handleUndo}
-          canUndo={dragSnapshotRef.current !== null}
+          canUndo={canUndo}
         />
 
         {/* Gantt body: two-panel layout — always rendered, overlays inside */}
@@ -320,7 +326,7 @@ export const GanttView = memo(function GanttView() {
             LABEL_WIDTH={LABEL_WIDTH}
             ROW_HEIGHT={ROW_HEIGHT}
             updateDragState={updateDragState}
-            dragSnapshotRef={dragSnapshotRef}
+            onSaveUndoSnapshot={handleSaveUndoSnapshot}
             taskListRef={taskListRef}
             onTaskClick={handleTaskClick}
             toggleExpanded={toggleExpanded}

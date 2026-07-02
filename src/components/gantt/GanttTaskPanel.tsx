@@ -20,7 +20,7 @@ interface GanttTaskPanelProps {
   LABEL_WIDTH: number
   ROW_HEIGHT: number
   updateDragState: (next: any) => void
-  dragSnapshotRef: React.MutableRefObject<any>
+  onSaveUndoSnapshot: (snapshot: { sourceId: string; oldSortOrder: number; oldParentId: string | null }) => void
   taskListRef: React.RefObject<HTMLDivElement | null>
   onTaskClick: (id: string) => void
   toggleExpanded: (e: React.MouseEvent, id: string) => void
@@ -40,7 +40,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
   LABEL_WIDTH,
   ROW_HEIGHT,
   updateDragState,
-  dragSnapshotRef,
+  onSaveUndoSnapshot,
   taskListRef,
   onTaskClick,
   toggleExpanded,
@@ -125,11 +125,11 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                   // Save snapshot for undo
                   const sourceTask = visibleTasks.find((t) => t.id === sourceId)
                   if (sourceTask) {
-                    dragSnapshotRef.current = {
+                    onSaveUndoSnapshot({
                       sourceId,
                       oldSortOrder: sourceTask.sort_order,
                       oldParentId: sourceTask.parent_id || null,
-                    }
+                    })
                   }
 
                   const prevTask = targetIdx > 0 ? visibleTasks[targetIdx - 1] : null
