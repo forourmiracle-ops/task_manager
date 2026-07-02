@@ -18,17 +18,24 @@ export const Sidebar = memo(function Sidebar() {
     setSearchQuery,
   } = useAppStore()
 
-  const tree = useMemo(() => (tasks ? buildTaskTree(tasks) : []), [tasks])
+  const [hideCompleted, setHideCompleted] = useState(false)
+
+  const filteredTasks = useMemo(() => {
+    if (!tasks) return []
+    if (!hideCompleted) return tasks
+    return tasks.filter((t) => t.status !== 'done')
+  }, [tasks, hideCompleted])
+
+  const tree = useMemo(() => (filteredTasks.length > 0 ? buildTaskTree(filteredTasks) : []), [filteredTasks])
 
   // Precompute parent map for O(1) depth lookups
   const parentMap = useMemo(() => {
     const map = new Map<string, string | null>()
-    if (!tasks) return map
-    for (let i = 0; i < tasks.length; i++) {
-      map.set(tasks[i].id, tasks[i].parent_id ?? null)
+    for (let i = 0; i < filteredTasks.length; i++) {
+      map.set(filteredTasks[i].id, filteredTasks[i].parent_id ?? null)
     }
     return map
-  }, [tasks])
+  }, [filteredTasks])
 
   const getTaskDepth = useCallback((taskId: string): number => {
     let depth = 0
@@ -68,16 +75,30 @@ export const Sidebar = memo(function Sidebar() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-bold tracking-tight">任务列表</h2>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{tasks?.length || 0} 个任务</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{filteredTasks.length} 个任务</p>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setHideCompleted((v) => !v)}
+              className={cn(
+                'text-[10px] px-2 py-1 rounded-lg transition-colors',
+                hideCompleted
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+              )}
+              title={hideCompleted ? '显示已完成任务' : '隐藏已完成任务'}
+            >
+              {hideCompleted ? '已过滤' : '过滤'}
+            </button>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -92,19 +113,6 @@ export const Sidebar = memo(function Sidebar() {
             className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background focus:outline-none focus:ring-1.5 focus:ring-ring placeholder:text-muted-foreground/60"
           />
         </div>
-      </div>
-
-      {/* Quick Create Button */}
-      <div className="p-3 border-b border-border">
-        <button
-          onClick={() => startCreating(null)}
-          className="w-full py-2.5 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-sm transition-all flex items-center justify-center gap-1.5"
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-          新建项目
-        </button>
       </div>
 
       {/* Task List */}
