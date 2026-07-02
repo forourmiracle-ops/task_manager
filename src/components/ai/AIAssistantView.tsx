@@ -18,10 +18,26 @@ export const AIAssistantView = memo(function AIAssistantView() {
   const [loading, setLoading] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const isUserScrolledUpRef = useRef(false)
 
+  // Only auto-scroll to bottom when user is already near the bottom
+  // If user has scrolled up to read history, don't interrupt them
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = messagesContainerRef.current
+    if (!container) return
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80
+    if (isNearBottom || !isUserScrolledUpRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80
+    isUserScrolledUpRef.current = !isNearBottom
+  }
 
   const handleSend = async (e?: FormEvent) => {
     e?.preventDefault()
@@ -98,15 +114,15 @@ export const AIAssistantView = memo(function AIAssistantView() {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border flex-shrink-0">
         <h2 className="text-sm font-semibold">AI 助手</h2>
         <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-auto p-4 space-y-4 min-h-0">
         {messages.map((msg, idx) => (
           <div
             key={idx}
@@ -134,7 +150,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-4 border-t border-border">
+      <form onSubmit={handleSend} className="p-4 border-t border-border flex-shrink-0">
         <div className="flex items-center gap-2 mb-2">
           <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer">
             <input
