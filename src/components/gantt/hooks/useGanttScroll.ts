@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useLayoutEffect } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type React from 'react'
 
-export function useGanttScroll(isLoading: boolean) {
+export function useGanttScroll() {
   const dateScrollRef = useRef<HTMLDivElement | null>(null)
   const taskListRef = useRef<HTMLDivElement | null>(null)
 
@@ -24,12 +24,10 @@ export function useGanttScroll(isLoading: boolean) {
     observerRef.current = ro
   }, [])
 
-  // Track horizontal scroll for viewport filtering, sync vertical scroll.
-  // rAF-throttled: React state updates only once per frame, scroll sync via direct DOM.
-  // useLayoutEffect ensures the scroll container exists in DOM before attaching listeners.
-  // Depends on isLoading so it re-runs when the chart transitions from loading → loaded.
-  useLayoutEffect(() => {
-    if (isLoading) return
+  // Chart structure is always rendered (no conditional loading/empty branches),
+  // so the scroll container exists on mount and ref is immediately valid.
+  // Single mount, stable lifecycle.
+  useEffect(() => {
     const el = dateScrollRef.current
     if (!el) return
     let rafId: number | null = null
@@ -49,7 +47,6 @@ export function useGanttScroll(isLoading: boolean) {
         })
       }
     }
-    updateDOM()
     updateState()
     el.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', updateState)
@@ -58,7 +55,7 @@ export function useGanttScroll(isLoading: boolean) {
       window.removeEventListener('resize', updateState)
       if (rafId !== null) cancelAnimationFrame(rafId)
     }
-  }, [isLoading])
+  }, [])
 
   const handleTaskListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (dateScrollRef.current) {
