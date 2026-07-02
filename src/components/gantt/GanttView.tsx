@@ -403,11 +403,7 @@ export const GanttView = memo(function GanttView() {
 
   // Track horizontal scroll for viewport filtering, sync vertical scroll.
   // rAF-throttled: React state updates only once per frame, scroll sync via direct DOM.
-  // Uses useLayoutEffect so the scroll listener is attached synchronously after the DOM
-  // is painted, avoiding the timing issue where useEffect([isLoading]) causes a
-  // re-render cascade that results in a blank screen.
-  useLayoutEffect(() => {
-    if (isLoading) return
+  useEffect(() => {
     const el = dateScrollRef.current
     if (!el) return
     let rafId: number | null = null
@@ -437,7 +433,7 @@ export const GanttView = memo(function GanttView() {
       window.removeEventListener('resize', updateState)
       if (rafId !== null) cancelAnimationFrame(rafId)
     }
-  }, [isLoading])
+  }, [])
 
   // Stable scroll sync callback for left panel — direct DOM write, no state
   const handleTaskListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -601,15 +597,15 @@ export const GanttView = memo(function GanttView() {
   }, [])
 
   const childCountMap = useMemo(() => {
-    const map = new Map<string, number>()
-    const hasChildren = new Map<string, boolean>()
+    const countMap = new Map<string, number>()
+    const hasChildrenMap = new Map<string, boolean>()
     allFlatTasks.forEach((t) => {
       if (t.parent_id) {
-        map.set(t.parent_id, (map.get(t.parent_id) || 0) + 1)
-        hasChildren.set(t.parent_id, true)
+        countMap.set(t.parent_id, (countMap.get(t.parent_id) || 0) + 1)
+        hasChildrenMap.set(t.parent_id, true)
       }
     })
-    return { countMap: map, hasChildrenMap: hasChildren }
+    return { countMap, hasChildrenMap }
   }, [allFlatTasks])
 
   if (isLoading) {
