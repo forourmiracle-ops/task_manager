@@ -15,6 +15,7 @@ interface GanttTaskPanelProps {
   allFlatTasks: Task[]
   expandedIds: Set<string>
   childCountMap: { countMap: Map<string, number>; hasChildrenMap: Map<string, boolean> }
+  parentMap: Map<string, string>
   selectedTaskId: string | null
   dragState: { sourceId: string; targetIdx: number | null } | null
   LABEL_WIDTH: number
@@ -25,7 +26,7 @@ interface GanttTaskPanelProps {
   onTaskClick: (id: string) => void
   toggleExpanded: (e: React.MouseEvent, id: string) => void
   handleTaskListScroll: (e: React.UIEvent<HTMLDivElement>) => void
-  onTaskDrop: (sourceId: string, targetId: string, newSort: number) => void
+  onTaskDrop: (sourceId: string, newParentId: string | null, newSort: number) => void
   virtualizer: any
 }
 
@@ -35,6 +36,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
   allFlatTasks,
   expandedIds,
   childCountMap,
+  parentMap,
   selectedTaskId,
   dragState,
   LABEL_WIDTH,
@@ -118,28 +120,35 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                   updateDragState(null)
                   const sourceId = e.dataTransfer.getData('text/plain')
                   if (sourceId === task.id) return
-                  const sourceIdx = visibleTasks.findIndex((t) => t.id === sourceId)
-                  const targetIdx = visibleTasks.findIndex((t) => t.id === task.id)
-                  if (sourceIdx === -1 || targetIdx === -1) return
 
-                  // Save snapshot for undo
-                  const sourceTask = visibleTasks.find((t) => t.id === sourceId)
-                  if (sourceTask) {
-                    onSaveUndoSnapshot({
-                      sourceId,
-                      oldSortOrder: sourceTask.sort_order,
-                      oldParentId: sourceTask.parent_id || null,
-                    })
+                  // Reject drop if target is a descendant of source (prevents self-referencing)
+                  let checkId: string | null = task.id
+                  while (checkId) {
+                    checkId = parentMap.get(checkId) ?? null
+                    if (checkId === sourceId) return
                   }
 
+                  // Find source task in full list (visibleTasks may be filtered by viewport)
+                  const sourceTask = allFlatTasks.find((t) => t.id === sourceId)
+                  if (!sourceTask) return
+
+                  // Save snapshot for undo
+                  onSaveUndoSnapshot({
+                    sourceId,
+                    oldSortOrder: sourceTask.sort_order,
+                    oldParentId: sourceTask.parent_id || null,
+                  })
+
+                  // Calculate new sort_order: insert between target and previous task
+                  const targetIdx = visibleTasks.findIndex((t) => t.id === task.id)
                   const prevTask = targetIdx > 0 ? visibleTasks[targetIdx - 1] : null
                   const newSort = prevTask
                     ? (prevTask.sort_order + task.sort_order) / 2
                     : task.sort_order - 1
-                  // Update the sort order via parent callback
-                  if (sourceTask) {
-                    onTaskDrop(sourceId, task.id, newSort)
-                  }
+                  // Place at same level as target task
+                  const newParentId = task.parent_id
+
+                  onTaskDrop(sourceId, newParentId, newSort)
                 }}
                 className={cn(
                   'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative',

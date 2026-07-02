@@ -285,8 +285,8 @@ export const GanttView = memo(function GanttView() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleUndo])
 
-  const handleTaskDrop = useCallback((sourceId: string, _targetId: string, newSort: number) => {
-    updateTask.mutate({ id: sourceId, sort_order: newSort })
+  const handleTaskDrop = useCallback((sourceId: string, newParentId: string | null, newSort: number) => {
+    updateTask.mutate({ id: sourceId, sort_order: newSort, parent_id: newParentId })
   }, [updateTask])
 
   // ── Render — chart structure always exists, overlays for loading/empty ────
@@ -321,6 +321,7 @@ export const GanttView = memo(function GanttView() {
             allFlatTasks={allFlatTasks}
             expandedIds={expandedIds}
             childCountMap={childCountMap}
+            parentMap={parentMap}
             selectedTaskId={selectedTaskId}
             dragState={dragState}
             LABEL_WIDTH={LABEL_WIDTH}
