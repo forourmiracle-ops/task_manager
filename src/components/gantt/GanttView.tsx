@@ -284,10 +284,12 @@ export const GanttView = memo(function GanttView() {
   }, [updateTask])
 
   // ── Render — chart structure always exists, overlays for loading/empty ────
+  // Toolbar stays outside the overlay area so it's always visible.
+  // Overlays only cover the chart body (below the toolbar).
   return (
     <GanttErrorBoundary>
-      <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
-        {/* Toolbar */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-background">
+        {/* Toolbar — always visible, above overlays */}
         <GanttToolbar
           dimension={dimension}
           viewStartMode={viewStartMode}
@@ -304,8 +306,8 @@ export const GanttView = memo(function GanttView() {
           canUndo={dragSnapshotRef.current !== null}
         />
 
-        {/* Gantt body: two-panel layout — always rendered */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Gantt body: two-panel layout — always rendered, overlays inside */}
+        <div className="flex-1 flex overflow-hidden relative">
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
             virtualItems={virtualItems}
@@ -328,7 +330,7 @@ export const GanttView = memo(function GanttView() {
           />
 
           <div
-            className="flex-1 flex flex-col overflow-hidden"
+            className="flex-1 flex flex-col overflow-hidden min-w-0"
             ref={datePanelCallbackRef}
           >
             {/* Month headers — offset horizontally to sync with scroll */}
@@ -369,33 +371,33 @@ export const GanttView = memo(function GanttView() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Loading overlay — semi-transparent, doesn't rebuild DOM */}
-        {isLoading && (
-          <div className="absolute inset-0 top-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              <p className="text-xs text-muted-foreground">加载中...</p>
-            </div>
-          </div>
-        )}
-
-        {/* Empty overlay — shown when loaded but no tasks with dates */}
-        {isEmpty && (
-          <div className="absolute inset-0 top-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
-            <div className="text-center bg-muted/20 rounded-2xl p-10 border border-dashed border-border">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/30 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
-                  <rect x="2" y="3" width="12" height="10" rx="1" />
-                  <path d="M2 7h12M6 7v6M10 7v6" />
-                </svg>
+          {/* Loading overlay — covers chart body only, toolbar stays visible */}
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <p className="text-xs text-muted-foreground">加载中...</p>
               </div>
-              <p className="text-sm font-semibold text-foreground mb-1">暂无含日期的任务</p>
-              <p className="text-xs text-muted-foreground">创建任务时设置开始和截止日期即可在甘特图中显示</p>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Empty overlay — covers chart body only, toolbar stays visible */}
+          {isEmpty && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
+              <div className="text-center bg-muted/20 rounded-2xl p-10 border border-dashed border-border">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/30 flex items-center justify-center">
+                  <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
+                    <rect x="2" y="3" width="12" height="10" rx="1" />
+                    <path d="M2 7h12M6 7v6M10 7v6" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-foreground mb-1">暂无含日期的任务</p>
+                <p className="text-xs text-muted-foreground">创建任务时设置开始和截止日期即可在甘特图中显示</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </GanttErrorBoundary>
   )
