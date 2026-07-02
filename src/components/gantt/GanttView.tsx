@@ -185,14 +185,13 @@ export const GanttView = memo(function GanttView() {
   const virtualItems = virtualizer.getVirtualItems()
 
   // ── Scroll to today ───────────────────────────────────────────────────────
+  // useLayoutEffect runs before paint, so the scroll position is set
+  // before the user sees anything. No double rAF — that would delay
+  // the scroll past the useEffect in useGanttScroll, causing scrollLeft=0.
   useLayoutEffect(() => {
     const el = dateScrollRef.current
     if (!el || DAY_WIDTH <= 0) return
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.scrollLeft = Math.max(0, scrollTarget)
-      })
-    })
+    el.scrollLeft = Math.max(0, scrollTarget)
   }, [scrollTarget, DAY_WIDTH, allFlatTasks.length])
 
   // ── Ctrl+Z undo ───────────────────────────────────────────────────────────
@@ -332,23 +331,23 @@ export const GanttView = memo(function GanttView() {
             className="flex-1 flex flex-col overflow-hidden"
             ref={datePanelCallbackRef}
           >
-            {/* Month headers */}
-            <GanttMonthHeaders monthHeaders={monthHeaders} DAY_WIDTH={DAY_WIDTH} />
+            {/* Month headers — offset horizontally to sync with scroll */}
+            <GanttMonthHeaders monthHeaders={monthHeaders} DAY_WIDTH={DAY_WIDTH} scrollLeft={scrollLeft} />
 
-            {/* Day headers */}
+            {/* Day headers — offset horizontally to sync with scroll */}
             <GanttDayHeaders
               visibleDayRange={visibleDayRange}
               DAY_WIDTH={DAY_WIDTH}
               startDate={startDate}
               todayOffset={todayOffset}
               weekendHolidayIndices={weekendHolidayIndices}
+              scrollLeft={scrollLeft}
             />
 
             {/* Scrollable task rows area — always rendered, ref always valid */}
             <div
               ref={dateScrollRef}
-              className="flex-1 overflow-auto"
-              style={{ minWidth: totalWidth }}
+              className="flex-1 overflow-auto min-w-0"
               data-date-panel
               onClick={handleDatePanelClick}
             >

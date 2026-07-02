@@ -8,6 +8,7 @@ export const DIMENSION_DAYS: Record<string, number> = {
   week: 7,
   month: 30,
   quarter: 90,
+  halfyear: 180,
   year: 365,
 }
 
