@@ -46,7 +46,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
           messages: [
             {
               role: 'system',
-              content: `你是一个项目管理 AI 助手。当前用户有以下任务：${JSON.stringify(
+              content: `你是一个项目管理 AI 助手。当前日期：${new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}。当前用户有以下任务：${JSON.stringify(
                 tasks?.map((t) => ({ id: t.id, title: t.title, status: t.status, progress: t.progress_percent, due: t.due_date })) || []
               )}。请根据用户需求提供帮助。如果需要拆解任务，请生成结构化的子任务列表，格式为 JSON 数组：[{title: string, children?: [...]}]，最多 4 层。`,
             },
@@ -113,13 +113,13 @@ export const AIAssistantView = memo(function AIAssistantView() {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 text-sm ${
+              className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
                 msg.role === 'user'
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted'
               }`}
             >
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              <div className="whitespace-pre-wrap break-words overflow-x-auto">{msg.content}</div>
             </div>
           </div>
         ))}
