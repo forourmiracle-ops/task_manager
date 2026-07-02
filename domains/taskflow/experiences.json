@@ -36,8 +36,89 @@
       ],
       "timestamp": "2026-07-01T10:37:53.411193",
       "updated_at": "2026-07-01T10:37:53.411193"
+    },
+    {
+      "id": "lesson_1782989907141_1",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "忘记在任务完成后推送到GitHub（用户两次提醒）",
+      "keywords": [
+        "任务完成",
+        "记在任务",
+        "成后推送",
+        "户两次提",
+        "用户两次",
+        "两次提醒",
+        "修改完成",
+        "并通过验",
+        "discipline",
+        "流程遗漏"
+      ],
+      "lang": "mixed",
+      "steps": [
+        "教训: 每次代码修改完成并通过验证后，必须立即执行git commit + git push。在任务完成checklist中显式加入'推送到GitHub'步骤。不应依赖用户提醒。"
+      ],
+      "insight": "每次代码修改完成并通过验证后，必须立即执行git commit + git push。在任务完成checklist中显式加入'推送到GitHub'步骤。不应依赖用户提醒。",
+      "trace": "",
+      "context": "",
+      "why_failed": "流程遗漏",
+      "confidence": 0.7,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "忘记在任务完成后推送到GitHub（用户两次提醒）",
+      "agent": "admin",
+      "tags": [
+        "from_log_lesson",
+        "failure"
+      ],
+      "timestamp": "2026-07-02T10:58:27.138498",
+      "updated_at": "2026-07-02T10:58:27.138498"
+    },
+    {
+      "id": "lesson_workflow_optimization",
+      "status": "active",
+      "layer": "L2",
+      "scenario": "Agent 工作流自我优化：每次任务必须并行调用四个 Skill + 完整收尾",
+      "keywords": [
+        "工作流",
+        "自我优化",
+        "Skill",
+        "brainstorming",
+        "frontend-design",
+        "react-best-practices",
+        "self-evolving-core",
+        "收尾清单",
+        "git push",
+        "discipline"
+      ],
+      "lang": "mixed",
+      "steps": [
+        "启动: 并行调用 4 个 Skill（brainstorming + frontend-design + react-best-practices + self-evolving-core）",
+        "启动: 调用 Router 签到加载免疫规则",
+        "启动: 读取 MEMORY.md 确认 PINNED 区纪律",
+        "执行: 按 brainstorming 流程进行设计→批准→实施",
+        "收尾: tsc --noEmit → Playwright 验证 → git commit → git push → evolution log"
+      ],
+      "insight": "每次任务必须遵循完整的启动→执行→收尾流程。遗漏任何一步都会触发免疫规则升级：1次warning→2次critical→3+次全链路阻断。MEMORY.md PINNED区已写入硬性纪律。",
+      "trace": "brainstorming→Skill×4→MEMORY.md编辑→immune_rules编辑→experiences编辑→git commit→git push→evolution log",
+      "context": "用户多次指出 AI 助手遗漏 Skill 调用和 Git 推送。设计两层架构（任务清单+自进化兜底）+三层保障（MEMORY锚点+Router拦截+自进化升级）解决此问题。",
+      "why_failed": "",
+      "confidence": 0.9,
+      "proven_count": 1,
+      "superseded_by": null,
+      "supersedes": [],
+      "source_task": "Agent 工作流自我优化设计",
+      "agent": "admin",
+      "tags": [
+        "workflow",
+        "discipline",
+        "self-optimization"
+      ],
+      "timestamp": "2026-07-02T11:00:00.000000",
+      "updated_at": "2026-07-02T11:00:00.000000"
     }
   ],
-  "total_count": 1,
-  "last_updated": "2026-07-01T10:37:53.411193"
+  "total_count": 3,
+  "last_updated": "2026-07-02T11:00:00.000000"
 }

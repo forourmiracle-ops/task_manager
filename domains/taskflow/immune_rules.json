@@ -12,8 +12,32 @@
       "error_category": "",
       "created_at": "2026-07-01T10:37:53.411193",
       "timestamp": "2026-07-01T10:37:53.411193"
+    },
+    {
+      "id": "rule_1782989907145_1",
+      "scenario": "忘记在任务完成后推送到GitHub（用户两次提醒）",
+      "rule": "每次代码修改完成并通过验证后，必须立即执行git commit + git push。在任务完成checklist中显式加入'推送到GitHub'步骤。不应依赖用户提醒。",
+      "severity": "warning",
+      "source_lesson": "任务失败教训自动提取",
+      "source_experience_id": "lesson_1782989907141_1",
+      "error_type": "流程遗漏",
+      "error_category": "discipline",
+      "created_at": "2026-07-02T10:58:27.138498",
+      "timestamp": "2026-07-02T10:58:27.138498"
+    },
+    {
+      "id": "rule_skill_discipline",
+      "scenario": "跳过任务启动时的 Skill 并行加载",
+      "rule": "Router 检测到未调用 Skill 工具 → 拦截并提醒：必须先并行加载 4 个 Skill（brainstorming + frontend-design + vercel-react-best-practices + self-evolving-core）。任务完成后必须执行收尾：tsc → Playwright → git commit → git push → evolution log。",
+      "severity": "critical",
+      "source_lesson": "用户多次指出遗漏 Skill 调用和 Git 推送，已建立 MEMORY.md PINNED 区纪律 + 三层保障机制",
+      "source_experience_id": "lesson_workflow_optimization",
+      "error_type": "流程遗漏",
+      "error_category": "discipline",
+      "created_at": "2026-07-02T11:00:00.000000",
+      "timestamp": "2026-07-02T11:00:00.000000"
     }
   ],
-  "total_rules": 1,
-  "last_updated": "2026-07-01T10:37:53.411193"
+  "total_rules": 3,
+  "last_updated": "2026-07-02T11:00:00.000000"
 }

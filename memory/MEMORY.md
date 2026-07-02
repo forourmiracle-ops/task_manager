@@ -56,6 +56,24 @@
 | Memory职责 | **只存路径指针**，指向项目目录位置，绝不存项目具体内容 |
 | 确保纯净 | Memory文件 = 规范 + 索引 + 指针，不是项目笔记本 |
 
+## 🔴 技能调用纪律（P0 — 每次任务强制执行）
+
+**每次收到用户任务后，第一步必须并行调用四个 Skill：**
+
+| # | Skill | 用途 |
+|---|-------|------|
+| 1 | `Skill("brainstorming")` | 设计前思考，探索方案，获取批准后执行 |
+| 2 | `Skill("frontend-design")` | UI 审美指导，避免通用 AI 风格 |
+| 3 | `Skill("vercel-react-best-practices")` | React 性能规则（65 条），优化重渲染和 bundle |
+| 4 | `Skill("self-evolving-core")` | 自进化记账，经验积累闭环 |
+
+**任务完成后必须执行收尾清单：**
+```
+tsc --noEmit → Playwright 验证 → git commit → git push → evolution log
+```
+
+**遗漏后果：** 1 次 warning → 2 次 critical 硬拦截 → 3+ 次全链路阻断
+
 <!-- PINNED_SECTION_END -->
 
 ---
