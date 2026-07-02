@@ -4,10 +4,10 @@ import type { Task } from '@/types'
 import { DependencyLines } from './DependencyLines'
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'bg-red-500',
-  high: 'bg-orange-500',
-  medium: 'bg-blue-500',
-  low: 'bg-gray-500',
+  urgent: '#ef4444',
+  high: '#f97316',
+  medium: '#3b82f6',
+  low: '#6b7280',
 }
 
 interface GanttTaskRowsProps {
