@@ -70,7 +70,6 @@ export function useGanttViewport(params: {
 
   const visibleTasks = useMemo(() => {
     return allFlatTasks.filter((t) => {
-      if (!overlapsRange(t.start_date!, t.due_date!, viewportRange.start, viewportRange.end)) return false
       let currentId: string | null = t.parent_id ?? null
       while (currentId) {
         if (!expandedIds.has(currentId)) return false
@@ -78,7 +77,13 @@ export function useGanttViewport(params: {
       }
       return true
     })
-  }, [allFlatTasks, viewportRange, expandedIds, parentMap])
+  }, [allFlatTasks, expandedIds, parentMap])
+
+  const viewportTasks = useMemo(() => {
+    return visibleTasks.filter((t) =>
+      overlapsRange(t.start_date!, t.due_date!, viewportRange.start, viewportRange.end)
+    )
+  }, [visibleTasks, viewportRange])
 
   const visibleDayRange = useMemo(() => {
     const effectiveWidth = scrollWidth || datePanelWidth || 800
@@ -94,6 +99,7 @@ export function useGanttViewport(params: {
     dimensionDays,
     visibleDayRange,
     visibleTasks,
+    viewportTasks,
     viewportRange,
     startDate,
     endDate,
