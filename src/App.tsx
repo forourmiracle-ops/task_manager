@@ -165,11 +165,11 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
         <Suspense fallback={<ViewSkeleton />}>
-          {currentView === 'gantt' && <div className="flex-1"><GanttView /></div>}
-          {currentView === 'board' && <div className="flex-1"><BoardView /></div>}
-          {currentView === 'calendar' && <div className="flex-1"><CalendarView /></div>}
-          {currentView === 'ai' && <div className="flex-1"><AIAssistantView /></div>}
-          {currentView === 'settings' && <div className="flex-1"><SettingsView /></div>}
+          {currentView === 'gantt' && <div className="flex-1 min-w-0"><GanttView /></div>}
+          {currentView === 'board' && <div className="flex-1 min-w-0"><BoardView /></div>}
+          {currentView === 'calendar' && <div className="flex-1 min-w-0"><CalendarView /></div>}
+          {currentView === 'ai' && <div className="flex-1 min-w-0"><AIAssistantView /></div>}
+          {currentView === 'settings' && <div className="flex-1 min-w-0"><SettingsView /></div>}
         </Suspense>
         <DetailPanel />
       </div>
