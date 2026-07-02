@@ -102,7 +102,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-screen flex flex-col bg-background overflow-hidden min-h-0">
       {/* Top Navigation */}
       <header className="border-b border-border flex items-center px-4 gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
         <button
@@ -162,14 +162,14 @@ export default function App() {
       </header>
 
       {/* Main Content — only active view rendered, lazy-loaded on demand */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         <Sidebar />
         <Suspense fallback={<ViewSkeleton />}>
-          {currentView === 'gantt' && <div className="flex-1 min-w-0"><GanttView /></div>}
-          {currentView === 'board' && <div className="flex-1 min-w-0"><BoardView /></div>}
-          {currentView === 'calendar' && <div className="flex-1 min-w-0"><CalendarView /></div>}
-          {currentView === 'ai' && <div className="flex-1 min-w-0"><AIAssistantView /></div>}
-          {currentView === 'settings' && <div className="flex-1 min-w-0"><SettingsView /></div>}
+          {currentView === 'gantt' && <div className="flex-1 min-w-0 min-h-0 flex"><GanttView /></div>}
+          {currentView === 'board' && <div className="flex-1 min-w-0 min-h-0 flex"><BoardView /></div>}
+          {currentView === 'calendar' && <div className="flex-1 min-w-0 min-h-0 flex"><CalendarView /></div>}
+          {currentView === 'ai' && <div className="flex-1 min-w-0 min-h-0 flex"><AIAssistantView /></div>}
+          {currentView === 'settings' && <div className="flex-1 min-w-0 min-h-0 flex"><SettingsView /></div>}
         </Suspense>
         <DetailPanel />
       </div>

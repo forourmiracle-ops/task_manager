@@ -69,7 +69,7 @@ export const Sidebar = memo(function Sidebar() {
   if (!sidebarOpen) return null
 
   return (
-    <aside className="border-r border-border bg-sidebar flex flex-col h-full shadow-elevated" style={{ width: 280, minWidth: 280, flexShrink: 0 }}>
+    <aside className="border-r border-border bg-sidebar flex flex-col h-full shadow-elevated min-h-0" style={{ width: 280, minWidth: 280, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-4 border-b border-border bg-muted/10">
         <div className="flex items-center justify-between mb-3">

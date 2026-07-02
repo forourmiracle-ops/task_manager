@@ -552,7 +552,7 @@ export const DetailPanel = memo(function DetailPanel() {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
 
   return (
-    <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
+    <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated min-h-0" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-muted/10 sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">
