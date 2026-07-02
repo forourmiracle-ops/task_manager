@@ -62,7 +62,7 @@ export const GanttTaskRows = memo(function GanttTaskRows({
         <div
           className="absolute z-10 pointer-events-none"
           style={{
-            left: todayPosition * DAY_WIDTH + DAY_WIDTH / 2,
+            left: todayPosition + DAY_WIDTH / 2,
             top: 0,
             bottom: 0,
             width: 2,

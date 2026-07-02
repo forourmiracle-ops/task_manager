@@ -57,20 +57,6 @@ export const GanttToolbar = memo(function GanttToolbar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Keyboard shortcut for undo
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        const target = e.target as HTMLElement
-        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-        e.preventDefault()
-        onUndo()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onUndo])
-
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/10 flex-shrink-0">
       {/* Dimension label */}

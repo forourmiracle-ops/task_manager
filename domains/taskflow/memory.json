@@ -1,7 +1,7 @@
 {
   "statistics": {
-    "total_tasks": 5,
-    "success_count": 5,
+    "total_tasks": 6,
+    "success_count": 6,
     "failed_count": 0,
     "total_tokens": 0,
     "total_duration_sec": 3478
@@ -46,6 +46,14 @@
       "domain": "taskflow",
       "trace": "分析根因→React.lazy×5→Suspense→仅渲染活跃视图→tsc→git push",
       "context": "5个视图同时挂载导致首屏过重,改为lazy+仅渲染活跃视图,首屏JS体积~60%↓"
+    },
+    {
+      "timestamp": "2026-07-02 02:46:47",
+      "task_desc": "甘特图架构重构：1164行拆分为4Hook+7组件，修复白屏+内存爆炸",
+      "result": "success",
+      "domain": "taskflow",
+      "trace": "brainstorming→root-cause-analysis→rollback→refactor-4hooks-7components→build-verify",
+      "context": "useEffect([isLoading])导致重渲染白屏，回退到useEffect([])后重新安全优化。根本原因是巨型组件耦合，拆分后GanttView从1164行降至408行"
     }
   ],
   "task_type_counts": {
@@ -111,6 +119,19 @@
         {
           "result": "success",
           "ts": "2026-07-01T11:35:51.054712"
+        }
+      ]
+    },
+    "甘特图架构重构：1164行拆分为4H": {
+      "total": 1,
+      "success": 1,
+      "failed": 0,
+      "partial": 0,
+      "consecutive_errors": 0,
+      "last_results": [
+        {
+          "result": "success",
+          "ts": "2026-07-02T02:46:47.283435"
         }
       ]
     }

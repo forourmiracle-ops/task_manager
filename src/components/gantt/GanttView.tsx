@@ -284,6 +284,10 @@ export const GanttView = memo(function GanttView() {
     dragSnapshotRef.current = null
   }, [updateTask])
 
+  const handleTaskDrop = useCallback((sourceId: string, _targetId: string, newSort: number) => {
+    updateTask.mutate({ id: sourceId, sort_order: newSort })
+  }, [updateTask])
+
   // ── Loading / Empty states ────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -353,15 +357,13 @@ export const GanttView = memo(function GanttView() {
             onTaskClick={handleTaskClick}
             toggleExpanded={toggleExpanded}
             handleTaskListScroll={handleTaskListScroll}
+            onTaskDrop={handleTaskDrop}
             virtualizer={virtualizer}
           />
 
           <div
             className="flex-1 flex flex-col overflow-hidden"
-            ref={(el) => {
-              (dateScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el
-              datePanelCallbackRef(el)
-            }}
+            ref={datePanelCallbackRef}
           >
             {/* Month headers */}
             <GanttMonthHeaders monthHeaders={monthHeaders} DAY_WIDTH={DAY_WIDTH} />
