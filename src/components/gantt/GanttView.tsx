@@ -333,41 +333,42 @@ export const GanttView = memo(function GanttView() {
             className="flex-1 flex flex-col overflow-hidden min-w-0"
             ref={datePanelCallbackRef}
           >
-            {/* Month headers — offset horizontally to sync with scroll */}
-            <GanttMonthHeaders monthHeaders={monthHeaders} DAY_WIDTH={DAY_WIDTH} scrollLeft={scrollLeft} />
-
-            {/* Day headers — offset horizontally to sync with scroll */}
-            <GanttDayHeaders
-              visibleDayRange={visibleDayRange}
-              DAY_WIDTH={DAY_WIDTH}
-              startDate={startDate}
-              todayOffset={todayOffset}
-              weekendHolidayIndices={weekendHolidayIndices}
-              scrollLeft={scrollLeft}
-            />
-
-            {/* Scrollable task rows area — always rendered, ref always valid */}
+            {/* Single scrollable area: headers + task rows scroll together natively */}
             <div
               ref={dateScrollRef}
               className="flex-1 overflow-auto min-w-0"
               data-date-panel
               onClick={handleDatePanelClick}
             >
-              <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
-                <GanttTaskRows
-                  virtualItems={virtualItems}
-                  visibleTasks={visibleTasks}
-                  visibleDayRange={visibleDayRange}
-                  DAY_WIDTH={DAY_WIDTH}
-                  totalWidth={totalWidth}
-                  getTaskBarStyle={getTaskBarStyle}
-                  weekendHolidayIndices={weekendHolidayIndices}
-                  todayPosition={todayPosition}
-                  selectedTaskId={selectedTaskId}
-                  dragState={dragState}
-                  onTaskClick={handleTaskClick}
-                  onDatePanelClick={handleDatePanelClick}
-                />
+              <div style={{ minWidth: totalWidth }}>
+                {/* Sticky header area — stays at top during vertical scroll */}
+                <div className="sticky top-0 z-10 bg-background">
+                  <GanttMonthHeaders monthHeaders={monthHeaders} DAY_WIDTH={DAY_WIDTH} />
+                  <GanttDayHeaders
+                    visibleDayRange={visibleDayRange}
+                    DAY_WIDTH={DAY_WIDTH}
+                    startDate={startDate}
+                    todayOffset={todayOffset}
+                    weekendHolidayIndices={weekendHolidayIndices}
+                  />
+                </div>
+                {/* Task rows */}
+                <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
+                  <GanttTaskRows
+                    virtualItems={virtualItems}
+                    visibleTasks={visibleTasks}
+                    visibleDayRange={visibleDayRange}
+                    DAY_WIDTH={DAY_WIDTH}
+                    totalWidth={totalWidth}
+                    getTaskBarStyle={getTaskBarStyle}
+                    weekendHolidayIndices={weekendHolidayIndices}
+                    todayPosition={todayPosition}
+                    selectedTaskId={selectedTaskId}
+                    dragState={dragState}
+                    onTaskClick={handleTaskClick}
+                    onDatePanelClick={handleDatePanelClick}
+                  />
+                </div>
               </div>
             </div>
           </div>
