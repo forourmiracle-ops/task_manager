@@ -39,15 +39,11 @@ export const GanttTaskRows = memo(function GanttTaskRows({
   onTaskClick,
   onDatePanelClick,
 }: GanttTaskRowsProps) {
-  const totalHeight = virtualItems.length > 0
-    ? virtualItems[virtualItems.length - 1].start + virtualItems[virtualItems.length - 1].size
-    : 0
-
   const ROW_HEIGHT = virtualItems.length > 0 ? virtualItems[0].size : 36
 
   return (
     <div
-      style={{ minWidth: totalWidth, height: totalHeight, position: 'relative' }}
+      style={{ minWidth: totalWidth, height: '100%', position: 'relative' }}
       onClick={onDatePanelClick}
     >
       {/* Dependency lines SVG overlay */}
