@@ -350,7 +350,7 @@ export const GanttView = memo(function GanttView() {
             >
               <div style={{ minWidth: totalWidth }}>
                 {/* Sticky header area — stays at top during vertical scroll */}
-                <div className="sticky top-0 z-10 bg-background">
+                <div className="sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--background))' }}>
                   <GanttMonthHeaders monthHeaders={monthHeaders} DAY_WIDTH={DAY_WIDTH} />
                   <GanttDayHeaders
                     visibleDayRange={visibleDayRange}
