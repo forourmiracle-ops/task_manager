@@ -13,7 +13,6 @@ const PRIORITY_COLORS: Record<string, string> = {
 interface GanttTaskRowsProps {
   virtualItems: { index: number; start: number; size: number; key: number }[]
   visibleTasks: Task[]
-  viewportTaskIds: Set<string>
   visibleDayRange: { start: number; end: number }
   DAY_WIDTH: number
   totalWidth: number
@@ -29,7 +28,6 @@ interface GanttTaskRowsProps {
 export const GanttTaskRows = memo(function GanttTaskRows({
   virtualItems,
   visibleTasks,
-  viewportTaskIds,
   visibleDayRange,
   DAY_WIDTH,
   totalWidth,
@@ -80,7 +78,6 @@ export const GanttTaskRows = memo(function GanttTaskRows({
       {virtualItems.map((virtualItem) => {
         const task = visibleTasks[virtualItem.index]
         const idx = virtualItem.index
-        const inViewport = viewportTaskIds.has(task.id)
         const { left, width } = getTaskBarStyle(task)
         const isSelected = selectedTaskId === task.id
         const progressPercent = task.progress_percent || 0
@@ -133,7 +130,6 @@ export const GanttTaskRows = memo(function GanttTaskRows({
             })}
 
             {/* Task bar */}
-            {inViewport && (
             <div
               data-task-bar
               className={cn(
@@ -171,12 +167,11 @@ export const GanttTaskRows = memo(function GanttTaskRows({
                 {task.title}
               </span>
             </div>
-            )}
           </div>
         )
       })}
 
-      {viewportTaskIds.size === 0 && (
+      {visibleTasks.length === 0 && (
         <div
           className="flex items-center justify-center py-12 text-muted-foreground text-xs"
           style={{ height: ROW_HEIGHT * 3 }}
