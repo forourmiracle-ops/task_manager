@@ -62,35 +62,28 @@ export function DraftToastContainer() {
     <div
       ref={containerRef}
       className={cn(
-        'fixed top-1/4 left-1/2 -translate-x-1/2 z-50 max-w-sm rounded-xl border border-amber-200 bg-amber-50/95 backdrop-blur-sm shadow-lg px-4 py-3 flex items-start gap-3 transition-all duration-300 ease-out',
+        'fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-xs rounded-lg border border-border bg-background shadow-xl px-3 py-2 flex items-center gap-2 transition-all duration-300 ease-out',
         visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
       )}
     >
       {/* Icon */}
-      <div className="flex-shrink-0 mt-0.5">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-amber-500">
-          <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z" stroke="currentColor" strokeWidth="1.2" />
-          <path d="M8 5v3M8 10.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </div>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-amber-500 flex-shrink-0">
+        <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M8 5v3M8 10.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-amber-800 leading-relaxed">{toast.message}</p>
-        <div className="flex items-center gap-3 mt-1.5">
-          <span className="text-[10px] text-amber-500">已保存为草稿</span>
-          <button
-            onClick={() => {
-              toast.onUndo()
-              setVisible(false)
-              setTimeout(() => setToast(null), 300)
-            }}
-            className="text-[10px] font-semibold text-red-500 hover:text-red-600 transition-colors"
-          >
-            撤销
-          </button>
-        </div>
-      </div>
+      <p className="text-xs text-foreground truncate flex-1 min-w-0">{toast.message}</p>
+      <button
+        onClick={() => {
+          toast.onUndo()
+          setVisible(false)
+          setTimeout(() => setToast(null), 300)
+        }}
+        className="text-xs font-semibold text-red-500 hover:text-red-600 transition-colors flex-shrink-0"
+      >
+        撤销
+      </button>
     </div>
   )
 }
