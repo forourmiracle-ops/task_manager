@@ -126,6 +126,7 @@ export const GanttView = memo(function GanttView() {
     DAY_WIDTH,
     visibleDayRange,
     visibleTasks,
+    viewportTasks,
     viewportRange,
   } = useGanttViewport({
     scrollLeft,
@@ -141,6 +142,12 @@ export const GanttView = memo(function GanttView() {
     monthHeaders,
     todayOffset,
   })
+
+  // ── Viewport task ID set for O(1) lookup in task rows ────────────────────
+  const viewportTaskIds = useMemo(
+    () => new Set(viewportTasks.map((t) => t.id)),
+    [viewportTasks],
+  )
 
   // ── Layout (useGanttLayout) ───────────────────────────────────────────────
   const {
@@ -364,6 +371,7 @@ export const GanttView = memo(function GanttView() {
                   <GanttTaskRows
                     virtualItems={virtualItems}
                     visibleTasks={visibleTasks}
+                    viewportTaskIds={viewportTaskIds}
                     visibleDayRange={visibleDayRange}
                     DAY_WIDTH={DAY_WIDTH}
                     totalWidth={totalWidth}
