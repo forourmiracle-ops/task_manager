@@ -62,9 +62,10 @@ export function DraftToastContainer() {
     <div
       ref={containerRef}
       className={cn(
-        'fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-xs rounded-lg border border-border bg-background shadow-xl px-3 py-2 flex items-center gap-2 transition-all duration-300 ease-out',
+        'fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-xs rounded-lg border border-border shadow-xl px-3 py-2 flex items-center gap-2 transition-all duration-300 ease-out',
         visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
       )}
+      style={{ backgroundColor: 'hsl(var(--background))' }}
     >
       {/* Icon */}
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-amber-500 flex-shrink-0">
