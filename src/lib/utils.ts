@@ -73,3 +73,98 @@ export const PRIORITY_COLORS: Record<string, string> = {
   high: 'bg-orange-100 text-orange-700',
   urgent: 'bg-red-100 text-red-700',
 }
+
+/** Collect all unfinished descendants from a tree node (recursive) */
+export function collectUnfinishedDescendants(task: Task): Task[] {
+  const result: Task[] = []
+  function walk(node: Task) {
+    if (node.children) {
+      for (const child of node.children) {
+        if (child.status !== 'done') {
+          result.push(child)
+        }
+        walk(child)
+      }
+    }
+  }
+  walk(task)
+  return result
+}
+
+/** Collect all descendant IDs (including completed) from a tree node */
+export function collectAllDescendantIds(task: Task): Set<string> {
+  const ids = new Set<string>()
+  function walk(node: Task) {
+    if (node.children) {
+      for (const child of node.children) {
+        ids.add(child.id)
+        walk(child)
+      }
+    }
+  }
+  walk(task)
+  return ids
+}
+
+/** Analyze blocked descendants for external dependencies */
+export function analyzeBlockedDescendants(
+  task: Task,
+  unfinishedDescendants: Task[],
+  allTasks: Task[],
+): { blockedCount: number; externalBlockedCount: number } {
+  const descendantIds = collectAllDescendantIds(task)
+  descendantIds.add(task.id)
+
+  let blockedCount = 0
+  let externalBlockedCount = 0
+
+  for (const desc of unfinishedDescendants) {
+    if (desc.status === 'blocked') {
+      blockedCount++
+      const deps = desc.depends_on || []
+      for (const depId of deps) {
+        const depTask = allTasks.find((t) => t.id === depId)
+        // Only count as external if the dependency is unfinished and not in the subtree
+        if (depTask && depTask.status !== 'done' && !descendantIds.has(depId)) {
+          externalBlockedCount++
+          break
+        }
+      }
+    }
+  }
+
+  return { blockedCount, externalBlockedCount }
+}
+
+/** Collect all descendant IDs from a flat list using parent_id (for Gantt chart) */
+export function collectDescendantIdsFromFlat(
+  parentId: string,
+  allFlatTasks: Task[],
+): Set<string> {
+  const ids = new Set<string>()
+  const children = allFlatTasks.filter((t) => t.parent_id === parentId)
+  for (const child of children) {
+    ids.add(child.id)
+    const grandChildren = collectDescendantIdsFromFlat(child.id, allFlatTasks)
+    for (const id of grandChildren) {
+      ids.add(id)
+    }
+  }
+  return ids
+}
+
+/** Collect all unfinished descendants from a flat list using parent_id (for Gantt chart) */
+export function collectUnfinishedDescendantsFromFlat(
+  parentId: string,
+  allFlatTasks: Task[],
+): Task[] {
+  const result: Task[] = []
+  const children = allFlatTasks.filter((t) => t.parent_id === parentId)
+  for (const child of children) {
+    if (child.status !== 'done') {
+      result.push(child)
+    }
+    result.push(...collectUnfinishedDescendantsFromFlat(child.id, allFlatTasks))
+  }
+  return result
+}

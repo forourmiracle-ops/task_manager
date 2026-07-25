@@ -1,5 +1,7 @@
-import { memo } from 'react'
-import { cn } from '@/lib/utils'
+import { memo, useState, useCallback } from 'react'
+import { cn, collectUnfinishedDescendantsFromFlat, collectDescendantIdsFromFlat } from '@/lib/utils'
+import { useUpdateTask } from '@/hooks/useTasks'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Task } from '@/types'
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -7,6 +9,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   high: '#f97316',
   medium: '#3b82f6',
   low: '#6b7280',
+}
+
+interface ConfirmState {
+  task: Task
+  descendants: Task[]
+  blockedCount: number
+  externalBlockedCount: number
 }
 
 interface GanttTaskPanelProps {
@@ -50,9 +59,74 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
   onTaskDrop,
   virtualizer,
 }: GanttTaskPanelProps) {
+  const updateTask = useUpdateTask()
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
+
+  const handleQuickComplete = useCallback((task: Task) => {
+    const descendants = collectUnfinishedDescendantsFromFlat(task.id, allFlatTasks)
+
+    if (descendants.length === 0) {
+      // No unfinished descendants — complete directly
+      updateTask.mutate({ id: task.id, status: 'done' }, {
+        onError: (err) => alert(err.message),
+      })
+      return
+    }
+
+    // Analyze blocked descendants
+    const descendantIds = collectDescendantIdsFromFlat(task.id, allFlatTasks)
+    descendantIds.add(task.id)
+
+    let blockedCount = 0
+    let externalBlockedCount = 0
+
+    for (const desc of descendants) {
+      if (desc.status === 'blocked') {
+        blockedCount++
+        const deps = desc.depends_on || []
+        for (const depId of deps) {
+          const depTask = allFlatTasks.find((t) => t.id === depId)
+          if (depTask && depTask.status !== 'done' && !descendantIds.has(depId)) {
+            externalBlockedCount++
+            break
+          }
+        }
+      }
+    }
+
+    setConfirmState({ task, descendants, blockedCount, externalBlockedCount })
+  }, [allFlatTasks, updateTask])
+
+  const handleConfirmComplete = useCallback(() => {
+    if (!confirmState) return
+    const { task, descendants } = confirmState
+    // Complete parent first, then all descendants sequentially
+    updateTask.mutate({ id: task.id, status: 'done' })
+    for (const desc of descendants) {
+      updateTask.mutate({ id: desc.id, status: 'done' }, {
+        onError: (err) => alert(err.message),
+      })
+    }
+    setConfirmState(null)
+  }, [confirmState, updateTask])
+
+  const handlePartialComplete = useCallback(() => {
+    if (!confirmState) return
+    updateTask.mutate({ id: confirmState.task.id, status: 'done' }, {
+      onError: (err) => alert(err.message),
+    })
+    setConfirmState(null)
+  }, [confirmState, updateTask])
+
+  const confirmMessage = confirmState
+    ? confirmState.blockedCount > 0
+      ? `该任务有 ${confirmState.descendants.length} 个未完成子任务，其中 ${confirmState.blockedCount} 个处于阻塞状态（${confirmState.externalBlockedCount} 个依赖外部任务）。是否同时完成所有子任务？`
+      : `该任务有 ${confirmState.descendants.length} 个未完成子任务。是否同时完成所有子任务？`
+    : ''
+
   return (
     <div
-      className="flex-shrink-0 border-r border-border flex flex-col bg-background"
+      className="flex-shrink-0 border-r border-border flex flex-col bg-background relative"
       style={{ width: LABEL_WIDTH }}
     >
       {/* Header */}
@@ -80,8 +154,9 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
             const isExpanded = expandedIds.has(task.id)
             const childCount = childCountMap.countMap.get(task.id) || 0
             const isChild = depth > 0
-            const indent = depth * 16 + (hasChildren ? 0 : 18)
+            const indent = depth * 16
             const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
+            const isDone = task.status === 'done'
 
             return (
               <div
@@ -151,7 +226,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                   onTaskDrop(sourceId, newParentId, newSort)
                 }}
                 className={cn(
-                  'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative',
+                  'flex items-center px-3 gap-1.5 cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 flex-shrink-0 relative group',
                   isSelected ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/5',
                   dragState?.sourceId === task.id && 'opacity-40 border-2 border-dashed border-primary',
                 )}
@@ -220,6 +295,22 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                   )}
                 </div>
 
+                {/* Quick complete button */}
+                {!isDone && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleQuickComplete(task)
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500 flex-shrink-0 p-0.5 rounded hover:bg-accent transition-all"
+                    title="标记完成"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 8l3.5 3.5L13 5" />
+                    </svg>
+                  </button>
+                )}
+
                 {/* Status indicator */}
                 <span
                   className={cn(
@@ -248,6 +339,18 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
           )}
         </div>
       </div>
+
+      {/* Confirm dialog */}
+      <ConfirmDialog
+        open={confirmState !== null}
+        message={confirmMessage}
+        confirmLabel="同时完成所有子任务"
+        partialLabel="仅完成此任务"
+        cancelLabel="取消"
+        onConfirm={handleConfirmComplete}
+        onPartial={handlePartialComplete}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   )
 })
