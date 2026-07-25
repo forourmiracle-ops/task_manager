@@ -1,10 +1,18 @@
 import { useState, useMemo, memo, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store'
-import { useTasks } from '@/hooks/useTasks'
-import { buildTaskTree, flattenTasks, cn } from '@/lib/utils'
+import { useTasks, useUpdateTask } from '@/hooks/useTasks'
+import { buildTaskTree, flattenTasks, cn, collectUnfinishedDescendants, collectAllDescendantIds } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Task } from '@/types'
 
 const MAX_DEPTH = 4
+
+interface ConfirmState {
+  task: Task
+  descendants: Task[]
+  blockedCount: number
+  externalBlockedCount: number
+}
 
 export const Sidebar = memo(function Sidebar() {
   const { data: tasks, isLoading } = useTasks()
@@ -19,6 +27,8 @@ export const Sidebar = memo(function Sidebar() {
   } = useAppStore()
 
   const [doneExpanded, setDoneExpanded] = useState(false)
+  const updateTask = useUpdateTask()
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
 
   // Split tasks into active and completed groups
   const activeTasks = useMemo(() => {
@@ -78,6 +88,68 @@ export const Sidebar = memo(function Sidebar() {
   const handleAddChild = useCallback((id: string) => {
     if (canAddChild(id)) startCreating(id)
   }, [canAddChild, startCreating])
+
+  const handleQuickComplete = useCallback((task: Task) => {
+    const descendants = collectUnfinishedDescendants(task)
+
+    if (descendants.length === 0) {
+      updateTask.mutate({ id: task.id, status: 'done' }, {
+        onError: (err) => alert(err.message),
+      })
+      return
+    }
+
+    // Analyze blocked descendants
+    let blockedCount = 0
+    let externalBlockedCount = 0
+
+    if (tasks) {
+      const descendantIds = collectAllDescendantIds(task)
+      descendantIds.add(task.id)
+
+      for (const desc of descendants) {
+        if (desc.status === 'blocked') {
+          blockedCount++
+          const deps = desc.depends_on || []
+          for (const depId of deps) {
+            const depTask = tasks.find((t) => t.id === depId)
+            if (depTask && depTask.status !== 'done' && !descendantIds.has(depId)) {
+              externalBlockedCount++
+              break
+            }
+          }
+        }
+      }
+    }
+
+    setConfirmState({ task, descendants, blockedCount, externalBlockedCount })
+  }, [tasks, updateTask])
+
+  const handleConfirmComplete = useCallback(() => {
+    if (!confirmState) return
+    const { task, descendants } = confirmState
+    updateTask.mutate({ id: task.id, status: 'done' })
+    for (const desc of descendants) {
+      updateTask.mutate({ id: desc.id, status: 'done' }, {
+        onError: (err) => alert(err.message),
+      })
+    }
+    setConfirmState(null)
+  }, [confirmState, updateTask])
+
+  const handlePartialComplete = useCallback(() => {
+    if (!confirmState) return
+    updateTask.mutate({ id: confirmState.task.id, status: 'done' }, {
+      onError: (err) => alert(err.message),
+    })
+    setConfirmState(null)
+  }, [confirmState, updateTask])
+
+  const confirmMessage = confirmState
+    ? confirmState.blockedCount > 0
+      ? `该任务有 ${confirmState.descendants.length} 个未完成子任务，其中 ${confirmState.blockedCount} 个处于阻塞状态（${confirmState.externalBlockedCount} 个依赖外部任务）。是否同时完成所有子任务？`
+      : `该任务有 ${confirmState.descendants.length} 个未完成子任务。是否同时完成所有子任务？`
+    : ''
 
   if (!sidebarOpen) return null
 
@@ -143,6 +215,7 @@ export const Sidebar = memo(function Sidebar() {
                 selectedId={selectedTaskId}
                 onSelect={handleSelect}
                 onAddChild={handleAddChild}
+                onQuickComplete={handleQuickComplete}
                 searchQuery={debouncedQuery}
                 depth={0}
                 canAddChild={canAddChild}
@@ -206,6 +279,18 @@ export const Sidebar = memo(function Sidebar() {
           新建项目
         </button>
       </div>
+
+      {/* Confirm dialog */}
+      <ConfirmDialog
+        open={confirmState !== null}
+        message={confirmMessage}
+        confirmLabel="同时完成所有子任务"
+        partialLabel="仅完成此任务"
+        cancelLabel="取消"
+        onConfirm={handleConfirmComplete}
+        onPartial={handlePartialComplete}
+        onCancel={() => setConfirmState(null)}
+      />
     </aside>
   )
 })
@@ -215,6 +300,7 @@ const TaskTreeList = memo(function TaskTreeList({
   selectedId,
   onSelect,
   onAddChild,
+  onQuickComplete,
   searchQuery,
   depth,
   canAddChild,
@@ -223,6 +309,7 @@ const TaskTreeList = memo(function TaskTreeList({
   selectedId: string | null
   onSelect: (id: string) => void
   onAddChild: (id: string) => void
+  onQuickComplete: (task: Task) => void
   searchQuery: string
   depth: number
   canAddChild: (id: string) => boolean
@@ -242,6 +329,7 @@ const TaskTreeList = memo(function TaskTreeList({
           selectedId={selectedId}
           onSelect={onSelect}
           onAddChild={onAddChild}
+          onQuickComplete={onQuickComplete}
           searchQuery={searchQuery}
           depth={depth}
           canAddChild={canAddChild}
@@ -256,6 +344,7 @@ const TaskNode = memo(function TaskNode({
   selectedId,
   onSelect,
   onAddChild,
+  onQuickComplete,
   searchQuery,
   depth,
   canAddChild,
@@ -264,6 +353,7 @@ const TaskNode = memo(function TaskNode({
   selectedId: string | null
   onSelect: (id: string) => void
   onAddChild: (id: string) => void
+  onQuickComplete: (task: Task) => void
   searchQuery: string
   depth: number
   canAddChild: (id: string) => boolean
@@ -273,6 +363,7 @@ const TaskNode = memo(function TaskNode({
   const hasChildren = task.children && task.children.length > 0
   const currentDepth = task.depth ?? depth
   const canAdd = canAddChild(task.id)
+  const isDone = task.status === 'done'
 
   if (currentDepth >= MAX_DEPTH) return null
 
@@ -334,6 +425,22 @@ const TaskNode = memo(function TaskNode({
           </span>
         )}
 
+        {/* Quick complete button */}
+        {!isDone && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onQuickComplete(task)
+            }}
+            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500 flex-shrink-0 p-0.5 rounded hover:bg-accent transition-all"
+            title="标记完成"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 8l3.5 3.5L13 5" />
+            </svg>
+          </button>
+        )}
+
         {/* Add child button */}
         {canAdd && (
           <button
@@ -358,6 +465,7 @@ const TaskNode = memo(function TaskNode({
           selectedId={selectedId}
           onSelect={onSelect}
           onAddChild={onAddChild}
+          onQuickComplete={onQuickComplete}
           searchQuery={searchQuery}
           depth={currentDepth + 1}
           canAddChild={canAddChild}
