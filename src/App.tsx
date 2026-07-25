@@ -7,6 +7,7 @@ import { DraftToastContainer } from '@/components/ui/DraftToast'
 import { ImportDialog } from '@/components/ui/ImportDialog'
 import { CheatSheet } from '@/components/ui/CheatSheet'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useRealtimeSubscription } from '@/hooks/useTasks'
 import type { ViewType } from '@/types'
 
 // Lazy-loaded views — code-split into separate chunks, loaded on first access
@@ -84,6 +85,7 @@ export default function App() {
   } = useAppStore()
 
   useKeyboardShortcuts()
+  useRealtimeSubscription()
 
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false)
 

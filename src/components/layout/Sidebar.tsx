@@ -1,11 +1,11 @@
 import { useState, useMemo, memo, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store'
-import { useTasks, useUpdateTask } from '@/hooks/useTasks'
+import { useTasks, useUpdateTask, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { buildTaskTree, flattenTasks, cn, collectUnfinishedDescendants, collectAllDescendantIds } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Task } from '@/types'
 
-const MAX_DEPTH = 4
+const DONE_SHOW_LIMIT = 50
 
 interface ConfirmState {
   task: Task
@@ -27,7 +27,9 @@ export const Sidebar = memo(function Sidebar() {
   } = useAppStore()
 
   const [doneExpanded, setDoneExpanded] = useState(false)
+  const [doneShowAll, setDoneShowAll] = useState(false)
   const updateTask = useUpdateTask()
+  const batchComplete = useBatchCompleteTasks()
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
 
   // Split tasks into active and completed groups
@@ -43,28 +45,9 @@ export const Sidebar = memo(function Sidebar() {
 
   const tree = useMemo(() => (activeTasks.length > 0 ? buildTaskTree(activeTasks) : []), [activeTasks])
 
-  // Precompute parent map for O(1) depth lookups
-  const parentMap = useMemo(() => {
-    const map = new Map<string, string | null>()
-    for (let i = 0; i < activeTasks.length; i++) {
-      map.set(activeTasks[i].id, activeTasks[i].parent_id ?? null)
-    }
-    return map
-  }, [activeTasks])
-
-  const getTaskDepth = useCallback((taskId: string): number => {
-    let depth = 0
-    let currentId: string | null = parentMap.get(taskId) ?? null
-    while (currentId) {
-      depth++
-      currentId = parentMap.get(currentId) ?? null
-    }
-    return depth
-  }, [parentMap])
-
-  const canAddChild = useCallback((taskId: string): boolean => {
-    return getTaskDepth(taskId) < MAX_DEPTH - 1
-  }, [getTaskDepth])
+  const canAddChild = useCallback((_taskId: string): boolean => {
+    return true
+  }, [])
 
   // Debounced search — only update after user stops typing
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
@@ -128,14 +111,12 @@ export const Sidebar = memo(function Sidebar() {
   const handleConfirmComplete = useCallback(() => {
     if (!confirmState) return
     const { task, descendants } = confirmState
-    updateTask.mutate({ id: task.id, status: 'done' })
-    for (const desc of descendants) {
-      updateTask.mutate({ id: desc.id, status: 'done' }, {
-        onError: (err) => alert(err.message),
-      })
-    }
+    const allIds = [task.id, ...descendants.map((d) => d.id)]
+    batchComplete.mutate(allIds, {
+      onError: (err) => alert(err.message),
+    })
     setConfirmState(null)
-  }, [confirmState, updateTask])
+  }, [confirmState, batchComplete])
 
   const handlePartialComplete = useCallback(() => {
     if (!confirmState) return
@@ -241,28 +222,31 @@ export const Sidebar = memo(function Sidebar() {
                   </svg>
                 </button>
                 {doneExpanded && (
-                  <div className="mt-1 space-y-0.5">
-                    {filteredDoneTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        onClick={() => handleSelect(task.id)}
-                        className={cn(
-                          'text-xs py-1.5 px-3 rounded-lg cursor-pointer transition-colors flex items-center gap-2',
-                          selectedTaskId === task.id
-                            ? 'bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/20'
-                            : 'text-muted-foreground hover:bg-accent'
-                        )}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-500 flex-shrink-0">
-                          <path d="M3 8l3.5 3.5L13 5" />
-                        </svg>
-                        <span className="line-through truncate">{task.title}</span>
-                      </div>
-                    ))}
+                  <div className="mt-1 space-y-0.5 relative">
+                    {filteredDoneTasks
+                      .slice(0, doneShowAll ? undefined : DONE_SHOW_LIMIT)
+                      .map((task) => (
+                        <div
+                          key={task.id}
+                          onClick={() => handleSelect(task.id)}
+                          className={cn(
+                            'text-xs py-1.5 px-3 rounded-lg cursor-pointer transition-colors flex items-center gap-2',
+                            selectedTaskId === task.id
+                              ? 'bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/20'
+                              : 'text-muted-foreground hover:bg-accent'
+                          )}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-500 flex-shrink-0">
+                            <path d="M3 8l3.5 3.5L13 5" />
+                          </svg>
+                          <span className="line-through truncate">{task.title}</span>
+                        </div>
+                      ))}
+                    {filteredDoneTasks.length > DONE_SHOW_LIMIT && !doneShowAll && (
+                      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-sidebar to-transparent pointer-events-none" />
+                    )}
                   </div>
                 )}
-              </div>
-            )}
           </>
         )}
       </div>
@@ -364,8 +348,6 @@ const TaskNode = memo(function TaskNode({
   const currentDepth = task.depth ?? depth
   const canAdd = canAddChild(task.id)
   const isDone = task.status === 'done'
-
-  if (currentDepth >= MAX_DEPTH) return null
 
   return (
     <li>

@@ -8,7 +8,6 @@ import { HierarchyTree } from '@/components/tasks/HierarchyTree'
 import { showDraftToast } from '@/components/ui/DraftToast'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 
-const MAX_DEPTH = 4
 type EditableField = 'title' | 'description' | 'status' | 'priority' | 'start_date' | 'due_date' | 'progress_percent' | 'estimated_hours' | 'tags' | 'depends_on'
 
 export const DetailPanel = memo(function DetailPanel() {
@@ -333,7 +332,6 @@ export const DetailPanel = memo(function DetailPanel() {
   }
 
   const currentDepth = getTaskDepth(task.id)
-  const canAddChild = currentDepth < MAX_DEPTH - 1
   const subtasks = tasks?.filter((t) => t.parent_id === task.id) || []
   const depthLabels = ['项目', '阶段', '任务组', '子任务']
   const currentLevelLabel = depthLabels[currentDepth] || `第${currentDepth + 1}层`
@@ -674,15 +672,13 @@ export const DetailPanel = memo(function DetailPanel() {
         <div className="rounded-xl border border-border/50 bg-muted/20 p-3.5">
           <div className="flex items-center justify-between mb-2.5">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">子任务 ({subtasks.length})</label>
-            {canAddChild ? (
+            {(
               <button
                 onClick={() => startCreating(task.id)}
                 className="text-[10px] font-bold text-primary hover:underline"
               >
                 + 添加
               </button>
-            ) : (
-              <span className="text-[10px] text-muted-foreground">已达最深层级</span>
             )}
           </div>
           {subtasks.length > 0 ? (

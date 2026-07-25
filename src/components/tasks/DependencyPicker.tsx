@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTasks } from '@/hooks/useTasks'
-import { cn, STATUS_LABELS, STATUS_COLORS } from '@/lib/utils'
+import { cn, STATUS_LABELS, STATUS_COLORS, wouldCreateCycle } from '@/lib/utils'
 
 interface DependencyPickerProps {
   taskId: string
@@ -14,6 +14,8 @@ export function DependencyPicker({ taskId, selected, onChange }: DependencyPicke
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const [cycleWarning, setCycleWarning] = useState<string | null>(null)
 
   // Get all descendant IDs to exclude them (prevent circular deps)
   const descendantIds = useMemo(() => {
@@ -52,10 +54,19 @@ export function DependencyPicker({ taskId, selected, onChange }: DependencyPicke
   }, [open])
 
   const toggle = (id: string) => {
-    const next = selected.includes(id)
-      ? selected.filter((s) => s !== id)
-      : [...selected, id]
-    onChange(next)
+    if (selected.includes(id)) {
+      onChange(selected.filter((s) => s !== id))
+      setCycleWarning(null)
+      return
+    }
+    // Cycle detection: check if adding this dependency would create a cycle
+    if (wouldCreateCycle(id, taskId, tasks)) {
+      const candidateTask = tasks.find((t) => t.id === id)
+      setCycleWarning(`无法添加 "${candidateTask?.title || id}" 作为依赖：会导致循环依赖`)
+      return
+    }
+    setCycleWarning(null)
+    onChange([...selected, id])
   }
 
   const remove = (id: string) => {
@@ -100,6 +111,13 @@ export function DependencyPicker({ taskId, selected, onChange }: DependencyPicke
         placeholder="搜索依赖任务..."
         className="w-full px-2.5 py-1.5 text-xs border border-primary/30 rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-primary"
       />
+
+      {/* Cycle warning */}
+      {cycleWarning && (
+        <div className="mt-1.5 px-2.5 py-1.5 text-[10px] bg-red-50 text-red-700 border border-red-200 rounded-md">
+          {cycleWarning}
+        </div>
+      )}
 
       {/* Dropdown */}
       {open && (
