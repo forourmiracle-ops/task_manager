@@ -147,21 +147,23 @@ export function useDeleteTask() {
   })
 }
 
-async function batchCompleteTasks(taskIds: string[]): Promise<Task[]> {
-  if (useLocal) return localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+async function batchCompleteTasks(taskIds: string[]): Promise<void> {
+  if (useLocal) {
+    await localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+    return
+  }
   try {
-    const { data, error } = await supabase.rpc('batch_complete_tasks', { task_ids: taskIds })
+    const { error } = await supabase.rpc('batch_complete_tasks', { p_task_ids: taskIds })
     if (error) throw error
-    return (data as Task[]) || []
   } catch (err) {
     console.warn('Supabase batch complete failed, using local storage:', err)
-    return localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+    await localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
   }
 }
 
 export function useBatchCompleteTasks() {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<void, Error, string[]>({
     mutationFn: batchCompleteTasks,
     onMutate: async (taskIds) => {
       await queryClient.cancelQueries({ queryKey: [TASKS_KEY] })
@@ -187,8 +189,11 @@ export function useBatchCompleteTasks() {
   })
 }
 
-// Supabase Realtime subscription for multi-user collaboration
-export function useRealtimeSubscription() {
+// Supabase Realtime subscription for multi-user collaboration.
+// Accepts an optional conflict handler for edit conflict detection.
+export function useRealtimeSubscription(
+  onRemoteChange?: (taskId: string, taskTitle: string) => void,
+) {
   const queryClient = useQueryClient()
   const useLocal = !isSupabaseConfigured()
 
@@ -200,8 +205,13 @@ export function useRealtimeSubscription() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
+        (payload) => {
+          const changed = payload.new as { id: string; title: string } | null
+          if (onRemoteChange && changed) {
+            onRemoteChange(changed.id, changed.title)
+          } else {
+            queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
+          }
         }
       )
       .subscribe()
@@ -209,5 +219,5 @@ export function useRealtimeSubscription() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [queryClient, useLocal])
+  }, [queryClient, useLocal, onRemoteChange])
 }

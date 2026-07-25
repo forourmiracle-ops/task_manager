@@ -54,7 +54,7 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
             'flex items-center gap-1.5 py-1 px-2 rounded-md transition-colors group',
             isCurrent ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-accent/50 cursor-pointer',
           )}
-          style={{ paddingLeft: depth * 18 + 8 }}
+          style={{ paddingLeft: Math.min(depth * 18, 80) + 8 }}
           onClick={() => !isCurrent && onSelect(t.id)}
         >
           {/* Tree connector */}
@@ -147,7 +147,7 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
             'flex items-center gap-1.5 py-1 px-2 rounded-md transition-colors group',
             isCurrent ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-accent/50 cursor-pointer',
           )}
-          style={{ paddingLeft: depth * 18 + 8 }}
+          style={{ paddingLeft: Math.min(depth * 18, 80) + 8 }}
           onClick={() => !isCurrent && onSelect(t.id)}
         >
           {depth > 0 && (
@@ -248,7 +248,7 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
             'flex items-center gap-1.5 py-1 px-2 rounded-md transition-colors',
             isCurrent ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-accent/50 cursor-pointer',
           )}
-          style={{ paddingLeft: depth * 18 + 8 }}
+          style={{ paddingLeft: Math.min(depth * 18, 80) + 8 }}
           onClick={() => !isCurrent && onSelect(t.id)}
         >
           {depth > 0 && (
