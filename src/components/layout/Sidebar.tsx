@@ -18,24 +18,29 @@ export const Sidebar = memo(function Sidebar() {
     setSearchQuery,
   } = useAppStore()
 
-  const [hideCompleted, setHideCompleted] = useState(false)
+  const [doneExpanded, setDoneExpanded] = useState(false)
 
-  const filteredTasks = useMemo(() => {
+  // Split tasks into active and completed groups
+  const activeTasks = useMemo(() => {
     if (!tasks) return []
-    if (!hideCompleted) return tasks
     return tasks.filter((t) => t.status !== 'done')
-  }, [tasks, hideCompleted])
+  }, [tasks])
 
-  const tree = useMemo(() => (filteredTasks.length > 0 ? buildTaskTree(filteredTasks) : []), [filteredTasks])
+  const doneTasks = useMemo(() => {
+    if (!tasks) return []
+    return tasks.filter((t) => t.status === 'done')
+  }, [tasks])
+
+  const tree = useMemo(() => (activeTasks.length > 0 ? buildTaskTree(activeTasks) : []), [activeTasks])
 
   // Precompute parent map for O(1) depth lookups
   const parentMap = useMemo(() => {
     const map = new Map<string, string | null>()
-    for (let i = 0; i < filteredTasks.length; i++) {
-      map.set(filteredTasks[i].id, filteredTasks[i].parent_id ?? null)
+    for (let i = 0; i < activeTasks.length; i++) {
+      map.set(activeTasks[i].id, activeTasks[i].parent_id ?? null)
     }
     return map
-  }, [filteredTasks])
+  }, [activeTasks])
 
   const getTaskDepth = useCallback((taskId: string): number => {
     let depth = 0
@@ -60,6 +65,14 @@ export const Sidebar = memo(function Sidebar() {
     debounceRef.current = setTimeout(() => setDebouncedQuery(value), 150)
   }, [setSearchQuery])
 
+  // Filter done tasks by search
+  const filteredDoneTasks = useMemo(() => {
+    if (!debouncedQuery) return doneTasks
+    return doneTasks.filter((t) =>
+      t.title.toLowerCase().includes(debouncedQuery.toLowerCase())
+    )
+  }, [doneTasks, debouncedQuery])
+
   // Stable callbacks
   const handleSelect = useCallback((id: string) => setSelectedTaskId(id), [setSelectedTaskId])
   const handleAddChild = useCallback((id: string) => {
@@ -68,6 +81,9 @@ export const Sidebar = memo(function Sidebar() {
 
   if (!sidebarOpen) return null
 
+  const hasActiveResults = tree.length > 0 || !debouncedQuery
+  const hasDoneResults = filteredDoneTasks.length > 0
+
   return (
     <aside className="border-r border-border bg-sidebar flex flex-col h-full shadow-elevated min-h-0" style={{ width: 280, minWidth: 280, flexShrink: 0 }}>
       {/* Header */}
@@ -75,21 +91,9 @@ export const Sidebar = memo(function Sidebar() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-bold tracking-tight">任务列表</h2>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{filteredTasks.length} 个任务</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{tasks ? tasks.length : 0} 个任务</p>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setHideCompleted((v) => !v)}
-              className={cn(
-                'text-[10px] px-2 py-1 rounded-lg transition-colors',
-                hideCompleted
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-              )}
-              title={hideCompleted ? '显示已完成任务' : '隐藏已完成任务'}
-            >
-              {hideCompleted ? '已过滤' : '过滤'}
-            </button>
             <button
               onClick={() => setSidebarOpen(false)}
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
@@ -121,7 +125,7 @@ export const Sidebar = memo(function Sidebar() {
           <div className="flex items-center justify-center py-12">
             <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
-        ) : tree.length === 0 ? (
+        ) : !hasActiveResults && !hasDoneResults ? (
           <div className="text-xs text-muted-foreground p-3 text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border">
             <p>暂无任务</p>
             <button
@@ -132,15 +136,61 @@ export const Sidebar = memo(function Sidebar() {
             </button>
           </div>
         ) : (
-          <TaskTreeList
-            tasks={tree}
-            selectedId={selectedTaskId}
-            onSelect={handleSelect}
-            onAddChild={handleAddChild}
-            searchQuery={debouncedQuery}
-            depth={0}
-            canAddChild={canAddChild}
-          />
+          <>
+            {tree.length > 0 && (
+              <TaskTreeList
+                tasks={tree}
+                selectedId={selectedTaskId}
+                onSelect={handleSelect}
+                onAddChild={handleAddChild}
+                searchQuery={debouncedQuery}
+                depth={0}
+                canAddChild={canAddChild}
+              />
+            )}
+            {filteredDoneTasks.length > 0 && (
+              <div className="mt-2 border-t border-border pt-2">
+                <button
+                  onClick={() => setDoneExpanded(!doneExpanded)}
+                  className="flex items-center justify-between w-full px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                >
+                  <span>已完成 ({filteredDoneTasks.length})</span>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className={`transition-transform ${doneExpanded ? 'rotate-180' : ''}`}
+                  >
+                    <path d="M4 6l4 4 4-4" />
+                  </svg>
+                </button>
+                {doneExpanded && (
+                  <div className="mt-1 space-y-0.5">
+                    {filteredDoneTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => handleSelect(task.id)}
+                        className={cn(
+                          'text-xs py-1.5 px-3 rounded-lg cursor-pointer transition-colors flex items-center gap-2',
+                          selectedTaskId === task.id
+                            ? 'bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/20'
+                            : 'text-muted-foreground hover:bg-accent'
+                        )}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-500 flex-shrink-0">
+                          <path d="M3 8l3.5 3.5L13 5" />
+                        </svg>
+                        <span className="line-through truncate">{task.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 
