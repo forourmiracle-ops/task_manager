@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
@@ -6,6 +6,7 @@ import { DetailPanel } from '@/components/tasks/DetailPanel'
 import { DraftToastContainer } from '@/components/ui/DraftToast'
 import { ImportDialog } from '@/components/ui/ImportDialog'
 import { CheatSheet } from '@/components/ui/CheatSheet'
+import { RemoteUpdateBanner, useRemoteUpdateConflict } from '@/components/ui/RemoteUpdateBanner'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
 import type { ViewType } from '@/types'
@@ -85,7 +86,26 @@ export default function App() {
   } = useAppStore()
 
   useKeyboardShortcuts()
-  useRealtimeSubscription()
+
+  // Remote edit conflict detection
+  const {
+    bannerUpdate,
+    setEditingTask,
+    handleRemoteChange,
+    handleViewLatest,
+    handleDismiss,
+  } = useRemoteUpdateConflict()
+  useRealtimeSubscription(handleRemoteChange)
+
+  // Track editing state: when detail panel is open with a selected task, user is editing
+  const prevEditingId = useRef<string | null>(null)
+  useEffect(() => {
+    const editingId = detailPanelOpen ? selectedTaskId : null
+    if (editingId !== prevEditingId.current) {
+      setEditingTask(editingId)
+      prevEditingId.current = editingId
+    }
+  }, [selectedTaskId, detailPanelOpen, setEditingTask])
 
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false)
 
@@ -105,6 +125,13 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden min-h-0">
+      {/* Remote update conflict banner — non-blocking, top center */}
+      <RemoteUpdateBanner
+        update={bannerUpdate}
+        onViewLatest={handleViewLatest}
+        onDismiss={handleDismiss}
+      />
+
       {/* Top Navigation */}
       <header className="border-b border-border flex items-center px-4 gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
         <button

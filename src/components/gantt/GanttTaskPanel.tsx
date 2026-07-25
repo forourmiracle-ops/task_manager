@@ -152,7 +152,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
             const isExpanded = expandedIds.has(task.id)
             const childCount = childCountMap.countMap.get(task.id) || 0
             const isChild = depth > 0
-            const indent = depth * 16
+            const indent = Math.min(depth * 16, 80)
             const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
             const isDone = task.status === 'done'
 

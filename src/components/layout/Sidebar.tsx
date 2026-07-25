@@ -1,17 +1,44 @@
 import { useState, useMemo, memo, useCallback, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
 import { useTasks, useUpdateTask, useBatchCompleteTasks } from '@/hooks/useTasks'
-import { buildTaskTree, flattenTasks, cn, collectUnfinishedDescendants, collectAllDescendantIds } from '@/lib/utils'
+import { buildTaskTree, cn, collectUnfinishedDescendants, collectAllDescendantIds } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Task } from '@/types'
 
 const DONE_SHOW_LIMIT = 50
+const ROW_HEIGHT = 36
 
 interface ConfirmState {
   task: Task
   descendants: Task[]
   blockedCount: number
   externalBlockedCount: number
+}
+
+/** Flatten tree into a linear list, respecting expand/collapse state */
+function flattenVisibleTree(tasks: Task[], expandedIds: Set<string>, searchQuery: string): Task[] {
+  const result: Task[] = []
+  const q = searchQuery.toLowerCase()
+
+  function walk(list: Task[]) {
+    for (const t of list) {
+      const matchesSearch = !q || t.title.toLowerCase().includes(q)
+      // If there's a search query, show all matching tasks (flattened)
+      if (q) {
+        if (matchesSearch) result.push(t)
+        if (t.children?.length) walk(t.children)
+        continue
+      }
+      // Normal mode: only show expanded nodes
+      result.push(t)
+      if (t.children?.length && expandedIds.has(t.id)) {
+        walk(t.children)
+      }
+    }
+  }
+  walk(tasks)
+  return result
 }
 
 export const Sidebar = memo(function Sidebar() {
@@ -28,9 +55,11 @@ export const Sidebar = memo(function Sidebar() {
 
   const [doneExpanded, setDoneExpanded] = useState(false)
   const [doneShowAll, setDoneShowAll] = useState(false)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const updateTask = useUpdateTask()
   const batchComplete = useBatchCompleteTasks()
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   // Split tasks into active and completed groups
   const activeTasks = useMemo(() => {
@@ -45,11 +74,7 @@ export const Sidebar = memo(function Sidebar() {
 
   const tree = useMemo(() => (activeTasks.length > 0 ? buildTaskTree(activeTasks) : []), [activeTasks])
 
-  const canAddChild = useCallback((_taskId: string): boolean => {
-    return true
-  }, [])
-
-  // Debounced search — only update after user stops typing
+  // Debounced search
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()
   const handleSearchChange = useCallback((value: string) => {
@@ -57,6 +82,32 @@ export const Sidebar = memo(function Sidebar() {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => setDebouncedQuery(value), 150)
   }, [setSearchQuery])
+
+  // Flatten visible tree for virtual scrolling
+  const visibleTasks = useMemo(() => {
+    return flattenVisibleTree(tree, expandedIds, debouncedQuery)
+  }, [tree, expandedIds, debouncedQuery])
+
+  // Virtualizer
+  const virtualizer = useVirtualizer({
+    count: visibleTasks.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 5,
+  })
+
+  const toggleExpanded = useCallback((e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation()
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(taskId)) {
+        next.delete(taskId)
+      } else {
+        next.add(taskId)
+      }
+      return next
+    })
+  }, [])
 
   // Filter done tasks by search
   const filteredDoneTasks = useMemo(() => {
@@ -66,11 +117,10 @@ export const Sidebar = memo(function Sidebar() {
     )
   }, [doneTasks, debouncedQuery])
 
-  // Stable callbacks
   const handleSelect = useCallback((id: string) => setSelectedTaskId(id), [setSelectedTaskId])
   const handleAddChild = useCallback((id: string) => {
-    if (canAddChild(id)) startCreating(id)
-  }, [canAddChild, startCreating])
+    startCreating(id)
+  }, [startCreating])
 
   const handleQuickComplete = useCallback((task: Task) => {
     const descendants = collectUnfinishedDescendants(task)
@@ -82,7 +132,6 @@ export const Sidebar = memo(function Sidebar() {
       return
     }
 
-    // Analyze blocked descendants
     let blockedCount = 0
     let externalBlockedCount = 0
 
@@ -134,7 +183,7 @@ export const Sidebar = memo(function Sidebar() {
 
   if (!sidebarOpen) return null
 
-  const hasActiveResults = tree.length > 0 || !debouncedQuery
+  const hasActiveResults = visibleTasks.length > 0
   const hasDoneResults = filteredDoneTasks.length > 0
 
   return (
@@ -172,8 +221,8 @@ export const Sidebar = memo(function Sidebar() {
         </div>
       </div>
 
-      {/* Task List */}
-      <div className="flex-1 overflow-auto p-3">
+      {/* Task List — virtual scrolling */}
+      <div ref={scrollRef} className="flex-1 overflow-auto p-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -190,18 +239,122 @@ export const Sidebar = memo(function Sidebar() {
           </div>
         ) : (
           <>
-            {tree.length > 0 && (
-              <TaskTreeList
-                tasks={tree}
-                selectedId={selectedTaskId}
-                onSelect={handleSelect}
-                onAddChild={handleAddChild}
-                onQuickComplete={handleQuickComplete}
-                searchQuery={debouncedQuery}
-                depth={0}
-                canAddChild={canAddChild}
-              />
+            {/* Active tasks — virtual scrolling */}
+            {visibleTasks.length > 0 && (
+              <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const task = visibleTasks[virtualItem.index]
+                  const isSelected = selectedTaskId === task.id
+                  const hasChildren = task.children && task.children.length > 0
+                  const currentDepth = task.depth ?? 0
+                  const isExpanded = expandedIds.has(task.id)
+                  const isDone = task.status === 'done'
+                  const isDeep = currentDepth > 5
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        'group flex items-center gap-1.5 px-2 rounded-lg text-xs cursor-pointer transition-all border-b border-border/20',
+                        isDeep && 'text-muted-foreground/70',
+                        isSelected
+                          ? 'bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/20'
+                          : 'hover:bg-accent text-foreground'
+                      )}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: ROW_HEIGHT,
+                        transform: `translateY(${virtualItem.start}px)`,
+                        paddingLeft: `${10 + Math.min(currentDepth * 14, 80)}px`,
+                      }}
+                      onClick={() => handleSelect(task.id)}
+                      title={isDeep ? `路径: ${task.title}` : undefined}
+                    >
+                      {/* Expand/Collapse */}
+                      <span className="w-4 flex-shrink-0 text-center">
+                        {hasChildren ? (
+                          <button
+                            onClick={(e) => toggleExpanded(e, task.id)}
+                            className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
+                          >
+                            {isExpanded ? (
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M4 6l4 4 4-4" />
+                              </svg>
+                            ) : (
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M6 4l4 4-4 4" />
+                              </svg>
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground/30 inline-block w-1.5 h-1.5 rounded-full bg-current" />
+                        )}
+                      </span>
+
+                      {/* Status indicator */}
+                      <span
+                        className={cn(
+                          'w-1.5 h-1.5 rounded-full flex-shrink-0',
+                          task.status === 'done' && 'bg-green-500',
+                          task.status === 'in_progress' && 'bg-blue-500',
+                          task.status === 'blocked' && 'bg-red-500',
+                          task.status === 'todo' && 'bg-gray-300'
+                        )}
+                      />
+
+                      {/* Title */}
+                      <span className="flex-1 truncate flex items-center gap-1">
+                        {isDeep && <span className="text-muted-foreground/40 flex-shrink-0">↳</span>}
+                        {task.title}
+                      </span>
+
+                      {/* Progress */}
+                      {task.progress_percent > 0 && (
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium">
+                          {task.progress_percent}%
+                        </span>
+                      )}
+
+                      {/* Quick complete button */}
+                      {!isDone && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleQuickComplete(task)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500 flex-shrink-0 p-0.5 rounded hover:bg-accent transition-all"
+                          title="标记完成"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 8l3.5 3.5L13 5" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Add child button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleAddChild(task.id)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary flex-shrink-0 p-0.5 rounded hover:bg-accent transition-all"
+                        title="添加子任务"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M8 3v10M3 8h10" />
+                        </svg>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
             )}
+
+            {/* Completed tasks */}
             {filteredDoneTasks.length > 0 && (
               <div className="mt-2 border-t border-border pt-2">
                 <button
@@ -247,6 +400,8 @@ export const Sidebar = memo(function Sidebar() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -276,183 +431,5 @@ export const Sidebar = memo(function Sidebar() {
         onCancel={() => setConfirmState(null)}
       />
     </aside>
-  )
-})
-
-const TaskTreeList = memo(function TaskTreeList({
-  tasks,
-  selectedId,
-  onSelect,
-  onAddChild,
-  onQuickComplete,
-  searchQuery,
-  depth,
-  canAddChild,
-}: {
-  tasks: Task[]
-  selectedId: string | null
-  onSelect: (id: string) => void
-  onAddChild: (id: string) => void
-  onQuickComplete: (task: Task) => void
-  searchQuery: string
-  depth: number
-  canAddChild: (id: string) => boolean
-}) {
-  const filtered = searchQuery
-    ? flattenTasks(tasks).filter((t) =>
-        t.title.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : tasks
-
-  return (
-    <ul className="space-y-0.5">
-      {filtered.map((task) => (
-        <TaskNode
-          key={task.id}
-          task={task}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onAddChild={onAddChild}
-          onQuickComplete={onQuickComplete}
-          searchQuery={searchQuery}
-          depth={depth}
-          canAddChild={canAddChild}
-        />
-      ))}
-    </ul>
-  )
-})
-
-const TaskNode = memo(function TaskNode({
-  task,
-  selectedId,
-  onSelect,
-  onAddChild,
-  onQuickComplete,
-  searchQuery,
-  depth,
-  canAddChild,
-}: {
-  task: Task
-  selectedId: string | null
-  onSelect: (id: string) => void
-  onAddChild: (id: string) => void
-  onQuickComplete: (task: Task) => void
-  searchQuery: string
-  depth: number
-  canAddChild: (id: string) => boolean
-}) {
-  const [expanded, setExpanded] = useState(true)
-  const isSelected = selectedId === task.id
-  const hasChildren = task.children && task.children.length > 0
-  const currentDepth = task.depth ?? depth
-  const canAdd = canAddChild(task.id)
-  const isDone = task.status === 'done'
-
-  return (
-    <li>
-      <div
-        className={cn(
-          'group flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs cursor-pointer transition-all',
-          isSelected
-            ? 'bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/20'
-            : 'hover:bg-accent text-foreground'
-        )}
-        style={{ paddingLeft: `${10 + currentDepth * 14}px` }}
-        onClick={() => onSelect(task.id)}
-      >
-        {/* Expand/Collapse */}
-        <span className="w-4 flex-shrink-0 text-center">
-          {hasChildren ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setExpanded(!expanded)
-              }}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
-            >
-              {expanded ? (
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M4 6l4 4 4-4" />
-                </svg>
-              ) : (
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M6 4l4 4-4 4" />
-                </svg>
-              )}
-            </button>
-          ) : (
-            <span className="text-muted-foreground/30 inline-block w-1.5 h-1.5 rounded-full bg-current" />
-          )}
-        </span>
-
-        {/* Status indicator */}
-        <span
-          className={cn(
-            'w-1.5 h-1.5 rounded-full flex-shrink-0',
-            task.status === 'done' && 'bg-green-500',
-            task.status === 'in_progress' && 'bg-blue-500',
-            task.status === 'blocked' && 'bg-red-500',
-            task.status === 'todo' && 'bg-gray-300'
-          )}
-        />
-
-        {/* Title */}
-        <span className="flex-1 truncate">{task.title}</span>
-
-        {/* Progress */}
-        {task.progress_percent > 0 && (
-          <span className="text-[10px] text-muted-foreground flex-shrink-0 font-medium">
-            {task.progress_percent}%
-          </span>
-        )}
-
-        {/* Quick complete button */}
-        {!isDone && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuickComplete(task)
-            }}
-            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500 flex-shrink-0 p-0.5 rounded hover:bg-accent transition-all"
-            title="标记完成"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 8l3.5 3.5L13 5" />
-            </svg>
-          </button>
-        )}
-
-        {/* Add child button */}
-        {canAdd && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onAddChild(task.id)
-            }}
-            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary flex-shrink-0 p-0.5 rounded hover:bg-accent transition-all"
-            title="添加子任务"
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M8 3v10M3 8h10" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      {/* Children */}
-      {hasChildren && expanded && (
-        <TaskTreeList
-          tasks={task.children!}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onAddChild={onAddChild}
-          onQuickComplete={onQuickComplete}
-          searchQuery={searchQuery}
-          depth={currentDepth + 1}
-          canAddChild={canAddChild}
-        />
-      )}
-    </li>
   )
 })

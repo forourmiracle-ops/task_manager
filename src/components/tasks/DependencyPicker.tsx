@@ -1,5 +1,7 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useTasks } from '@/hooks/useTasks'
+import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured } from '@/lib/localStorage'
 import { cn, STATUS_LABELS, STATUS_COLORS, wouldCreateCycle } from '@/lib/utils'
 
 interface DependencyPickerProps {
@@ -53,21 +55,38 @@ export function DependencyPicker({ taskId, selected, onChange }: DependencyPicke
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  const toggle = (id: string) => {
+  const toggle = useCallback(async (id: string) => {
     if (selected.includes(id)) {
       onChange(selected.filter((s) => s !== id))
       setCycleWarning(null)
       return
     }
-    // Cycle detection: check if adding this dependency would create a cycle
+    // Frontend cycle detection (BFS, O(N))
     if (wouldCreateCycle(id, taskId, tasks)) {
       const candidateTask = tasks.find((t) => t.id === id)
-      setCycleWarning(`无法添加 "${candidateTask?.title || id}" 作为依赖：会导致循环依赖`)
+      setCycleWarning(`无法添加 "${candidateTask?.title || id}" 作为依赖：将形成循环依赖关系`)
       return
+    }
+    // Backend cycle detection (recursive CTE) — double safety
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: hasCycle, error } = await supabase.rpc('check_dependency_cycle', {
+          p_task_id: taskId,
+          p_candidate_id: id,
+        })
+        if (error) throw error
+        if (hasCycle) {
+          const candidateTask = tasks.find((t) => t.id === id)
+          setCycleWarning(`无法添加 "${candidateTask?.title || id}" 作为依赖：将形成循环依赖关系`)
+          return
+        }
+      } catch (err) {
+        console.warn('Backend cycle check failed, using frontend-only result:', err)
+      }
     }
     setCycleWarning(null)
     onChange([...selected, id])
-  }
+  }, [selected, taskId, tasks, onChange])
 
   const remove = (id: string) => {
     onChange(selected.filter((s) => s !== id))
