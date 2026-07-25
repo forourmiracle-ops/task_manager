@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
 import type { Task } from '@/types'
@@ -144,4 +145,69 @@ export function useDeleteTask() {
       console.error('删除任务失败:', err)
     },
   })
+}
+
+async function batchCompleteTasks(taskIds: string[]): Promise<Task[]> {
+  if (useLocal) return localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+  try {
+    const { data, error } = await supabase.rpc('batch_complete_tasks', { task_ids: taskIds })
+    if (error) throw error
+    return (data as Task[]) || []
+  } catch (err) {
+    console.warn('Supabase batch complete failed, using local storage:', err)
+    return localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+  }
+}
+
+export function useBatchCompleteTasks() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: batchCompleteTasks,
+    onMutate: async (taskIds) => {
+      await queryClient.cancelQueries({ queryKey: [TASKS_KEY] })
+      const previous = queryClient.getQueryData<Task[]>([TASKS_KEY])
+      if (previous) {
+        queryClient.setQueryData<Task[]>([TASKS_KEY], (old) =>
+          old?.map((t) =>
+            taskIds.includes(t.id) ? { ...t, status: 'done' as const, progress_percent: 100 } : t
+          ) ?? []
+        )
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData([TASKS_KEY], context.previous)
+      }
+      console.error('批量完成任务失败:', _err)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
+    },
+  })
+}
+
+// Supabase Realtime subscription for multi-user collaboration
+export function useRealtimeSubscription() {
+  const queryClient = useQueryClient()
+  const useLocal = !isSupabaseConfigured()
+
+  useEffect(() => {
+    if (useLocal) return
+
+    const channel = supabase
+      .channel('tasks-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient, useLocal])
 }

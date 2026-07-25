@@ -1,6 +1,6 @@
 import { memo, useState, useCallback } from 'react'
 import { cn, collectUnfinishedDescendantsFromFlat, collectDescendantIdsFromFlat } from '@/lib/utils'
-import { useUpdateTask } from '@/hooks/useTasks'
+import { useUpdateTask, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Task } from '@/types'
 
@@ -60,6 +60,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
   virtualizer,
 }: GanttTaskPanelProps) {
   const updateTask = useUpdateTask()
+  const batchComplete = useBatchCompleteTasks()
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
 
   const handleQuickComplete = useCallback((task: Task) => {
@@ -100,15 +101,12 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
   const handleConfirmComplete = useCallback(() => {
     if (!confirmState) return
     const { task, descendants } = confirmState
-    // Complete parent first, then all descendants sequentially
-    updateTask.mutate({ id: task.id, status: 'done' })
-    for (const desc of descendants) {
-      updateTask.mutate({ id: desc.id, status: 'done' }, {
-        onError: (err) => alert(err.message),
-      })
-    }
+    const allIds = [task.id, ...descendants.map((d) => d.id)]
+    batchComplete.mutate(allIds, {
+      onError: (err) => alert(err.message),
+    })
     setConfirmState(null)
-  }, [confirmState, updateTask])
+  }, [confirmState, batchComplete])
 
   const handlePartialComplete = useCallback(() => {
     if (!confirmState) return

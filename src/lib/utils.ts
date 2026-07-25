@@ -17,10 +17,8 @@ export function buildTaskTree(tasks: Task[]): Task[] {
     if (t.parent_id && map.has(t.parent_id)) {
       const parent = map.get(t.parent_id)!
       node.depth = (parent.depth ?? 0) + 1
-      if (node.depth < 4) {
-        parent.children = parent.children || []
-        parent.children.push(node)
-      }
+      parent.children = parent.children || []
+      parent.children.push(node)
     } else {
       roots.push(node)
     }
@@ -167,4 +165,49 @@ export function collectUnfinishedDescendantsFromFlat(
     result.push(...collectUnfinishedDescendantsFromFlat(child.id, allFlatTasks))
   }
   return result
+}
+
+/**
+ * Cycle detection: check if adding `candidateId` as a dependency of `taskId`
+ * would create a cycle in the dependency graph.
+ * Returns true if a cycle would be created.
+ */
+export function wouldCreateCycle(
+  taskId: string,
+  candidateId: string,
+  allTasks: Task[],
+): boolean {
+  // Build dependency adjacency: for each task, which tasks depend on it
+  const dependents = new Map<string, Set<string>>()
+  for (const t of allTasks) {
+    const deps = t.depends_on || []
+    for (const depId of deps) {
+      if (!dependents.has(depId)) {
+        dependents.set(depId, new Set())
+      }
+      dependents.get(depId)!.add(t.id)
+    }
+  }
+
+  // BFS: starting from taskId, can we reach candidateId through dependency chains?
+  // If candidateId depends on taskId (directly or transitively), then adding
+  // candidateId as a dependency of taskId would create a cycle.
+  const visited = new Set<string>()
+  const queue: string[] = [taskId]
+  visited.add(taskId)
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    const deps = dependents.get(current)
+    if (!deps) continue
+    for (const depId of deps) {
+      if (depId === candidateId) return true
+      if (!visited.has(depId)) {
+        visited.add(depId)
+        queue.push(depId)
+      }
+    }
+  }
+
+  return false
 }

@@ -9,8 +9,6 @@ interface HierarchyTreeProps {
   onSelect: (id: string) => void
 }
 
-const MAX_DEPTH = 4
-
 export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
   const updateTask = useUpdateTask()
 
@@ -95,7 +93,7 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
                   ↗
                 </button>
               )}
-              {depth < MAX_DEPTH - 1 && (
+              {(
                 <button
                   type="button"
                   onClick={(e) => {
@@ -175,7 +173,7 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
                   ↗
                 </button>
               )}
-              {depth < MAX_DEPTH - 1 && (
+              {(
                 <button
                   type="button"
                   onClick={(e) => {
