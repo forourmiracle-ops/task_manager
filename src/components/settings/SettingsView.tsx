@@ -1,5 +1,5 @@
 import { useAppStore, type ThemeMode, type DefaultDimension } from '@/store'
-import { memo } from 'react'
+import { memo, useState } from 'react'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
 const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
@@ -20,7 +20,8 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
 ]
 
 export const SettingsView = memo(function SettingsView() {
-  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension } = useAppStore()
+  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey } = useAppStore()
+  const [showKey, setShowKey] = useState(false)
 
   return (
     <div className="flex-1 flex justify-center overflow-auto bg-background">
@@ -147,6 +148,50 @@ export const SettingsView = memo(function SettingsView() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          </div>
+        </section>
+
+        {/* DeepSeek API Key */}
+        <section>
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">AI 服务配置</h3>
+          <div className="bg-muted/20 rounded-xl p-4 border border-border/50 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              配置 DeepSeek API Key 以启用 AI 助手功能。密钥仅保存在本地浏览器中，不会上传到服务器。
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={deepseekApiKey}
+                  onChange={(e) => setDeepseekApiKey(e.target.value)}
+                  placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  className="w-full px-3 py-2 pr-10 text-sm font-mono border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                  title={showKey ? '隐藏' : '显示'}
+                >
+                  {showKey ? (
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 8s3-5 6-5 6 5 6 5-3 5-6 5-6-5-6-5z" />
+                      <circle cx="8" cy="8" r="2" />
+                      <line x1="2" y1="14" x2="14" y2="2" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 8s3-5 6-5 6 5 6 5-3 5-6 5-6-5-6-5z" />
+                      <circle cx="8" cy="8" r="2" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span className={deepseekApiKey ? 'text-emerald-500' : 'text-amber-500'}>●</span>
+              {deepseekApiKey ? '已配置' : '未配置 — 请前往 platform.deepseek.com 获取 API Key'}
+            </div>
           </div>
         </section>
 
