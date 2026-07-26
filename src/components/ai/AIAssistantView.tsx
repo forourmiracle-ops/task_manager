@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, memo, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, memo, useCallback, type FormEvent, type KeyboardEvent } from 'react'
 import { useTasks } from '@/hooks/useTasks'
+import { useAppStore } from '@/store'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -8,6 +9,7 @@ interface Message {
 
 export const AIAssistantView = memo(function AIAssistantView() {
   const { data: tasks } = useTasks()
+  const deepseekApiKey = useAppStore((s) => s.deepseekApiKey)
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -17,12 +19,12 @@ export const AIAssistantView = memo(function AIAssistantView() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const isUserScrolledUpRef = useRef(false)
 
-  // Only auto-scroll to bottom when user is already near the bottom
-  // If user has scrolled up to read history, don't interrupt them
+  // Auto-scroll when new content arrives (streaming) or new messages added
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
@@ -39,6 +41,12 @@ export const AIAssistantView = memo(function AIAssistantView() {
     isUserScrolledUpRef.current = !isNearBottom
   }
 
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+  }, [])
+
   const handleSend = async (e?: FormEvent) => {
     e?.preventDefault()
     if (!input.trim() || loading) return
@@ -48,9 +56,21 @@ export const AIAssistantView = memo(function AIAssistantView() {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
     setLoading(true)
 
+    // Resolve API key: store first, then env, then empty
+    const apiKey = deepseekApiKey || import.meta.env.VITE_DEEPSEEK_API_KEY || ''
+    if (!apiKey) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: '未配置 DeepSeek API Key。请在「设置」页面中填入你的 API Key。' },
+      ])
+      setLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
-      // Call DeepSeek API via Supabase Edge Function (or direct for now)
-      const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -58,7 +78,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'deepseek-v4-flash',
           messages: [
             {
               role: 'system',
@@ -69,40 +89,105 @@ export const AIAssistantView = memo(function AIAssistantView() {
             ...messages.map((m) => ({ role: m.role, content: m.content })),
             { role: 'user', content: userMessage },
           ],
-          stream: false,
+          stream: true,
         }),
+        signal: controller.signal,
       })
 
-      const data = await response.json()
-      const content = data.choices?.[0]?.message?.content || '抱歉，AI 服务暂时不可用。'
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null)
+        const errMsg = errData?.error?.message || `HTTP ${response.status}`
+        throw new Error(errMsg)
+      }
 
-      setMessages((prev) => [...prev, { role: 'assistant', content }])
+      if (!response.body) {
+        throw new Error('响应体为空')
+      }
 
-      // Try to parse task breakdown from response
-      try {
-        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/)
-        if (jsonMatch) {
-          const tasks = JSON.parse(jsonMatch[1])
-          if (Array.isArray(tasks)) {
-            setMessages((prev) => [
+      // Add an empty assistant message placeholder that we'll stream into
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        // Keep the last potentially incomplete line in the buffer
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          const dataStr = trimmed.slice(6)
+          if (dataStr === '[DONE]') continue
+
+          try {
+            const chunk = JSON.parse(dataStr)
+            const delta = chunk.choices?.[0]?.delta?.content
+            if (delta) {
+              setMessages((prev) => {
+                const next = [...prev]
+                const last = next[next.length - 1]
+                if (last && last.role === 'assistant') {
+                  next[next.length - 1] = { ...last, content: last.content + delta }
+                }
+                return next
+              })
+            }
+          } catch {
+            // Skip malformed chunks
+          }
+        }
+      }
+
+      // Parse task breakdown from the final content
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.role !== 'assistant') return prev
+        const jsonMatch = last.content.match(/```json\n([\s\S]*?)\n```/)
+        if (!jsonMatch) return prev
+        try {
+          const parsed = JSON.parse(jsonMatch[1])
+          if (Array.isArray(parsed)) {
+            return [
               ...prev,
               {
                 role: 'assistant',
                 content: '已从回复中检测到任务结构。你可以将上述任务添加到项目中。需要我帮你添加吗？回复"添加"即可。',
               },
-            ])
+            ]
           }
+        } catch {
+          // Not valid JSON
         }
-      } catch {
-        // Not structured, ignore
+        return prev
+      })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // User stopped — mark the partial message
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant' && last.content) {
+            next[next.length - 1] = { ...last, content: last.content + '\n\n*[已停止]*' }
+          }
+          return next
+        })
+      } else {
+        const msg = err instanceof Error ? err.message : '未知错误'
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `AI 服务调用失败：${msg}` },
+        ])
       }
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '抱歉，连接 AI 服务时出错。请确保已配置 VITE_DEEPSEEK_API_KEY 环境变量。' },
-      ])
     } finally {
       setLoading(false)
+      abortRef.current = null
     }
   }
 
@@ -116,9 +201,16 @@ export const AIAssistantView = memo(function AIAssistantView() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="p-4 border-b border-border flex-shrink-0">
-        <h2 className="text-sm font-semibold">AI 助手</h2>
-        <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
+      <div className="p-4 border-b border-border flex-shrink-0 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold">AI 助手</h2>
+          <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
+        </div>
+        {!deepseekApiKey && (
+          <span className="text-[10px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            未配置 API Key
+          </span>
+        )}
       </div>
 
       {/* Messages */}
@@ -140,10 +232,16 @@ export const AIAssistantView = memo(function AIAssistantView() {
           </div>
         ))}
         {loading && (
-          <div className="flex justify-start">
+          <div className="flex justify-start items-center gap-2">
             <div className="bg-muted rounded-lg px-4 py-2 text-sm">
               <span className="animate-pulse">思考中...</span>
             </div>
+            <button
+              onClick={handleStop}
+              className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:border-destructive/30 hover:bg-destructive/5 transition-colors"
+            >
+              停止
+            </button>
           </div>
         )}
         <div ref={messagesEndRef} />
