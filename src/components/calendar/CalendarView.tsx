@@ -305,7 +305,7 @@ export const CalendarView = memo(function CalendarView() {
             weekend && 'text-red-400',
             holiday && 'text-amber-600'
           )}>
-            {WEEKDAY_NAMES[dayOfWeek]}曜日
+            周{WEEKDAY_NAMES[dayOfWeek]}
           </span>
           {holiday && <span className="text-xs text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">假日</span>}
         </div>
