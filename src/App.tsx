@@ -83,6 +83,8 @@ export default function App() {
     startCreating,
     importDialogOpen,
     setImportDialogOpen,
+    selectedTaskId,
+    detailPanelOpen,
   } = useAppStore()
 
   useKeyboardShortcuts()
