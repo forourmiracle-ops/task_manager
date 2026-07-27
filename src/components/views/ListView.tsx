@@ -2,10 +2,11 @@ import { memo, useMemo, useState, useRef, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTasks, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { useAppStore } from '@/store'
+import type { DensityMode } from '@/store'
 import { buildTaskTree, flattenTasks, formatDate, STATUS_LABELS, PRIORITY_COLORS } from '@/lib/utils'
 import type { Task } from '@/types'
 
-const ROW_HEIGHT = 36
+const ROW_HEIGHT: Record<DensityMode, number> = { comfortable: 40, compact: 32 }
 const OVERSCAN = 10
 
 interface FlattenedNode {
@@ -20,7 +21,10 @@ export const ListView = memo(function ListView() {
   const { data: tasks, isLoading } = useTasks()
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
+  const density = useAppStore((s) => s.density)
   const batchComplete = useBatchCompleteTasks()
+
+  const rowHeight = ROW_HEIGHT[density]
 
   const tree = useMemo(() => buildTaskTree(tasks ?? []), [tasks])
 
@@ -66,7 +70,7 @@ export const ListView = memo(function ListView() {
   const virtualizer = useVirtualizer({
     count: flattenedNodes.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: OVERSCAN,
   })
 
@@ -116,7 +120,7 @@ export const ListView = memo(function ListView() {
       {/* Header */}
       <div
         className="flex items-center border-b border-border bg-muted/20 px-4 flex-shrink-0 text-[10px] font-bold uppercase text-muted-foreground tracking-wider"
-        style={{ height: ROW_HEIGHT }}
+        style={{ height: rowHeight }}
       >
         <div className="w-8 flex-shrink-0" />
         <div className="flex-1 min-w-0">任务名称</div>

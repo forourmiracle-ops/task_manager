@@ -4,6 +4,7 @@ import type { Dimension } from '@/types'
 export type ThemeMode = 'light' | 'dark' | 'eye-care'
 export type DefaultDimension = 'auto' | Dimension
 export type ViewStartMode = 'periodStart' | 'fromToday'
+export type DensityMode = 'comfortable' | 'compact'
 
 const STORED_THEME = (localStorage.getItem('taskflow-theme') || 'light') as ThemeMode
 const STORED_FONT_SIZE = Number(localStorage.getItem('taskflow-font-size') || '4')
@@ -11,6 +12,7 @@ const STORED_DEFAULT_DIMENSION = (localStorage.getItem('taskflow-default-dimensi
 const STORED_VIEW_START = (localStorage.getItem('taskflow-view-start') || 'periodStart') as ViewStartMode
 const STORED_DEEPSEEK_KEY = localStorage.getItem('taskflow-deepseek-key') || ''
 const STORED_EXPAND_TEMPLATE_LIB = localStorage.getItem('taskflow-expand-template-lib') === 'true'
+const STORED_DENSITY = (localStorage.getItem('taskflow-density') || 'comfortable') as DensityMode
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.setAttribute('data-theme', theme)
@@ -22,9 +24,15 @@ function applyFontSize(size: number) {
   localStorage.setItem('taskflow-font-size', String(size))
 }
 
+function applyDensity(density: DensityMode) {
+  document.documentElement.setAttribute('data-density', density)
+  localStorage.setItem('taskflow-density', density)
+}
+
 // Initialize on load
 applyTheme(STORED_THEME)
 applyFontSize(STORED_FONT_SIZE)
+applyDensity(STORED_DENSITY)
 
 export interface SettingsSlice {
   theme: ThemeMode
@@ -39,6 +47,8 @@ export interface SettingsSlice {
   setDeepseekApiKey: (key: string) => void
   expandTemplateLib: boolean
   setExpandTemplateLib: (v: boolean) => void
+  density: DensityMode
+  setDensity: (density: DensityMode) => void
 }
 
 export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSlice> = (set) => ({
@@ -77,5 +87,11 @@ export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSl
   setExpandTemplateLib: (v) => {
     localStorage.setItem('taskflow-expand-template-lib', String(v))
     set({ expandTemplateLib: v })
+  },
+
+  density: STORED_DENSITY,
+  setDensity: (density) => {
+    applyDensity(density)
+    set({ density })
   },
 })

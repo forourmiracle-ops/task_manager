@@ -1,4 +1,4 @@
-import { useAppStore, type ThemeMode, type DefaultDimension } from '@/store'
+import { useAppStore, type ThemeMode, type DefaultDimension, type DensityMode } from '@/store'
 import { memo, useState } from 'react'
 import { TemplateSettings } from '@/components/templates/TemplateSettings'
 
@@ -21,7 +21,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
 ]
 
 export const SettingsView = memo(function SettingsView() {
-  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey } = useAppStore()
+  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey, density, setDensity } = useAppStore()
   const [showKey, setShowKey] = useState(false)
 
   return (
@@ -131,6 +131,41 @@ export const SettingsView = memo(function SettingsView() {
               <p className="text-xs text-muted-foreground mt-1">
                 The quick brown fox jumps over the lazy dog.
               </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Density */}
+        <section>
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">显示密度</h3>
+          <div className="bg-muted/20 rounded-xl p-4 border border-border/50">
+            <p className="text-xs text-muted-foreground mb-3">调整列表行的间距，影响侧边栏和列表视图</p>
+            <div className="flex gap-2">
+              {([
+                { value: 'comfortable' as DensityMode, label: '舒适', desc: '较大行距' },
+                { value: 'compact' as DensityMode, label: '紧凑', desc: '较小行距' },
+              ]).map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-lg border cursor-pointer transition-all ${
+                    density === opt.value
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border hover:border-border hover:bg-accent'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="density"
+                    className="sr-only"
+                    checked={density === opt.value}
+                    onChange={() => setDensity(opt.value)}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold">{opt.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
         </section>
