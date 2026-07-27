@@ -2,22 +2,19 @@ import { useState, useRef, useEffect, memo, useCallback, type FormEvent, type Ke
 import { useTasks } from '@/hooks/useTasks'
 import { useAppStore } from '@/store'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-}
+const WELCOME_MESSAGE = '你好！我是 DeepSeek AI 助手。我可以帮你：\n\n1. **智能拆解**：输入任务描述，我帮你自动生成多层级子任务\n2. **项目分析**：分析当前任务进度，识别风险\n\n请告诉我你需要什么帮助？'
 
 export const AIAssistantView = memo(function AIAssistantView() {
   const { data: tasks } = useTasks()
   const deepseekApiKey = useAppStore((s) => s.deepseekApiKey)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: '你好！我是 DeepSeek AI 助手。我可以帮你：\n\n1. **智能拆解**：输入任务描述，我帮你自动生成多层级子任务\n2. **项目分析**：分析当前任务进度，识别风险\n\n请告诉我你需要什么帮助？',
-    },
-  ])
+  const messages = useAppStore((s) => s.messages)
+  const isLoading = useAppStore((s) => s.isLoading)
+  const addMessage = useAppStore((s) => s.addMessage)
+  const updateLastAssistant = useAppStore((s) => s.updateLastAssistant)
+  const setLoading = useAppStore((s) => s.setLoading)
+  const clearMessages = useAppStore((s) => s.clearMessages)
+
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -45,30 +42,30 @@ export const AIAssistantView = memo(function AIAssistantView() {
     abortRef.current?.abort()
     abortRef.current = null
     setLoading(false)
-  }, [])
+  }, [setLoading])
 
   const handleSend = async (e?: FormEvent) => {
     e?.preventDefault()
-    if (!input.trim() || loading) return
+    if (!input.trim() || isLoading) return
 
     const userMessage = input.trim()
     setInput('')
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
+    addMessage({ role: 'user', content: userMessage })
     setLoading(true)
 
     // Resolve API key: store first, then env, then empty
     const apiKey = deepseekApiKey || import.meta.env.VITE_DEEPSEEK_API_KEY || ''
     if (!apiKey) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '未配置 DeepSeek API Key。请在「设置」页面中填入你的 API Key。' },
-      ])
+      addMessage({ role: 'assistant', content: '未配置 DeepSeek API Key。请在「设置」页面中填入你的 API Key。' })
       setLoading(false)
       return
     }
 
     const controller = new AbortController()
     abortRef.current = controller
+
+    // Build message history for API (excluding the one we just added, which is already in store)
+    const currentMessages = useAppStore.getState().messages
 
     try {
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -86,8 +83,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
                 tasks?.map((t) => ({ id: t.id, title: t.title, status: t.status, progress: t.progress_percent, due: t.due_date })) || []
               )}。请根据用户需求提供帮助。如果需要拆解任务，请生成结构化的子任务列表，格式为 JSON 数组：[{title: string, children?: [...]}]，最多 4 层。`,
             },
-            ...messages.map((m) => ({ role: m.role, content: m.content })),
-            { role: 'user', content: userMessage },
+            ...currentMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
           stream: true,
         }),
@@ -105,11 +101,12 @@ export const AIAssistantView = memo(function AIAssistantView() {
       }
 
       // Add an empty assistant message placeholder that we'll stream into
-      setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+      addMessage({ role: 'assistant', content: '' })
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let assistantContent = ''
 
       while (true) {
         const { done, value } = await reader.read()
@@ -117,7 +114,6 @@ export const AIAssistantView = memo(function AIAssistantView() {
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
-        // Keep the last potentially incomplete line in the buffer
         buffer = lines.pop() || ''
 
         for (const line of lines) {
@@ -130,14 +126,8 @@ export const AIAssistantView = memo(function AIAssistantView() {
             const chunk = JSON.parse(dataStr)
             const delta = chunk.choices?.[0]?.delta?.content
             if (delta) {
-              setMessages((prev) => {
-                const next = [...prev]
-                const last = next[next.length - 1]
-                if (last && last.role === 'assistant') {
-                  next[next.length - 1] = { ...last, content: last.content + delta }
-                }
-                return next
-              })
+              assistantContent += delta
+              updateLastAssistant(assistantContent)
             }
           } catch {
             // Skip malformed chunks
@@ -146,44 +136,31 @@ export const AIAssistantView = memo(function AIAssistantView() {
       }
 
       // Parse task breakdown from the final content
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (last?.role !== 'assistant') return prev
-        const jsonMatch = last.content.match(/```json\n([\s\S]*?)\n```/)
-        if (!jsonMatch) return prev
+      const jsonMatch = assistantContent.match(/```json\n([\s\S]*?)\n```/)
+      if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[1])
           if (Array.isArray(parsed)) {
-            return [
-              ...prev,
-              {
-                role: 'assistant',
-                content: '已从回复中检测到任务结构。你可以将上述任务添加到项目中。需要我帮你添加吗？回复"添加"即可。',
-              },
-            ]
+            addMessage({
+              role: 'assistant',
+              content: '已从回复中检测到任务结构。你可以将上述任务添加到项目中。需要我帮你添加吗？回复"添加"即可。',
+            })
           }
         } catch {
           // Not valid JSON
         }
-        return prev
-      })
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         // User stopped — mark the partial message
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant' && last.content) {
-            next[next.length - 1] = { ...last, content: last.content + '\n\n*[已停止]*' }
-          }
-          return next
-        })
+        const msgs = useAppStore.getState().messages
+        const last = msgs[msgs.length - 1]
+        if (last?.role === 'assistant' && last.content) {
+          updateLastAssistant(last.content + '\n\n*[已停止]*')
+        }
       } else {
         const msg = err instanceof Error ? err.message : '未知错误'
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: `AI 服务调用失败：${msg}` },
-        ])
+        addMessage({ role: 'assistant', content: `AI 服务调用失败：${msg}` })
       }
     } finally {
       setLoading(false)
@@ -206,32 +183,50 @@ export const AIAssistantView = memo(function AIAssistantView() {
           <h2 className="text-sm font-semibold">AI 助手</h2>
           <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
         </div>
-        {!deepseekApiKey && (
-          <span className="text-[10px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            未配置 API Key
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button
+              onClick={clearMessages}
+              className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              清空对话
+            </button>
+          )}
+          {!deepseekApiKey && (
+            <span className="text-[10px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+              未配置 API Key
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
       <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-auto p-4 space-y-4 min-h-0">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              }`}
-            >
-              <div className="whitespace-pre-wrap break-words overflow-x-auto">{msg.content}</div>
+        {messages.length === 0 ? (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-4 py-2 text-sm bg-muted">
+              <div className="whitespace-pre-wrap break-words">{WELCOME_MESSAGE}</div>
             </div>
           </div>
-        ))}
-        {loading && (
+        ) : (
+          messages.map((msg, idx) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
+                  msg.role === 'user'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted'
+                }`}
+              >
+                <div className="whitespace-pre-wrap break-words overflow-x-auto">{msg.content}</div>
+              </div>
+            </div>
+          ))
+        )}
+        {isLoading && (
           <div className="flex justify-start items-center gap-2">
             <div className="bg-muted rounded-lg px-4 py-2 text-sm">
               <span className="animate-pulse">思考中...</span>
@@ -271,7 +266,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
           />
           <button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={isLoading || !input.trim()}
             className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
           >
             发送
