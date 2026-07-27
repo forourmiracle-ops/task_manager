@@ -1,5 +1,6 @@
 import { useAppStore, type ThemeMode, type DefaultDimension } from '@/store'
 import { memo, useState } from 'react'
+import { TemplateSettings } from '@/components/templates/TemplateSettings'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
 const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
@@ -193,6 +194,11 @@ export const SettingsView = memo(function SettingsView() {
               {deepseekApiKey ? '已配置' : '未配置 — 请前往 platform.deepseek.com 获取 API Key'}
             </div>
           </div>
+        </section>
+
+        {/* Templates */}
+        <section>
+          <TemplateSettings />
         </section>
 
         {/* About */}

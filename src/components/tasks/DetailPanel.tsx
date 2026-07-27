@@ -5,6 +5,7 @@ import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, for
 import { CommentSection } from '@/components/tasks/CommentSection'
 import { DependencyPicker } from '@/components/tasks/DependencyPicker'
 import { HierarchyTree } from '@/components/tasks/HierarchyTree'
+import { SaveAsTemplate } from '@/components/templates/SaveAsTemplate'
 import { showDraftToast } from '@/components/ui/DraftToast'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 
@@ -40,6 +41,7 @@ export const DetailPanel = memo(function DetailPanel() {
   const [savedField, setSavedField] = useState<EditableField | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
+  const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false)
 
   // Refs to avoid stale closures
   const editingFieldRef = useRef<EditableField | null>(null)
@@ -724,6 +726,12 @@ export const DetailPanel = memo(function DetailPanel() {
       {/* Footer */}
       <div className="p-4 border-t border-border bg-muted/10 space-y-2 sticky bottom-0 z-10">
         <button
+          onClick={() => setSaveAsTemplateOpen(true)}
+          className="w-full py-2 text-xs font-bold border border-border rounded-lg hover:bg-accent transition-colors"
+        >
+          📋 另存为模板
+        </button>
+        <button
           onClick={handleDelete}
           className="w-full py-2 text-xs font-bold border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
         >
@@ -779,6 +787,11 @@ export const DetailPanel = memo(function DetailPanel() {
           </div>
         </div>
       )}
+      <SaveAsTemplate
+        open={saveAsTemplateOpen}
+        onClose={() => setSaveAsTemplateOpen(false)}
+        task={task}
+      />
     </aside>
   )
 })
