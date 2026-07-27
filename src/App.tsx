@@ -13,9 +13,7 @@ import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
 import type { ViewType } from '@/types'
 
 // Lazy-loaded views — code-split into separate chunks, loaded on first access
-const GanttView = lazy(() => import('@/components/gantt/GanttView').then(m => ({ default: m.GanttView })))
-const BoardView = lazy(() => import('@/components/board/BoardView').then(m => ({ default: m.BoardView })))
-const CalendarView = lazy(() => import('@/components/calendar/CalendarView').then(m => ({ default: m.CalendarView })))
+const ProjectView = lazy(() => import('@/components/views/ProjectView').then(m => ({ default: m.ProjectView })))
 const AIAssistantView = lazy(() => import('@/components/ai/AIAssistantView').then(m => ({ default: m.AIAssistantView })))
 const SettingsView = lazy(() => import('@/components/settings/SettingsView').then(m => ({ default: m.SettingsView })))
 
@@ -29,30 +27,12 @@ const ViewSkeleton = () => (
 )
 
 const VIEW_LABELS: Record<ViewType, { label: string; icon: React.ReactNode }> = {
-  gantt: {
-    label: '甘特图',
+  project: {
+    label: '项目',
     icon: (
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="2" y="3" width="12" height="10" rx="1" />
         <path d="M2 7h12M6 7v6M10 7v6" />
-      </svg>
-    ),
-  },
-  board: {
-    label: '看板',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="3" width="5" height="10" rx="1" />
-        <rect x="9" y="3" width="5" height="6" rx="1" />
-      </svg>
-    ),
-  },
-  calendar: {
-    label: '日历',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="3" width="12" height="11" rx="1" />
-        <path d="M2 7h12M5 2v3M11 2v3" />
       </svg>
     ),
   },
@@ -198,11 +178,9 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden min-h-0">
         <Sidebar />
         <Suspense fallback={<ViewSkeleton />}>
-          {currentView === 'gantt' && <div className="flex-1 min-w-0 min-h-0 flex"><GanttView /></div>}
-          {currentView === 'board' && <div className="flex-1 min-w-0 min-h-0 flex"><BoardView /></div>}
-          {currentView === 'calendar' && <div className="flex-1 min-w-0 min-h-0 flex"><CalendarView /></div>}
-          {currentView === 'ai' && <div className="flex-1 min-w-0 min-h-0 flex"><AIAssistantView /></div>}
-          {currentView === 'settings' && <div className="flex-1 min-w-0 min-h-0 flex"><SettingsView /></div>}
+          {currentView === 'project' && <ProjectView />}
+          {currentView === 'ai' && <AIAssistantView />}
+          {currentView === 'settings' && <SettingsView />}
         </Suspense>
         <DetailPanel />
       </div>

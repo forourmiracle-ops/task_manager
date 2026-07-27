@@ -1,9 +1,23 @@
 import type { StateCreator } from 'zustand'
 import type { ViewType } from '@/types'
 
+export type ProjectViewTab = 'list' | 'board' | 'table' | 'gallery' | 'calendar' | 'gantt'
+
+const STORED_PROJECT_VIEW_TAB = (() => {
+  try {
+    const v = localStorage.getItem('taskflow-project-view-tab')
+    if (v && ['list', 'board', 'table', 'gallery', 'calendar', 'gantt'].includes(v)) {
+      return v as ProjectViewTab
+    }
+  } catch { /* noop */ }
+  return 'gantt'
+})()
+
 export interface UISlice {
   currentView: ViewType
   setCurrentView: (view: ViewType) => void
+  projectViewTab: ProjectViewTab
+  setProjectViewTab: (tab: ProjectViewTab) => void
   selectedTaskId: string | null
   setSelectedTaskId: (id: string | null) => void
   sidebarOpen: boolean
@@ -20,8 +34,14 @@ export interface UISlice {
 }
 
 export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
-  currentView: 'gantt',
+  currentView: 'project',
   setCurrentView: (view) => set({ currentView: view }),
+
+  projectViewTab: STORED_PROJECT_VIEW_TAB,
+  setProjectViewTab: (tab) => {
+    try { localStorage.setItem('taskflow-project-view-tab', tab) } catch { /* noop */ }
+    set({ projectViewTab: tab })
+  },
 
   selectedTaskId: null,
   setSelectedTaskId: (id) => set({ selectedTaskId: id, detailPanelOpen: !!id }),

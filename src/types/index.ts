@@ -80,7 +80,7 @@ export interface AIMessage {
   content: string
 }
 
-export type ViewType = 'gantt' | 'board' | 'calendar' | 'ai' | 'settings'
+export type ViewType = 'project' | 'ai' | 'settings'
 export type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
 
 export type TemplateType = 'project' | 'task' | 'recurring'
