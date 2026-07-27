@@ -9,6 +9,7 @@ import { CheatSheet } from '@/components/ui/CheatSheet'
 import { RemoteUpdateBanner, useRemoteUpdateConflict } from '@/components/ui/RemoteUpdateBanner'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
+import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
 import type { ViewType } from '@/types'
 
 // Lazy-loaded views — code-split into separate chunks, loaded on first access
@@ -88,6 +89,7 @@ export default function App() {
   } = useAppStore()
 
   useKeyboardShortcuts()
+  useRecurringTaskExecutor()
 
   // Remote edit conflict detection
   const {

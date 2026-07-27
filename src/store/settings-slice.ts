@@ -10,6 +10,7 @@ const STORED_FONT_SIZE = Number(localStorage.getItem('taskflow-font-size') || '4
 const STORED_DEFAULT_DIMENSION = (localStorage.getItem('taskflow-default-dimension') || 'auto') as DefaultDimension
 const STORED_VIEW_START = (localStorage.getItem('taskflow-view-start') || 'periodStart') as ViewStartMode
 const STORED_DEEPSEEK_KEY = localStorage.getItem('taskflow-deepseek-key') || ''
+const STORED_EXPAND_TEMPLATE_LIB = localStorage.getItem('taskflow-expand-template-lib') === 'true'
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.setAttribute('data-theme', theme)
@@ -36,6 +37,8 @@ export interface SettingsSlice {
   setViewStartMode: (mode: ViewStartMode) => void
   deepseekApiKey: string
   setDeepseekApiKey: (key: string) => void
+  expandTemplateLib: boolean
+  setExpandTemplateLib: (v: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSlice> = (set) => ({
@@ -68,5 +71,11 @@ export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSl
   setDeepseekApiKey: (key) => {
     localStorage.setItem('taskflow-deepseek-key', key)
     set({ deepseekApiKey: key })
+  },
+
+  expandTemplateLib: STORED_EXPAND_TEMPLATE_LIB,
+  setExpandTemplateLib: (v) => {
+    localStorage.setItem('taskflow-expand-template-lib', String(v))
+    set({ expandTemplateLib: v })
   },
 })

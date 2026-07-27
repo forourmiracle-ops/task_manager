@@ -82,3 +82,43 @@ export interface AIMessage {
 
 export type ViewType = 'gantt' | 'board' | 'calendar' | 'ai' | 'settings'
 export type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
+
+export type TemplateType = 'project' | 'task' | 'recurring'
+export type TemplateScope = 'builtin' | 'custom'
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly'
+
+export interface TemplateContent {
+  version: number
+  title: string
+  description?: string
+  defaultValues?: Partial<Pick<Task, 'status' | 'priority' | 'estimated_hours' | 'tags'>>
+  children?: TemplateContent[]
+}
+
+export interface Template {
+  id: string
+  name: string
+  description: string
+  type: TemplateType
+  scope: TemplateScope
+  icon: string
+  content: TemplateContent
+  is_public: boolean
+  user_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RecurringTask {
+  id: string
+  template_id: string
+  parent_task_id: string | null
+  frequency: RecurringFrequency
+  interval: number
+  days_of_week: number[]
+  next_run: string
+  last_run: string | null
+  enabled: boolean
+  user_id: string
+  created_at: string
+}
