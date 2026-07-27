@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, memo } from 'react'
+import { useState, useEffect, useMemo, useRef, memo, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { cn, STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
@@ -8,6 +8,8 @@ import { HierarchyTree } from '@/components/tasks/HierarchyTree'
 import { SaveAsTemplate } from '@/components/templates/SaveAsTemplate'
 import { showDraftToast } from '@/components/ui/DraftToast'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
+
+const RichTextEditor = lazy(() => import('@/components/editor/RichTextEditor'))
 
 type EditableField = 'title' | 'description' | 'status' | 'priority' | 'start_date' | 'due_date' | 'progress_percent' | 'estimated_hours' | 'tags' | 'depends_on'
 
@@ -394,14 +396,22 @@ export const DetailPanel = memo(function DetailPanel() {
     switch (field) {
       case 'description':
         return (
-          <textarea
-            data-detail-editor
-            autoFocus
-            value={val}
-            onChange={(e) => setEditValue(e.target.value)}
-            rows={3}
-            className={`${baseClass} resize-none`}
-          />
+          <div data-detail-editor className="min-h-[100px] border border-primary/40 rounded-lg bg-background overflow-hidden">
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-[100px] text-xs text-muted-foreground">
+                <span className="animate-pulse">加载编辑器...</span>
+              </div>
+            }>
+              <RichTextEditor
+                content={val}
+                onChange={(html) => {
+                  setEditValue(html)
+                  editValueRef.current = html
+                }}
+                placeholder="输入任务描述... 输入 / 使用快捷命令"
+              />
+            </Suspense>
+          </div>
         )
       case 'status':
         return (
@@ -630,7 +640,10 @@ export const DetailPanel = memo(function DetailPanel() {
 
         <Field label="描述" field="description" fullWidth>
           {task.description ? (
-            <p className="text-xs whitespace-pre-wrap leading-relaxed">{task.description}</p>
+            <div
+              className="text-xs prose prose-sm max-w-none leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
+              dangerouslySetInnerHTML={{ __html: task.description }}
+            />
           ) : (
             <span className="text-xs text-muted-foreground">点击添加描述...</span>
           )}
