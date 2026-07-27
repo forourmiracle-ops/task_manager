@@ -45,6 +45,7 @@ CREATE TABLE templates (
 
 ```json
 {
+  "version": 1,
   "title": "模板名称",
   "description": "模板描述",
   "defaultValues": {
@@ -66,6 +67,7 @@ CREATE TABLE templates (
 
 - 每层节点可携带 `defaultValues`，应用到生成任务时递归合并
 - 嵌套 `children` 递归结构，树深度不限制
+- `version` 字段用于 Schema 版本控制，前端解析时校验降级
 - `scope: 'builtin'` 不可删除，可复制为自定义模板后编辑
 - `scope: 'custom'` 用户可自由 CRUD
 
@@ -103,6 +105,7 @@ CREATE TABLE recurring_tasks (
 
 - 积压处理：`max(next_run + interval, now())` 避免 3 天未打开一次性生成 3 个重复任务
 - 不依赖 Supabase Edge Functions（付费功能）
+- 多端并发防护：封装 Supabase RPC 函数 `fn_claim_recurring_task`，利用 Postgres 事务锁原子化"检查 + 生成 + 更新 next_run"三步操作，避免多设备同时打开时重复创建任务
 
 ### 2.2 内置模板（迁移脚本预置）
 
@@ -185,6 +188,7 @@ TemplatePicker（入口组件）
    - 原生支持子任务折叠展开（Accordion Tree）
    - 单行显示：标题、状态、负责人、截止时间
    - 高密度阅读体验
+   - 技术实现：复用现有 `flattenTasks` 平铺算法，将树结构拍平为带 `depth` 和 `isExpanded` 的数组，再交付 `@tanstack/react-virtual` 渲染，避免变高节点导致的滚动跳动
 
 2. **表格视图（Table View）** — 侧重二维网格
    - 扁平化展示所有任务（不强求缩进）
@@ -214,6 +218,7 @@ TemplatePicker（入口组件）
 - 进入后内容区顶部展示 6 个视图标签
 - 语义清晰：顶栏是功能入口，标签栏是数据视角
 - 无重复控件，无层级混乱
+- 键盘快捷键：基于现有 `useKeyboardShortcuts`，支持 `V`+`L`（列表）、`V`+`B`（看板）、`V`+`T`（表格）、`V`+`G`（画廊）、`V`+`C`（日历）、`V`+`N`（甘特图）快速切换视图
 
 ### 3.3 状态管理
 
@@ -259,6 +264,7 @@ ProjectView（新容器组件）
 
 - 拖拽手柄（`⋮⋮`）、三点菜单（`...`）、"+ 新建"按钮默认透明度 20%，hover 该行时显现
 - 标题和字段取消传统输入框外框，平时显示纯文本，点击直接切换为光标聚焦状态
+- 键盘可访问性：支持 `Tab` 切换下一个字段、`Enter` 确认、`Esc` 取消编辑
 
 ### 4.3 视觉标识
 
@@ -288,6 +294,7 @@ ProjectView（新容器组件）
 1. **StarterKit** — 加粗、斜体、标题（H1-H3）、引用、代码块
 2. **TaskList + TaskItem** — 交互式待办清单
 3. **Slash Command（自定义 Extension）** — 输入 `/` 弹出快捷菜单
+   - 菜单项绑定模板：输入 `/bug` 直接套用 Bug 修复模板，`/sop` 套用标准化流程模板
 4. **Link & Image** — 粘贴/拖拽插入图片和超链接
 
 ### 5.3 集成点
