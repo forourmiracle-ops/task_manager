@@ -3,35 +3,46 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* Notion-inspired palette */
+    --background: 40 20% 98%;
+    --foreground: 30 15% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 30 15% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 30 15% 15%;
     --primary: 215 70% 42%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --secondary: 40 15% 95%;
+    --secondary-foreground: 30 15% 15%;
+    --muted: 40 15% 95%;
+    --muted-foreground: 30 8% 45%;
+    --accent: 40 15% 93%;
+    --accent-foreground: 30 15% 15%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 30 10% 88%;
+    --border-subtle: 30 10% 88%;
+    --input: 30 10% 88%;
     --ring: 215 70% 42%;
-    --radius: 0.625rem;
-    --sidebar: 210 20% 98%;
-    --sidebar-foreground: 222 47% 20%;
-    --sidebar-border: 214 32% 91%;
+    --radius: 0.5rem;
+    --sidebar: 40 15% 97%;
+    --sidebar-foreground: 30 15% 20%;
+    --sidebar-border: 30 10% 88%;
     --chart-1: 215 70% 50%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 34%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --font-scale: 4;
+    /* Density: row height */
+    --row-height: 40px;
+    --row-padding-y: 8px;
+  }
+
+  /* Compact density */
+  [data-density="compact"] {
+    --row-height: 32px;
+    --row-padding-y: 4px;
   }
 
   /* Dark/Night Mode */
@@ -243,4 +254,64 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 ::selection {
   background: hsl(var(--primary) / 0.2);
   color: hsl(var(--foreground));
+}
+
+/* ── Notion-style micro-interactions ── */
+
+/* Hover reveal: controls hidden by default, visible on hover */
+.hover-reveal {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.group:hover .hover-reveal,
+tr:hover .hover-reveal,
+.hover-reveal-parent:hover .hover-reveal {
+  opacity: 1;
+}
+
+/* Drag handle: subtle dots */
+.drag-handle {
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.15s ease;
+}
+.group:hover .drag-handle,
+tr:hover .drag-handle {
+  opacity: 1;
+}
+
+/* Click-to-edit: plain text that shows focus ring on click */
+.click-to-edit {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  cursor: text;
+}
+.click-to-edit:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+.click-to-edit:focus {
+  outline: none;
+  border-color: hsl(var(--ring));
+  background: hsl(var(--background));
+  box-shadow: 0 0 0 1px hsl(var(--ring) / 0.2);
+}
+
+/* Notion-style subtle border */
+.border-subtle {
+  border-color: hsl(var(--border-subtle) / 0.6);
+}
+.hover\:border-subtle:hover {
+  border-color: hsl(var(--border-subtle));
+}
+
+/* Card hover elevation */
+.card-hover {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.card-hover:hover {
+  border-color: hsl(var(--border-subtle));
+  box-shadow: 0 1px 4px 0 hsl(var(--foreground) / 0.04);
 }

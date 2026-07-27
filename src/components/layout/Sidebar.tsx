@@ -7,7 +7,6 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Task } from '@/types'
 
 const DONE_SHOW_LIMIT = 50
-const ROW_HEIGHT = 36
 
 interface ConfirmState {
   task: Task
@@ -51,7 +50,10 @@ export const Sidebar = memo(function Sidebar() {
     startCreating,
     searchQuery,
     setSearchQuery,
+    density,
   } = useAppStore()
+
+  const ROW_HEIGHT = density === 'compact' ? 32 : 36
 
   const [doneExpanded, setDoneExpanded] = useState(false)
   const [doneShowAll, setDoneShowAll] = useState(false)
