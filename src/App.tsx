@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense, useRef } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
@@ -7,9 +7,12 @@ import { DraftToastContainer } from '@/components/ui/DraftToast'
 import { ImportDialog } from '@/components/ui/ImportDialog'
 import { CheatSheet } from '@/components/ui/CheatSheet'
 import { RemoteUpdateBanner, useRemoteUpdateConflict } from '@/components/ui/RemoteUpdateBanner'
+import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
 import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
+import { useAuth } from '@/hooks/useAuth'
+import { AuthView } from '@/components/auth/AuthView'
 import type { ViewType } from '@/types'
 
 // Lazy-loaded views — code-split into separate chunks, loaded on first access
@@ -64,9 +67,10 @@ export default function App() {
     startCreating,
     importDialogOpen,
     setImportDialogOpen,
-    selectedTaskId,
-    detailPanelOpen,
   } = useAppStore()
+
+  // Auth guard — redirect to login if not authenticated
+  const { isAuthenticated, loading: authLoading } = useAuth()
 
   useKeyboardShortcuts()
   useRecurringTaskExecutor()
@@ -81,17 +85,30 @@ export default function App() {
   } = useRemoteUpdateConflict()
   useRealtimeSubscription(handleRemoteChange)
 
-  // Track editing state: when detail panel is open with a selected task, user is editing
-  const prevEditingId = useRef<string | null>(null)
+  // Track editing state from DetailPanel for precise conflict detection
+  const editingTaskId = useAppStore((s) => s.editingTaskId)
   useEffect(() => {
-    const editingId = detailPanelOpen ? selectedTaskId : null
-    if (editingId !== prevEditingId.current) {
-      setEditingTask(editingId)
-      prevEditingId.current = editingId
-    }
-  }, [selectedTaskId, detailPanelOpen, setEditingTask])
+    setEditingTask(editingTaskId)
+  }, [editingTaskId, setEditingTask])
 
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false)
+
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <span className="text-xs text-muted-foreground">加载中...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Auth guard — show login page if not authenticated
+  if (!isAuthenticated) {
+    return <AuthView />
+  }
 
   // ? key to open cheat sheet
   useEffect(() => {
@@ -214,6 +231,9 @@ export default function App() {
 
       {/* Import Dialog */}
       <ImportDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} />
+
+      {/* Offline Banner */}
+      <OfflineBanner />
     </div>
   )
 }

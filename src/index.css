@@ -281,6 +281,16 @@ tr:hover .drag-handle {
   opacity: 1;
 }
 
+/* Touch devices: hover-reveal items always visible */
+@media (hover: none) {
+  .hover-reveal {
+    opacity: 1;
+  }
+  .drag-handle {
+    opacity: 0.5;
+  }
+}
+
 /* Click-to-edit: plain text that shows focus ring on click */
 .click-to-edit {
   border: 1px solid transparent;

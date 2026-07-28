@@ -19,6 +19,7 @@ export const DetailPanel = memo(function DetailPanel() {
   const detailPanelOpen = useAppStore((s) => s.detailPanelOpen)
   const setDetailPanelOpen = useAppStore((s) => s.setDetailPanelOpen)
   const startCreating = useAppStore((s) => s.startCreating)
+  const setEditingTaskId = useAppStore((s) => s.setEditingTaskId)
   const { data: tasks } = useTasks()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
@@ -62,6 +63,11 @@ export const DetailPanel = memo(function DetailPanel() {
     setEditValue('')
     setSavedField(null)
   }, [task?.id])
+
+  // Notify store of editing state for remote conflict detection
+  useEffect(() => {
+    setEditingTaskId(editingField ? (task?.id ?? null) : null)
+  }, [editingField, task?.id, setEditingTaskId])
 
   // Auto-clear saved flash after 1.5s
   useEffect(() => {
@@ -562,7 +568,7 @@ export const DetailPanel = memo(function DetailPanel() {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
 
   return (
-    <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated min-h-0" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
+    <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated min-h-0 md:w-[340px] md:min-w-[340px] md:flex-shrink-0 max-md:fixed max-md:inset-0 max-md:z-50" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-muted/10 sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">

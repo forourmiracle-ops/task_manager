@@ -2,17 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
+import { useAuth } from '@/hooks/useAuth'
 import type { Task } from '@/types'
 
 const TASKS_KEY = 'tasks'
 const useLocal = !isSupabaseConfigured()
 
-async function fetchTasks(): Promise<Task[]> {
+async function fetchTasks(userId: string | undefined): Promise<Task[]> {
   if (useLocal) return localDB.fetchTasks()
+  if (!userId) return []
   try {
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
+      .eq('user_id', userId)
       .order('sort_order')
     if (error) throw error
     return (data as Task[]) || []
@@ -25,6 +28,7 @@ async function fetchTasks(): Promise<Task[]> {
 async function createTask(task: Partial<Task>): Promise<Task> {
   if (useLocal) return localDB.createTask(task)
   try {
+    const { data: { user } } = await supabase.auth.getUser()
     const { data, error } = await supabase
       .from('tasks')
       .insert({
@@ -42,6 +46,7 @@ async function createTask(task: Partial<Task>): Promise<Task> {
         depends_on: task.depends_on || [],
         tags: task.tags || [],
         sort_order: task.sort_order || 0,
+        user_id: user!.id,
       })
       .select()
       .single()
@@ -84,14 +89,18 @@ async function deleteTask(id: string): Promise<void> {
   }
 }
 
-export function useTasks() {
+export function useTasks(userId?: string) {
+  const { userId: authUserId } = useAuth()
+  const effectiveUserId = userId ?? authUserId
+
   return useQuery({
-    queryKey: [TASKS_KEY],
-    queryFn: fetchTasks,
-    staleTime: Infinity, // data is local, only changes via mutations
-    gcTime: Infinity,    // keep cache forever, never garbage collect
-    refetchOnWindowFocus: false,
+    queryKey: [TASKS_KEY, effectiveUserId],
+    queryFn: () => fetchTasks(effectiveUserId),
+    staleTime: 60_000,
+    gcTime: Infinity,
+    refetchOnWindowFocus: true,
     retry: 1,
+    enabled: !!effectiveUserId || useLocal,
   })
 }
 

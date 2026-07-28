@@ -91,6 +91,7 @@ BEGIN
   WHERE id = p_task_id
     AND enabled = true
     AND next_run <= now()
+    AND user_id = auth.uid()
   FOR UPDATE;
 
   IF NOT FOUND THEN
