@@ -18,7 +18,24 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
       .eq('user_id', userId)
       .order('sort_order')
     if (error) throw error
-    return (data as Task[]) || []
+    const tasks = (data as Task[]) || []
+
+    // Auto-claim orphaned tasks (user_id IS NULL) if current user has no tasks yet
+    if (tasks.length === 0) {
+      try {
+        await supabase.rpc('fn_claim_orphaned_tasks')
+        const { data: claimed } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', userId)
+          .order('sort_order')
+        return (claimed as Task[]) || []
+      } catch {
+        // fn_claim_orphaned_tasks not deployed yet — ignore
+      }
+    }
+
+    return tasks
   } catch (err) {
     console.warn('Supabase fetch failed, using local storage:', err)
     return localDB.fetchTasks()
