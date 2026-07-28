@@ -93,6 +93,20 @@ export default function App() {
 
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false)
 
+  // ? key to open cheat sheet — must be BEFORE any early return to keep hook count stable
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        const target = e.target as HTMLElement
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
+        e.preventDefault()
+        setCheatSheetOpen((prev) => !prev)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Auth loading state
   if (authLoading) {
     return (
@@ -109,20 +123,6 @@ export default function App() {
   if (!isAuthenticated) {
     return <AuthView />
   }
-
-  // ? key to open cheat sheet
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        const target = e.target as HTMLElement
-        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-        e.preventDefault()
-        setCheatSheetOpen((prev) => !prev)
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden min-h-0">
