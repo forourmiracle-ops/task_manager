@@ -8,9 +8,11 @@ import { ImportDialog } from '@/components/ui/ImportDialog'
 import { CheatSheet } from '@/components/ui/CheatSheet'
 import { RemoteUpdateBanner, useRemoteUpdateConflict } from '@/components/ui/RemoteUpdateBanner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
+import { LocalTaskMigration } from '@/components/ui/LocalTaskMigration'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
 import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthView } from '@/components/auth/AuthView'
 import type { ViewType } from '@/types'
@@ -70,7 +72,7 @@ export default function App() {
   } = useAppStore()
 
   // Auth guard — redirect to login if not authenticated
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { session, isAuthenticated, loading: authLoading } = useAuth()
 
   useKeyboardShortcuts()
   useRecurringTaskExecutor()
@@ -178,17 +180,30 @@ export default function App() {
 
         <div className="flex-1" />
 
-        {/* Quick Create */}
-        <button
-          onClick={() => startCreating(null)}
-          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
-          title="新建项目 (Ctrl+N)"
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-          <span className="hidden sm:inline">新建项目</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {session?.user?.email}
+          </span>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-accent transition-colors"
+            title="退出登录"
+          >
+            退出
+          </button>
+
+          {/* Quick Create */}
+          <button
+            onClick={() => startCreating(null)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
+            title="新建项目 (Ctrl+N)"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M8 3v10M3 8h10" />
+            </svg>
+            <span className="hidden sm:inline">新建项目</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content — only active view rendered, lazy-loaded on demand */}
@@ -234,6 +249,9 @@ export default function App() {
 
       {/* Offline Banner */}
       <OfflineBanner />
+
+      {/* Local → Cloud migration prompt */}
+      <LocalTaskMigration />
     </div>
   )
 }
