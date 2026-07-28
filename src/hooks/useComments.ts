@@ -27,10 +27,13 @@ async function fetchComments(taskId: string): Promise<Comment[]> {
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
     const { data, error } = await supabase
       .from('comments')
       .select('*')
       .eq('task_id', taskId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true })
     if (error) throw error
     return (data as Comment[]) || []
@@ -58,12 +61,14 @@ async function createComment(comment: Pick<Comment, 'task_id' | 'content' | 'aut
     return newComment
   }
   try {
+    const { data: { user } } = await supabase.auth.getUser()
     const { data, error } = await supabase
       .from('comments')
       .insert({
         task_id: comment.task_id,
         content: comment.content,
         author_id: comment.author_id,
+        user_id: user!.id,
       })
       .select()
       .single()

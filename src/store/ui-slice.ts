@@ -31,6 +31,8 @@ export interface UISlice {
   stopCreating: () => void
   importDialogOpen: boolean
   setImportDialogOpen: (open: boolean) => void
+  editingTaskId: string | null
+  setEditingTaskId: (id: string | null) => void
 }
 
 export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
@@ -60,4 +62,7 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
 
   importDialogOpen: false,
   setImportDialogOpen: (open) => set({ importDialogOpen: open }),
+
+  editingTaskId: null,
+  setEditingTaskId: (id) => set({ editingTaskId: id }),
 })

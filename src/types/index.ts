@@ -27,6 +27,7 @@ export interface Task {
   depends_on: string[]
   tags: string[]
   sort_order: number
+  user_id: string
   created_at: string
   updated_at: string
   // Computed on client

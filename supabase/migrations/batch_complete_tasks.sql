@@ -17,10 +17,11 @@ BEGIN
       status = 'done',
       progress_percent = 100,
       updated_at = NOW()
-    WHERE id = _task_id;
+    WHERE id = _task_id
+      AND user_id = auth.uid();
 
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Task % not found', _task_id;
+      RAISE EXCEPTION 'Task % not found or not owned by current user', _task_id;
     END IF;
   END LOOP;
 END;
