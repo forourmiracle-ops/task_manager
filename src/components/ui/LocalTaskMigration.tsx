@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { indexedDB } from '@/lib/indexedDB'
-import { isSupabaseConfigured } from '@/lib/localStorage'
+import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
 import type { Task } from '@/types'
 
 const MIGRATION_FLAG_KEY = 'taskflow_local_migration_done'
@@ -16,15 +15,13 @@ export function LocalTaskMigration() {
     if (localStorage.getItem(MIGRATION_FLAG_KEY)) return
 
     try {
-      const tasks = await indexedDB.fetchTasks()
+      const tasks = await localDB.fetchTasks()
       if (tasks.length > 0) {
         setShowDialog(true)
-      } else {
-        localStorage.setItem(MIGRATION_FLAG_KEY, '1')
       }
+      // Don't set flag here — only set when user explicitly skips or migrates
     } catch {
-      // IndexedDB not available, no migration needed
-      localStorage.setItem(MIGRATION_FLAG_KEY, '1')
+      // No local storage available, nothing to migrate
     }
   }, [])
 
@@ -40,7 +37,7 @@ export function LocalTaskMigration() {
       setMigrating(false)
       return
     }
-    const tasks = await indexedDB.fetchTasks()
+    const tasks = await localDB.fetchTasks()
     let done = 0
     let failed = 0
 
