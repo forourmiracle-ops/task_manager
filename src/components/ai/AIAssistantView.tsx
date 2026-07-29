@@ -1,27 +1,47 @@
 import { useState, useRef, useEffect, memo, useCallback, type FormEvent, type KeyboardEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTasks } from '@/hooks/useTasks'
+import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store'
+import { supabase } from '@/lib/supabase'
+import { runWithTools } from '@/lib/ai-tools/run-with-tools'
+import { executeDeleteTask } from '@/lib/ai-tools/delete-task'
+import { ToolCallCard } from '@/components/ai/ToolCallCard'
+import { ToolResultCard } from '@/components/ai/ToolResultCard'
+import { ConfirmCard } from '@/components/ai/ConfirmCard'
+import type { ToolContext } from '@/lib/ai-tools/types'
 
-const WELCOME_MESSAGE = '你好！我是 DeepSeek AI 助手。我可以帮你：\n\n1. **智能拆解**：输入任务描述，我帮你自动生成多层级子任务\n2. **项目分析**：分析当前任务进度，识别风险\n\n请告诉我你需要什么帮助？'
+const WELCOME_MESSAGE = '你好！我是 DeepSeek AI 助手。我可以帮你：\n\n1. **创建任务**：直接告诉我任务名称、截止日期、优先级，我帮你创建\n2. **搜索任务**：按状态、优先级、关键词查找任务\n3. **更新任务**：修改任务状态、截止日期等\n4. **项目分析**：分析当前项目进度，识别风险\n5. **生成报告**：生成日/周报摘要\n\n请告诉我你需要什么帮助？'
+
+interface PendingConfirmation {
+  messageId: string
+  toolName: string
+  taskId: string
+  taskTitle: string
+}
 
 export const AIAssistantView = memo(function AIAssistantView() {
   const { data: tasks } = useTasks()
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
   const deepseekApiKey = useAppStore((s) => s.deepseekApiKey)
   const messages = useAppStore((s) => s.messages)
   const isLoading = useAppStore((s) => s.isLoading)
   const addMessage = useAppStore((s) => s.addMessage)
   const updateLastAssistant = useAppStore((s) => s.updateLastAssistant)
+  const addToolCall = useAppStore((s) => s.addToolCall)
+  const updateToolResult = useAppStore((s) => s.updateToolResult)
   const setLoading = useAppStore((s) => s.setLoading)
   const clearMessages = useAppStore((s) => s.clearMessages)
 
   const [input, setInput] = useState('')
-  const [webSearch, setWebSearch] = useState(false)
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const isUserScrolledUpRef = useRef(false)
 
-  // Auto-scroll when new content arrives (streaming) or new messages added
+  // Auto-scroll when new content arrives
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
@@ -44,16 +64,43 @@ export const AIAssistantView = memo(function AIAssistantView() {
     setLoading(false)
   }, [setLoading])
 
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingConfirmation) return
+
+    const { messageId, taskId, taskTitle } = pendingConfirmation
+    setPendingConfirmation(null)
+
+    const context: ToolContext = {
+      queryClient,
+      userId: session?.user?.id ?? '',
+      supabase,
+    }
+
+    const result = await executeDeleteTask(taskId, context)
+    updateToolResult(messageId, { success: result.success, content: result.message })
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+  }, [pendingConfirmation, queryClient, session?.user?.id, updateToolResult])
+
+  const handleCancelDelete = useCallback(() => {
+    if (!pendingConfirmation) return
+
+    const { messageId } = pendingConfirmation
+    setPendingConfirmation(null)
+    updateToolResult(messageId, {
+      success: false,
+      content: '用户取消了删除操作。',
+    })
+  }, [pendingConfirmation, updateToolResult])
+
   const handleSend = async (e?: FormEvent) => {
     e?.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || pendingConfirmation) return
 
     const userMessage = input.trim()
     setInput('')
     addMessage({ role: 'user', content: userMessage })
     setLoading(true)
 
-    // Resolve API key: store first, then env, then empty
     const apiKey = deepseekApiKey || import.meta.env.VITE_DEEPSEEK_API_KEY || ''
     if (!apiKey) {
       addMessage({ role: 'assistant', content: '未配置 DeepSeek API Key。请在「设置」页面中填入你的 API Key。' })
@@ -64,95 +111,111 @@ export const AIAssistantView = memo(function AIAssistantView() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    // Build message history for API (excluding the one we just added, which is already in store)
+    const context: ToolContext = {
+      queryClient,
+      userId: session?.user?.id ?? '',
+      supabase,
+    }
+
+    // Build system prompt with task context
+    const systemPrompt = `你是一个项目管理 AI 助手。当前日期：${new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}。当前用户有以下任务：${JSON.stringify(
+      tasks?.map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, progress: t.progress_percent, due: t.due_date })) || []
+    )}。你可以使用工具来搜索、创建、更新、删除任务，以及分析项目和生成报告。当用户请求操作时，请直接使用工具执行，不需要先询问确认（除非是删除操作）。`
+
+    // Build messages for API
+    const apiMessages: Array<{
+      role: string
+      content: string | null
+      tool_calls?: unknown[]
+      tool_call_id?: string
+      name?: string
+    }> = [{ role: 'system', content: systemPrompt }]
+
+    // Convert UI messages to API format
     const currentMessages = useAppStore.getState().messages
+    for (const msg of currentMessages) {
+      switch (msg.role) {
+        case 'user':
+          apiMessages.push({ role: 'user', content: msg.content })
+          break
+        case 'assistant':
+          apiMessages.push({ role: 'assistant', content: msg.content })
+          break
+        case 'tool_result':
+          // tool_results are added during the loop, not from history
+          break
+        case 'tool_call':
+          // tool_calls are added during the loop, not from history
+          break
+      }
+    }
 
     try {
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
+      await runWithTools(apiMessages, apiKey, context, controller.signal, {
+        onTextDelta: (delta) => {
+          const msgs = useAppStore.getState().messages
+          const last = msgs[msgs.length - 1]
+          if (last?.role === 'assistant') {
+            updateLastAssistant(last.content + delta)
+          } else {
+            addMessage({ role: 'assistant', content: delta })
+          }
         },
-        body: JSON.stringify({
-          model: 'deepseek-v4-flash',
-          messages: [
-            {
-              role: 'system',
-              content: `你是一个项目管理 AI 助手。当前日期：${new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}。当前用户有以下任务：${JSON.stringify(
-                tasks?.map((t) => ({ id: t.id, title: t.title, status: t.status, progress: t.progress_percent, due: t.due_date })) || []
-              )}。请根据用户需求提供帮助。如果需要拆解任务，请生成结构化的子任务列表，格式为 JSON 数组：[{title: string, children?: [...]}]，最多 4 层。`,
-            },
-            ...currentMessages.map((m) => ({ role: m.role, content: m.content })),
-          ],
-          stream: true,
-        }),
-        signal: controller.signal,
-      })
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => null)
-        const errMsg = errData?.error?.message || `HTTP ${response.status}`
-        throw new Error(errMsg)
-      }
-
-      if (!response.body) {
-        throw new Error('响应体为空')
-      }
-
-      // Add an empty assistant message placeholder that we'll stream into
-      addMessage({ role: 'assistant', content: '' })
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let assistantContent = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || !trimmed.startsWith('data: ')) continue
-          const dataStr = trimmed.slice(6)
-          if (dataStr === '[DONE]') continue
-
+        onToolCall: (tool) => {
+          let args: Record<string, unknown> = {}
           try {
-            const chunk = JSON.parse(dataStr)
-            const delta = chunk.choices?.[0]?.delta?.content
-            if (delta) {
-              assistantContent += delta
-              updateLastAssistant(assistantContent)
-            }
-          } catch {
-            // Skip malformed chunks
-          }
-        }
-      }
+            args = JSON.parse(tool.function.arguments)
+          } catch { /* ignore parse errors */ }
 
-      // Parse task breakdown from the final content
-      const jsonMatch = assistantContent.match(/```json\n([\s\S]*?)\n```/)
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1])
-          if (Array.isArray(parsed)) {
-            addMessage({
-              role: 'assistant',
-              content: '已从回复中检测到任务结构。你可以将上述任务添加到项目中。需要我帮你添加吗？回复"添加"即可。',
-            })
+          const msgId = crypto.randomUUID() // fallback; addToolCall generates its own
+          addToolCall({
+            role: 'tool_call',
+            content: '',
+            toolName: tool.function.name,
+            toolArgs: args,
+          })
+
+          // Return the actual message ID from store
+          const msgs = useAppStore.getState().messages
+          return msgs[msgs.length - 1]?.id || msgId
+        },
+
+        onToolResult: (msgId, result) => {
+          if (result.requiresConfirmation) {
+            const data = result.data as { taskId: string; taskTitle: string } | undefined
+            if (data) {
+              // Store pending confirmation and don't call updateToolResult yet
+              const msgs = useAppStore.getState().messages
+              const callMsg = msgs.find((m) => m.id === msgId)
+              setPendingConfirmation({
+                messageId: msgId,
+                toolName: callMsg?.toolName || 'delete_task',
+                taskId: data.taskId,
+                taskTitle: data.taskTitle,
+              })
+              return
+            }
           }
-        } catch {
-          // Not valid JSON
-        }
-      }
+          updateToolResult(msgId, { success: result.success, content: result.message })
+        },
+
+        onDone: () => {
+          // Ensure the last assistant message is properly saved
+          const msgs = useAppStore.getState().messages
+          const last = msgs[msgs.length - 1]
+          if (last?.role === 'assistant' && !last.content) {
+            // Remove empty assistant message
+            useAppStore.setState({ messages: msgs.slice(0, -1) })
+          }
+        },
+
+        onError: (error) => {
+          addMessage({ role: 'assistant', content: error })
+        },
+      })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // User stopped — mark the partial message
         const msgs = useAppStore.getState().messages
         const last = msgs[msgs.length - 1]
         if (last?.role === 'assistant' && last.content) {
@@ -209,22 +272,48 @@ export const AIAssistantView = memo(function AIAssistantView() {
             </div>
           </div>
         ) : (
-          messages.map((msg, idx) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+          messages.map((msg) => {
+            // Render tool call card
+            if (msg.role === 'tool_call') {
+              // Check if this is pending confirmation
+              if (pendingConfirmation && pendingConfirmation.messageId === msg.id) {
+                return (
+                  <ConfirmCard
+                    key={msg.id}
+                    message="确认删除以下任务？"
+                    taskTitle={pendingConfirmation.taskTitle}
+                    taskStatus=""
+                    onConfirm={handleConfirmDelete}
+                    onCancel={handleCancelDelete}
+                  />
+                )
+              }
+              return <ToolCallCard key={msg.id} message={msg} />
+            }
+
+            // Render tool result card
+            if (msg.role === 'tool_result') {
+              return <ToolResultCard key={msg.id} message={msg} />
+            }
+
+            // Render user/assistant messages
+            return (
               <div
-                className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
-                }`}
+                key={msg.id}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className="whitespace-pre-wrap break-words overflow-x-auto">{msg.content}</div>
+                <div
+                  className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap break-words overflow-x-auto">{msg.content}</div>
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
         {isLoading && (
           <div className="flex justify-start items-center gap-2">
@@ -244,17 +333,6 @@ export const AIAssistantView = memo(function AIAssistantView() {
 
       {/* Input */}
       <form onSubmit={handleSend} className="p-4 border-t border-border flex-shrink-0">
-        <div className="flex items-center gap-2 mb-2">
-          <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              checked={webSearch}
-              onChange={(e) => setWebSearch(e.target.checked)}
-              className="w-3 h-3"
-            />
-            联网搜索
-          </label>
-        </div>
         <div className="flex gap-2">
           <textarea
             value={input}
@@ -262,11 +340,12 @@ export const AIAssistantView = memo(function AIAssistantView() {
             onKeyDown={handleKeyDown}
             placeholder="输入你的问题... (Enter 发送，Shift+Enter 换行)"
             rows={2}
+            disabled={!!pendingConfirmation}
             className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || !!pendingConfirmation}
             className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
           >
             发送
