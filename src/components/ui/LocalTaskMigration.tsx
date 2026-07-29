@@ -9,19 +9,23 @@ export function LocalTaskMigration() {
   const [showDialog, setShowDialog] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [result, setResult] = useState<{ done: number; failed: number } | null>(null)
+  const [localCount, setLocalCount] = useState(0)
+  const [showManual, setShowManual] = useState(false)
 
   const checkLocalTasks = useCallback(async () => {
     if (!isSupabaseConfigured()) return
-    if (localStorage.getItem(MIGRATION_FLAG_KEY)) return
 
     try {
       const tasks = await localDB.fetchTasks()
-      if (tasks.length > 0) {
+      setLocalCount(tasks.length)
+      if (tasks.length > 0 && !localStorage.getItem(MIGRATION_FLAG_KEY)) {
         setShowDialog(true)
       }
-      // Don't set flag here — only set when user explicitly skips or migrates
+      if (tasks.length > 0) {
+        setShowManual(true)
+      }
     } catch {
-      // No local storage available, nothing to migrate
+      // No local storage available
     }
   }, [])
 
@@ -79,14 +83,33 @@ export function LocalTaskMigration() {
     setResult({ done, failed })
     localStorage.setItem(MIGRATION_FLAG_KEY, '1')
     setMigrating(false)
+    setShowManual(false)
   }
 
   const handleSkip = () => {
     localStorage.setItem(MIGRATION_FLAG_KEY, '1')
     setShowDialog(false)
+    setShowManual(false)
   }
 
-  if (!showDialog) return null
+  if (!showDialog && !showManual) return null
+
+  // Manual trigger: flag was set but local tasks still exist
+  if (showManual && !showDialog) {
+    return (
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
+        <button
+          onClick={() => {
+            localStorage.removeItem(MIGRATION_FLAG_KEY)
+            setShowDialog(true)
+          }}
+          className="px-4 py-2 text-xs font-semibold bg-amber-50 border border-amber-200 rounded-xl text-amber-700 hover:bg-amber-100 shadow-lg transition-colors"
+        >
+          发现 {localCount} 个本地任务 — 点击导入到云端
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
