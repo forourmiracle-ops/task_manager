@@ -7,6 +7,7 @@ import { DraftToastContainer } from '@/components/ui/DraftToast'
 import { ImportDialog } from '@/components/ui/ImportDialog'
 import { CheatSheet } from '@/components/ui/CheatSheet'
 import { RemoteUpdateBanner, useRemoteUpdateConflict } from '@/components/ui/RemoteUpdateBanner'
+import { AppUpdateBanner } from '@/components/ui/AppUpdateBanner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { LocalTaskMigration } from '@/components/ui/LocalTaskMigration'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -134,6 +135,9 @@ export default function App() {
         onViewLatest={handleViewLatest}
         onDismiss={handleDismiss}
       />
+
+      {/* App update banner — shows when a new version is available on GitHub */}
+      <AppUpdateBanner />
 
       {/* Top Navigation */}
       <header className="border-b border-border flex items-center px-4 gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
