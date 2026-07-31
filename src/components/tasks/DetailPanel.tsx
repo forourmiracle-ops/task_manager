@@ -52,6 +52,7 @@ export const DetailPanel = memo(function DetailPanel() {
   const originalValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
   const committingRef = useRef(false)
+  const composingRef = useRef(false)
 
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
@@ -490,7 +491,18 @@ export const DetailPanel = memo(function DetailPanel() {
             autoFocus
             type="text"
             value={val}
-            onChange={(e) => setEditValue(e.target.value)}
+            onChange={(e) => {
+              if (composingRef.current) return
+              editValueRef.current = e.target.value
+              setEditValue(e.target.value)
+            }}
+            onCompositionStart={() => { composingRef.current = true }}
+            onCompositionEnd={(e) => {
+              composingRef.current = false
+              const v = (e.target as HTMLInputElement).value
+              editValueRef.current = v
+              setEditValue(v)
+            }}
             placeholder="用逗号分隔"
             className={baseClass}
           />
@@ -510,7 +522,18 @@ export const DetailPanel = memo(function DetailPanel() {
             autoFocus
             type="text"
             value={val}
-            onChange={(e) => setEditValue(e.target.value)}
+            onChange={(e) => {
+              if (composingRef.current) return
+              editValueRef.current = e.target.value
+              setEditValue(e.target.value)
+            }}
+            onCompositionStart={() => { composingRef.current = true }}
+            onCompositionEnd={(e) => {
+              composingRef.current = false
+              const v = (e.target as HTMLInputElement).value
+              editValueRef.current = v
+              setEditValue(v)
+            }}
             className={baseClass}
           />
         )
