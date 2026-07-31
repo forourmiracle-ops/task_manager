@@ -1,6 +1,7 @@
 import { useAppStore, type ThemeMode, type DefaultDimension, type DensityMode } from '@/store'
 import { memo, useState } from 'react'
 import { TemplateSettings } from '@/components/templates/TemplateSettings'
+import { useUpdateCheck } from '@/components/ui/AppUpdateBanner'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
 const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
@@ -23,6 +24,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
 export const SettingsView = memo(function SettingsView() {
   const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey, density, setDensity } = useAppStore()
   const [showKey, setShowKey] = useState(false)
+  const { checking, result, check, clearResult } = useUpdateCheck()
 
   return (
     <div className="flex-1 flex justify-center overflow-auto bg-background">
@@ -234,6 +236,46 @@ export const SettingsView = memo(function SettingsView() {
         {/* Templates */}
         <section>
           <TemplateSettings />
+        </section>
+
+        {/* App Update */}
+        <section>
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">软件更新</h3>
+          <div className="bg-muted/20 rounded-xl p-4 border border-border/50 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              检查 GitHub 上是否有新版本可用。启动时自动检查，每两小时一次。
+            </p>
+            <button
+              onClick={check}
+              disabled={checking}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              {checking ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  检查中...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M13.5 8a5.5 5.5 0 01-11 0" />
+                    <path d="M2.5 8a5.5 5.5 0 0111 0" />
+                    <path d="M8 2v4l2.5 2.5" />
+                  </svg>
+                  检查更新
+                </>
+              )}
+            </button>
+            {result && (
+              <div className={`text-xs p-3 rounded-lg ${
+                result.hasUpdate
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'bg-green-50 text-green-700 border border-green-200'
+              }`}>
+                {result.message}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* About */}

@@ -3,8 +3,20 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { execSync } from 'child_process'
+
+// Get current commit SHA for update checking
+let commitSha = ''
+try {
+  commitSha = execSync('git rev-parse --short HEAD').toString().trim()
+} catch {
+  // Not a git repo or git not available
+}
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_COMMIT_SHA': JSON.stringify(commitSha),
+  },
   plugins: [
     react(),
     tailwindcss(),
