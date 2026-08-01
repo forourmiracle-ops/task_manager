@@ -12,6 +12,14 @@ function createMockClient() {
     from: () => {
       throw new Error('Supabase not configured')
     },
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({
+        data: { subscription: { unsubscribe: () => {} } },
+      }),
+      signOut: () => Promise.resolve({ error: null }),
+      signInWithPassword: () => Promise.resolve({ data: { session: null }, error: null }),
+    },
   } as unknown as ReturnType<typeof createClient>
 }
 
