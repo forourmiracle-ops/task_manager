@@ -6,7 +6,13 @@ import { useAuth } from '@/hooks/useAuth'
 import type { Task } from '@/types'
 
 const TASKS_KEY = 'tasks'
+const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
 const useLocal = !isSupabaseConfigured()
+
+// Check if migration from local → cloud is still needed
+export function isMigrationNeeded(): boolean {
+  return localStorage.getItem(MIGRATION_NEEDED_KEY) === '1'
+}
 
 async function fetchTasks(userId: string | undefined): Promise<Task[]> {
   if (useLocal) return localDB.fetchTasks()
@@ -29,9 +35,27 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
           .select('*')
           .eq('user_id', userId)
           .order('sort_order')
-        return (claimed as Task[]) || []
+        const claimedTasks = (claimed as Task[]) || []
+        if (claimedTasks.length > 0) {
+          return claimedTasks
+        }
       } catch {
         // fn_claim_orphaned_tasks not deployed yet — ignore
+      }
+    }
+
+    // If Supabase has no tasks, check if local storage has tasks to migrate
+    if (tasks.length === 0) {
+      try {
+        const localTasks = await localDB.fetchTasks()
+        if (localTasks.length > 0) {
+          // Mark that migration is needed — LocalTaskMigration will pick this up
+          localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
+          // Return local tasks so the user can see their data immediately
+          return localTasks
+        }
+      } catch {
+        // localDB unavailable — ignore
       }
     }
 
