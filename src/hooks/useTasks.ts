@@ -7,6 +7,7 @@ import type { Task } from '@/types'
 
 const TASKS_KEY = 'tasks'
 const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
+const MIGRATION_DONE_KEY = 'taskflow_local_migration_done'
 const useLocal = !isSupabaseConfigured()
 
 // Check if migration from local → cloud is still needed
@@ -37,6 +38,8 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
           .order('sort_order')
         const claimedTasks = (claimed as Task[]) || []
         if (claimedTasks.length > 0) {
+          // Successfully claimed orphaned tasks — clear migration flags
+          localStorage.removeItem(MIGRATION_NEEDED_KEY)
           return claimedTasks
         }
       } catch {
@@ -45,23 +48,31 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
     }
 
     // If Supabase has no tasks, check if local storage has tasks to migrate
+    // Only fall back to local data if migration hasn't been explicitly skipped
     if (tasks.length === 0) {
-      try {
-        const localTasks = await localDB.fetchTasks()
-        if (localTasks.length > 0) {
-          // Mark that migration is needed — LocalTaskMigration will pick this up
-          localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
-          // Return local tasks so the user can see their data immediately
-          return localTasks
+      const migrationDone = localStorage.getItem(MIGRATION_DONE_KEY)
+      if (!migrationDone) {
+        try {
+          const localTasks = await localDB.fetchTasks()
+          if (localTasks.length > 0) {
+            // Mark that migration is needed — LocalTaskMigration will pick this up
+            localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
+            // Return local tasks so the user can see their data immediately
+            return localTasks
+          }
+        } catch {
+          // localDB unavailable — ignore
         }
-      } catch {
-        // localDB unavailable — ignore
       }
+    } else {
+      // Supabase has tasks — clear any stale migration flags
+      localStorage.removeItem(MIGRATION_NEEDED_KEY)
     }
 
     return tasks
   } catch (err) {
     console.warn('Supabase fetch failed, using local storage:', err)
+    // On Supabase error, fall back to local data
     return localDB.fetchTasks()
   }
 }
