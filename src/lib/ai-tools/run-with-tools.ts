@@ -72,12 +72,24 @@ export async function runWithTools(
       return
     }
 
-    const { toolCalls } = await parseStreamResponse(response.body, callbacks.onTextDelta, signal)
+    const { toolCalls, textContent } = await parseStreamResponse(response.body, callbacks.onTextDelta, signal)
 
     if (toolCalls.length === 0) {
       callbacks.onDone()
       return
     }
+
+    // Add assistant message with tool_calls to messages BEFORE tool results
+    // Required by API: tool role messages must follow an assistant message with tool_calls
+    messages.push({
+      role: 'assistant',
+      content: textContent || null,
+      tool_calls: toolCalls.map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      })),
+    })
 
     // Execute all tool calls
     for (const tc of toolCalls) {
@@ -131,10 +143,11 @@ async function parseStreamResponse(
   body: ReadableStream<Uint8Array>,
   onTextDelta: (delta: string) => void,
   signal: AbortSignal,
-): Promise<{ toolCalls: ToolCall[] }> {
+): Promise<{ toolCalls: ToolCall[]; textContent: string }> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let textContent = ''
 
   // Accumulate tool calls by index
   const toolCallMap = new Map<number, { id: string; name: string; arguments: string }>()
@@ -160,6 +173,7 @@ async function parseStreamResponse(
         const delta = chunk.choices?.[0]?.delta
 
         if (delta?.content) {
+          textContent += delta.content
           onTextDelta(delta.content)
         }
 
@@ -191,5 +205,5 @@ async function parseStreamResponse(
     function: { name: tc.name, arguments: tc.arguments },
   }))
 
-  return { toolCalls }
+  return { toolCalls, textContent }
 }
