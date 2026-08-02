@@ -40,17 +40,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
-            },
-          },
-        ],
+        disableDevLogs: true,
+        // 禁用 Service Worker 预缓存，确保每次打开页面获取最新版本
+        globPatterns: [],
+        // 不缓存任何运行时请求，始终从网络获取最新内容
+        runtimeCaching: [],
       },
     }),
   ],
