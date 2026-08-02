@@ -8,6 +8,7 @@ export interface Message {
   toolName?: string
   toolArgs?: Record<string, unknown>
   toolSuccess?: boolean
+  toolData?: unknown
 }
 
 export interface AISlice {
@@ -17,7 +18,7 @@ export interface AISlice {
   addMessage: (msg: Omit<Message, 'id' | 'timestamp'>) => void
   updateLastAssistant: (content: string) => void
   addToolCall: (msg: Omit<Message, 'id' | 'timestamp'>) => void
-  updateToolResult: (messageId: string, result: { success: boolean; content: string }) => void
+  updateToolResult: (messageId: string, result: { success: boolean; content: string; data?: unknown }) => void
   setLoading: (loading: boolean) => void
   clearMessages: () => void
 }
