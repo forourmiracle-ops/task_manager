@@ -65,7 +65,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
   const handleConfirmDelete = useCallback(async () => {
     if (!pendingConfirmation) return
 
-    const { messageId, taskId, taskTitle } = pendingConfirmation
+    const { messageId, taskId } = pendingConfirmation
     setPendingConfirmation(null)
 
     const context: ToolContext = {
@@ -124,7 +124,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
     const apiMessages: Array<{
       role: string
       content: string | null
-      tool_calls?: unknown[]
+      tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
       tool_call_id?: string
       name?: string
     }> = [{ role: 'system', content: systemPrompt }]
