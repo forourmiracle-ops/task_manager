@@ -14,6 +14,7 @@ import { LocalTaskMigration } from '@/components/ui/LocalTaskMigration'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
 import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
+import { useUserSettings } from '@/hooks/useUserSettings'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthView } from '@/components/auth/AuthView'
@@ -87,6 +88,7 @@ export default function App() {
 
   useKeyboardShortcuts()
   useRecurringTaskExecutor()
+  useUserSettings() // Sync API key & preferences across devices
 
   // Remote edit conflict detection
   const {

@@ -5,6 +5,7 @@ export function AppUpdateBanner() {
   const [visible, setVisible] = useState(false)
   const [latestSha, setLatestSha] = useState('')
   const [checking, setChecking] = useState(false)
+  const [updating, setUpdating] = useState(false)
 
   const doCheck = useCallback(async (silent = false) => {
     setChecking(true)
@@ -26,6 +27,33 @@ export function AppUpdateBanner() {
     doCheck(true)
   }, [doCheck])
 
+  const handleUpdate = useCallback(async () => {
+    setUpdating(true)
+    try {
+      // Try to update service worker if available
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        for (const registration of registrations) {
+          if (registration.waiting) {
+            // Tell the waiting service worker to skip waiting
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+          }
+          await registration.update()
+        }
+      }
+      // Clear all caches to ensure fresh content
+      if ('caches' in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map((name) => caches.delete(name)))
+      }
+      // Hard reload to get the latest version
+      window.location.reload()
+    } catch {
+      // Fallback: just reload
+      window.location.reload()
+    }
+  }, [])
+
   if (!visible) return null
 
   return (
@@ -40,12 +68,11 @@ export function AppUpdateBanner() {
       </p>
       <div className="flex items-center gap-2 flex-shrink-0">
         <button
-          onClick={() => {
-            window.open('https://github.com/forourmiracle-ops/task_manager', '_blank')
-          }}
-          className="text-[11px] font-medium text-blue-700 hover:text-blue-900 bg-blue-100 hover:bg-blue-200 px-2.5 py-1 rounded-lg transition-colors"
+          onClick={handleUpdate}
+          disabled={updating}
+          className="text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
         >
-          查看更新
+          {updating ? '更新中...' : '立即更新'}
         </button>
         <button
           onClick={() => setVisible(false)}

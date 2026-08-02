@@ -1,7 +1,10 @@
 import { useAppStore, type ThemeMode, type DefaultDimension, type DensityMode } from '@/store'
-import { memo, useState } from 'react'
+import { memo, useState, useCallback } from 'react'
 import { TemplateSettings } from '@/components/templates/TemplateSettings'
 import { useUpdateCheck } from '@/components/ui/AppUpdateBanner'
+import { useSyncStatus } from '@/hooks/useTasks'
+import { useAuth } from '@/hooks/useAuth'
+import { useTasks } from '@/hooks/useTasks'
 
 const FONT_SIZE_LABELS = ['极小', '很小', '较小', '标准', '较大', '很大', '特大', '超大']
 const FONT_SIZE_SAMPLES = ['12px', '14px', '16px', '18px', '20px', '22px', '24px', '26px']
@@ -25,6 +28,32 @@ export const SettingsView = memo(function SettingsView() {
   const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey, density, setDensity } = useAppStore()
   const [showKey, setShowKey] = useState(false)
   const { checking, result, check, clearResult } = useUpdateCheck()
+  const [updating, setUpdating] = useState(false)
+  const syncStatus = useSyncStatus()
+  const { data: tasks } = useTasks()
+  const { session } = useAuth()
+
+  const handleUpdate = useCallback(async () => {
+    setUpdating(true)
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        for (const registration of registrations) {
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+          }
+          await registration.update()
+        }
+      }
+      if ('caches' in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map((name) => caches.delete(name)))
+      }
+      window.location.reload()
+    } catch {
+      window.location.reload()
+    }
+  }, [])
 
   return (
     <div className="flex-1 flex justify-center overflow-auto bg-background">
@@ -273,6 +302,15 @@ export const SettingsView = memo(function SettingsView() {
                   : 'bg-green-50 text-green-700 border border-green-200'
               }`}>
                 {result.message}
+                {result.hasUpdate && (
+                  <button
+                    onClick={handleUpdate}
+                    disabled={updating}
+                    className="mt-2 w-full py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {updating ? '更新中...' : '立即更新（刷新页面）'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -286,6 +324,44 @@ export const SettingsView = memo(function SettingsView() {
             <p>轻量级工作任务管理系统</p>
             <p>版本 1.0.0</p>
             <p className="text-[10px]">React + TypeScript + Vite + Tailwind CSS</p>
+          </div>
+        </section>
+
+        {/* Sync Status */}
+        <section>
+          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">数据同步状态</h3>
+          <div className="bg-muted/20 rounded-xl p-4 border border-border/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">同步状态</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                syncStatus === 'online' ? 'bg-green-100 text-green-700' :
+                syncStatus === 'offline' ? 'bg-gray-100 text-gray-600' :
+                syncStatus === 'error' ? 'bg-red-100 text-red-700' :
+                'bg-amber-100 text-amber-700'
+              }`}>
+                {syncStatus === 'online' ? '已连接' :
+                 syncStatus === 'offline' ? '离线模式' :
+                 syncStatus === 'error' ? '同步异常' :
+                 '检查中...'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">登录账户</span>
+              <span className="text-xs font-medium">{session?.user?.email || '未登录'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">云同步任务数</span>
+              <span className="text-xs font-medium">{tasks?.length ?? 0} 个</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">API Key</span>
+              <span className={`text-xs font-medium ${deepseekApiKey ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {deepseekApiKey ? '已配置（云端同步）' : '未配置'}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+              任务数据和 API Key 与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。
+            </p>
           </div>
         </section>
       </div>

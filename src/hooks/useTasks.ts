@@ -202,10 +202,12 @@ export function useTasks(userId?: string) {
   return useQuery({
     queryKey: [TASKS_KEY, effectiveUserId],
     queryFn: () => fetchTasks(effectiveUserId),
-    staleTime: 60_000,
+    staleTime: 0, // Always refetch to ensure real-time sync across devices
     gcTime: Infinity,
     refetchOnWindowFocus: true,
-    retry: 1,
+    refetchOnMount: true,
+    refetchInterval: 30_000, // Poll every 30s as fallback if Realtime fails
+    retry: 2,
     enabled: !!effectiveUserId || useLocal,
   })
 }
@@ -307,35 +309,43 @@ export function useBatchCompleteTasks() {
   })
 }
 
-// Supabase Realtime subscription for multi-user collaboration.
+// Supabase Realtime subscription for multi-device sync.
 // Accepts an optional conflict handler for edit conflict detection.
 export function useRealtimeSubscription(
   onRemoteChange?: (taskId: string, taskTitle: string) => void,
 ) {
   const queryClient = useQueryClient()
   const useLocal = !isSupabaseConfigured()
+  const { userId } = useAuth()
 
   useEffect(() => {
-    if (useLocal) return
+    if (useLocal || !userId) return
 
     const channel = supabase
       .channel('tasks-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
+        { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` },
         (payload) => {
           const changed = payload.new as { id: string; title: string } | null
-          if (onRemoteChange && changed) {
+          if (onRemoteChange && changed && payload.eventType === 'UPDATE') {
             onRemoteChange(changed.id, changed.title)
-          } else {
-            queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
           }
+          // Force immediate refetch for all change types
+          queryClient.invalidateQueries({ queryKey: [TASKS_KEY] })
+          queryClient.refetchQueries({ queryKey: [TASKS_KEY] })
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Subscribed to tasks changes')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.warn('[Realtime] Channel error, will rely on polling fallback')
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [queryClient, useLocal, onRemoteChange])
+  }, [queryClient, useLocal, userId, onRemoteChange])
 }
