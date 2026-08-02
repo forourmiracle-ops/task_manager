@@ -9,6 +9,7 @@ import { CheatSheet } from '@/components/ui/CheatSheet'
 import { RemoteUpdateBanner, useRemoteUpdateConflict } from '@/components/ui/RemoteUpdateBanner'
 import { AppUpdateBanner } from '@/components/ui/AppUpdateBanner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
+import { SyncStatusBanner } from '@/components/ui/SyncStatusBanner'
 import { LocalTaskMigration } from '@/components/ui/LocalTaskMigration'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
@@ -253,6 +254,9 @@ export default function App() {
 
       {/* Offline Banner */}
       <OfflineBanner />
+
+      {/* Sync Status Banner — shows when Supabase sync is not working */}
+      <SyncStatusBanner />
 
       {/* Local → Cloud migration prompt */}
       <LocalTaskMigration />
