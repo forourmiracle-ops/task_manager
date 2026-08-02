@@ -181,21 +181,20 @@ export const AIAssistantView = memo(function AIAssistantView() {
 
         onToolResult: (msgId, result) => {
           if (result.requiresConfirmation) {
-            const data = result.data as { taskId: string; taskTitle: string } | undefined
-            if (data) {
-              // Store pending confirmation and don't call updateToolResult yet
+            const confirmData = result.data as { taskId: string; taskTitle: string } | undefined
+            if (confirmData) {
               const msgs = useAppStore.getState().messages
               const callMsg = msgs.find((m) => m.id === msgId)
               setPendingConfirmation({
                 messageId: msgId,
                 toolName: callMsg?.toolName || 'delete_task',
-                taskId: data.taskId,
-                taskTitle: data.taskTitle,
+                taskId: confirmData.taskId,
+                taskTitle: confirmData.taskTitle,
               })
               return
             }
           }
-          updateToolResult(msgId, { success: result.success, content: result.message })
+          updateToolResult(msgId, { success: result.success, content: result.message, data: result.data })
         },
 
         onDone: () => {

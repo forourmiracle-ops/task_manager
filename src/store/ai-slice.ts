@@ -69,6 +69,7 @@ export const createAISlice: StateCreator<AISlice, [], [], AISlice> = (set) => ({
           ...msgs[idx],
           content: result.content,
           toolSuccess: result.success,
+          toolData: result.data,
         }
       }
       return {
