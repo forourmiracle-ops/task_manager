@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,6 +8,8 @@ import type { Task } from '@/types'
 const TASKS_KEY = 'tasks'
 const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
 const MIGRATION_DONE_KEY = 'taskflow_local_migration_done'
+const SYNC_ERROR_KEY = 'taskflow_sync_error'
+
 const useLocal = !isSupabaseConfigured()
 
 // Check if migration from local → cloud is still needed
@@ -15,9 +17,50 @@ export function isMigrationNeeded(): boolean {
   return localStorage.getItem(MIGRATION_NEEDED_KEY) === '1'
 }
 
+// Sync status for UI feedback
+export type SyncStatus = 'checking' | 'online' | 'offline' | 'error'
+
+let _syncStatusListeners: Array<(s: SyncStatus) => void> = []
+let _currentSyncStatus: SyncStatus = 'checking'
+
+export function getSyncStatus(): SyncStatus {
+  return _currentSyncStatus
+}
+
+function setSyncStatus(status: SyncStatus, errorMsg?: string) {
+  _currentSyncStatus = status
+  if (errorMsg) {
+    localStorage.setItem(SYNC_ERROR_KEY, errorMsg)
+  } else {
+    localStorage.removeItem(SYNC_ERROR_KEY)
+  }
+  _syncStatusListeners.forEach((fn) => fn(status))
+}
+
+export function useSyncStatus(): SyncStatus {
+  const [status, setStatus] = useState<SyncStatus>(_currentSyncStatus)
+  useEffect(() => {
+    _syncStatusListeners.push(setStatus)
+    return () => {
+      _syncStatusListeners = _syncStatusListeners.filter((fn) => fn !== setStatus)
+    }
+  }, [])
+  return status
+}
+
+export function getSyncError(): string | null {
+  return localStorage.getItem(SYNC_ERROR_KEY)
+}
+
 async function fetchTasks(userId: string | undefined): Promise<Task[]> {
-  if (useLocal) return localDB.fetchTasks()
-  if (!userId) return []
+  if (useLocal) {
+    setSyncStatus('offline')
+    return localDB.fetchTasks()
+  }
+  if (!userId) {
+    setSyncStatus('checking')
+    return []
+  }
   try {
     const { data, error } = await supabase
       .from('tasks')
@@ -40,6 +83,7 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
         if (claimedTasks.length > 0) {
           // Successfully claimed orphaned tasks — clear migration flags
           localStorage.removeItem(MIGRATION_NEEDED_KEY)
+          setSyncStatus('online')
           return claimedTasks
         }
       } catch {
@@ -54,19 +98,24 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
         const localTasks = await localDB.fetchTasks()
         if (localTasks.length > 0) {
           localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
+          setSyncStatus('online') // Supabase is reachable, just no tasks yet
           return localTasks
         }
       } catch {
         // localDB unavailable — ignore
       }
+      setSyncStatus('online') // Supabase reachable, empty state
     } else {
       // Supabase has tasks — clear any stale migration flags
       localStorage.removeItem(MIGRATION_NEEDED_KEY)
+      setSyncStatus('online')
     }
 
     return tasks
   } catch (err) {
-    console.warn('Supabase fetch failed, using local storage:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('Supabase fetch failed, using local storage:', msg)
+    setSyncStatus('error', msg)
     // On Supabase error, fall back to local data
     return localDB.fetchTasks()
   }
@@ -76,6 +125,7 @@ async function createTask(task: Partial<Task>): Promise<Task> {
   if (useLocal) return localDB.createTask(task)
   try {
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('未登录')
     const { data, error } = await supabase
       .from('tasks')
       .insert({
@@ -93,14 +143,17 @@ async function createTask(task: Partial<Task>): Promise<Task> {
         depends_on: task.depends_on || [],
         tags: task.tags || [],
         sort_order: task.sort_order || 0,
-        user_id: user!.id,
+        user_id: user.id,
       })
       .select()
       .single()
     if (error) throw error
+    setSyncStatus('online')
     return data as Task
   } catch (err) {
-    console.warn('Supabase create failed, using local storage:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('Supabase create failed, using local storage:', msg)
+    setSyncStatus('error', msg)
     return localDB.createTask(task)
   }
 }
@@ -118,9 +171,12 @@ async function updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
       .select()
       .single()
     if (error) throw error
+    setSyncStatus('online')
     return data as Task
   } catch (err) {
-    console.warn('Supabase update failed, using local storage:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('Supabase update failed, using local storage:', msg)
+    setSyncStatus('error', msg)
     return localDB.updateTask(task)
   }
 }
@@ -130,8 +186,11 @@ async function deleteTask(id: string): Promise<void> {
   try {
     const { error } = await supabase.from('tasks').delete().eq('id', id)
     if (error) throw error
+    setSyncStatus('online')
   } catch (err) {
-    console.warn('Supabase delete failed, using local storage:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('Supabase delete failed, using local storage:', msg)
+    setSyncStatus('error', msg)
     return localDB.deleteTask(id)
   }
 }
@@ -211,8 +270,11 @@ async function batchCompleteTasks(taskIds: string[]): Promise<void> {
   try {
     const { error } = await supabase.rpc('batch_complete_tasks', { p_task_ids: taskIds })
     if (error) throw error
+    setSyncStatus('online')
   } catch (err) {
-    console.warn('Supabase batch complete failed, using local storage:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('Supabase batch complete failed, using local storage:', msg)
+    setSyncStatus('error', msg)
     await localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
   }
 }
