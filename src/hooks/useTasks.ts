@@ -47,22 +47,17 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
       }
     }
 
-    // If Supabase has no tasks, check if local storage has tasks to migrate
-    // Only fall back to local data if migration hasn't been explicitly skipped
+    // If Supabase has no tasks, always fall back to localDB so the user
+    // can see their data. LocalTaskMigration handles the migration prompt.
     if (tasks.length === 0) {
-      const migrationDone = localStorage.getItem(MIGRATION_DONE_KEY)
-      if (!migrationDone) {
-        try {
-          const localTasks = await localDB.fetchTasks()
-          if (localTasks.length > 0) {
-            // Mark that migration is needed — LocalTaskMigration will pick this up
-            localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
-            // Return local tasks so the user can see their data immediately
-            return localTasks
-          }
-        } catch {
-          // localDB unavailable — ignore
+      try {
+        const localTasks = await localDB.fetchTasks()
+        if (localTasks.length > 0) {
+          localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
+          return localTasks
         }
+      } catch {
+        // localDB unavailable — ignore
       }
     } else {
       // Supabase has tasks — clear any stale migration flags

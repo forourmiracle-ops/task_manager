@@ -4,6 +4,7 @@ import { useAppStore } from '@/store'
 import { useTasks, useUpdateTask, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { buildTaskTree, cn, collectUnfinishedDescendants, collectAllDescendantIds } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { exportToJSON, downloadFile } from '@/lib/export'
 import type { Task } from '@/types'
 
 const DONE_SHOW_LIMIT = 50
@@ -51,6 +52,7 @@ export const Sidebar = memo(function Sidebar() {
     searchQuery,
     setSearchQuery,
     density,
+    setImportDialogOpen,
   } = useAppStore()
 
   const ROW_HEIGHT = density === 'compact' ? 32 : 36
@@ -123,6 +125,13 @@ export const Sidebar = memo(function Sidebar() {
   const handleAddChild = useCallback((id: string) => {
     startCreating(id)
   }, [startCreating])
+
+  const handleExport = useCallback(() => {
+    if (!tasks || tasks.length === 0) return
+    const json = exportToJSON(tasks)
+    const date = new Date().toISOString().slice(0, 10)
+    downloadFile(json, `taskflow-export-${date}.json`, 'application/json')
+  }, [tasks])
 
   const handleQuickComplete = useCallback((task: Task) => {
     const descendants = collectUnfinishedDescendants(task)
@@ -198,6 +207,17 @@ export const Sidebar = memo(function Sidebar() {
             <p className="text-[10px] text-muted-foreground mt-0.5">{tasks ? tasks.length : 0} 个任务</p>
           </div>
           <div className="flex items-center gap-1">
+            {tasks && tasks.length > 0 && (
+              <button
+                onClick={handleExport}
+                className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-accent transition-colors"
+                title="导出全部任务 (JSON)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M8 2v10M4 6l4 4 4-4M2 12v2h12v-2" />
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setSidebarOpen(false)}
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
@@ -231,13 +251,22 @@ export const Sidebar = memo(function Sidebar() {
           </div>
         ) : !hasActiveResults && !hasDoneResults ? (
           <div className="text-xs text-muted-foreground p-3 text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border">
-            <p>暂无任务</p>
-            <button
-              onClick={() => startCreating(null)}
-              className="text-primary hover:underline mt-2 font-medium"
-            >
-              创建第一个项目
-            </button>
+            <p className="mb-3">暂无任务</p>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => startCreating(null)}
+                className="text-primary hover:underline font-medium text-xs"
+              >
+                创建第一个项目
+              </button>
+              <span className="text-muted-foreground/40">|</span>
+              <button
+                onClick={() => setImportDialogOpen(true)}
+                className="text-primary hover:underline font-medium text-xs"
+              >
+                导入已有数据
+              </button>
+            </div>
           </div>
         ) : (
           <>
