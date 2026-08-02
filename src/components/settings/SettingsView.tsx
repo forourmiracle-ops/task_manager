@@ -36,20 +36,7 @@ export const SettingsView = memo(function SettingsView() {
   const handleUpdate = useCallback(async () => {
     setUpdating(true)
     try {
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations()
-        for (const registration of registrations) {
-          if (registration.waiting) {
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-          }
-          await registration.update()
-        }
-      }
-      if ('caches' in window) {
-        const cacheNames = await caches.keys()
-        await Promise.all(cacheNames.map((name) => caches.delete(name)))
-      }
-      window.location.reload()
+      window.location.href = 'https://task-manager-framiracle-ops.vercel.app/'
     } catch {
       window.location.reload()
     }
@@ -227,12 +214,16 @@ export const SettingsView = memo(function SettingsView() {
             </p>
             <div className="flex gap-2">
               <div className="relative flex-1">
+                {/* 隐藏诱饵输入框，防止浏览器密码管理器自动填充到 API Key 字段 */}
+                <input type="text" name="username" autoComplete="username" style={{ display: 'none' }} tabIndex={-1} readOnly />
                 <input
                   type={showKey ? 'text' : 'password'}
                   value={deepseekApiKey}
                   onChange={(e) => setDeepseekApiKey(e.target.value)}
                   placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                   className="w-full px-3 py-2 pr-10 text-sm font-mono border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
+                  autoComplete="new-password"
+                  name="api-key"
                 />
                 <button
                   type="button"
@@ -356,11 +347,11 @@ export const SettingsView = memo(function SettingsView() {
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">API Key</span>
               <span className={`text-xs font-medium ${deepseekApiKey ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {deepseekApiKey ? '已配置（云端同步）' : '未配置'}
+                {deepseekApiKey ? '已配置（仅本地保存）' : '未配置'}
               </span>
             </div>
             <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-              任务数据和 API Key 与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。
+              任务数据与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。API Key 仅保存在本地浏览器中。
             </p>
           </div>
         </section>

@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useCallback, useRef } from 'react'
+import { useState, useMemo, memo, useCallback, useRef, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
 import { useTasks, useUpdateTask, useBatchCompleteTasks } from '@/hooks/useTasks'
@@ -59,6 +59,13 @@ export const Sidebar = memo(function Sidebar() {
 
   const [doneExpanded, setDoneExpanded] = useState(false)
   const [doneShowAll, setDoneShowAll] = useState(false)
+
+  // 当没有活跃任务时，自动展开已完成区域，避免用户误以为任务列表为空
+  useEffect(() => {
+    if (activeTasks.length === 0 && doneTasks.length > 0) {
+      setDoneExpanded(true)
+    }
+  }, [activeTasks.length, doneTasks.length])
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const updateTask = useUpdateTask()
   const batchComplete = useBatchCompleteTasks()

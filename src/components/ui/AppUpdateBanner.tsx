@@ -30,24 +30,8 @@ export function AppUpdateBanner() {
   const handleUpdate = useCallback(async () => {
     setUpdating(true)
     try {
-      // Try to update service worker if available
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations()
-        for (const registration of registrations) {
-          if (registration.waiting) {
-            // Tell the waiting service worker to skip waiting
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-          }
-          await registration.update()
-        }
-      }
-      // Clear all caches to ensure fresh content
-      if ('caches' in window) {
-        const cacheNames = await caches.keys()
-        await Promise.all(cacheNames.map((name) => caches.delete(name)))
-      }
-      // Hard reload to get the latest version
-      window.location.reload()
+      // 直接跳转至 Vercel 最新部署地址，确保使用最新版本
+      window.location.href = 'https://task-manager-framiracle-ops.vercel.app/'
     } catch {
       // Fallback: just reload
       window.location.reload()
