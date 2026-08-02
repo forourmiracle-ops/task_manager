@@ -222,7 +222,7 @@ export default function App() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden border-t border-border flex items-center bg-background flex-shrink-0 z-40" style={{ height: 56 }}>
+      <nav className="md:hidden border-t border-border flex items-center bg-background flex-shrink-0 z-40 safe-bottom" style={{ height: 56 }}>
         {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
           <button
             key={view}
