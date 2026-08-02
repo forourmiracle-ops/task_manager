@@ -115,10 +115,10 @@ export function CreateTaskDialog() {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/60 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] max-md:pt-0 bg-black/60 backdrop-blur-md"
       onClick={handleOverlayClick}
     >
-      <div className="border border-border rounded-2xl w-full max-w-md mx-4 overflow-hidden" style={{ backgroundColor: 'hsl(var(--background))', boxShadow: '0 24px 70px -12px rgba(0,0,0,0.35), 0 0 0 1px hsl(var(--border))' }}>
+      <div className="border border-border rounded-2xl max-md:rounded-none w-full max-w-md max-md:max-w-full mx-4 max-md:mx-0 max-md:h-full overflow-hidden flex flex-col" style={{ backgroundColor: 'hsl(var(--background))', boxShadow: '0 24px 70px -12px rgba(0,0,0,0.35), 0 0 0 1px hsl(var(--border))' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/10">
           <h3 className="text-sm font-bold">
@@ -144,7 +144,7 @@ export function CreateTaskDialog() {
         )}
 
         {/* Form */}
-        <div className="p-4 space-y-3.5 max-h-[60vh] overflow-auto">
+        <div className="p-4 space-y-3.5 max-h-[60vh] max-md:max-h-none max-md:flex-1 overflow-auto">
           {/* Title */}
           <div>
             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">

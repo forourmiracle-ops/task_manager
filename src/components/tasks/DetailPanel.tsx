@@ -591,10 +591,19 @@ export const DetailPanel = memo(function DetailPanel() {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
 
   return (
-    <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated min-h-0 md:w-[340px] md:min-w-[340px] md:flex-shrink-0 max-md:fixed max-md:inset-0 max-md:z-50" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
+    <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated min-h-0 md:w-[340px] md:min-w-[340px] md:flex-shrink-0 max-md:fixed max-md:inset-0 max-md:z-50 max-md:animate-in max-md:slide-in-from-right max-md:duration-200" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-muted/10 sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => setDetailPanelOpen(false)}
+            className="md:hidden text-muted-foreground hover:text-foreground p-1 -ml-1 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
+            title="返回"
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M10 3L5 8l5 5" />
+            </svg>
+          </button>
           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary uppercase tracking-wide flex-shrink-0">
             {currentLevelLabel}
           </span>

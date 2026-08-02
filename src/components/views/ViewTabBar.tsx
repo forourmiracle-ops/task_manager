@@ -23,8 +23,8 @@ export const ViewTabBar = memo(function ViewTabBar() {
   }, [])
 
   return (
-    <div className="flex items-center border-b border-border px-4 gap-0.5 overflow-x-auto flex-shrink-0"
-      style={{ height: 40, scrollbarWidth: 'none' }}
+    <div className="flex items-center border-b border-border px-2 md:px-4 gap-0.5 overflow-x-auto flex-shrink-0 scrollbar-none"
+      style={{ height: 40 }}
     >
       {TABS.map((tab) => {
         const isDisabled = isMobile && tab.id === 'gantt'
@@ -34,11 +34,11 @@ export const ViewTabBar = memo(function ViewTabBar() {
             <button
               key={tab.id}
               disabled
-              title="甘特图需要较大屏幕，请在电脑上打开，或切换到列表视图查看"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md whitespace-nowrap opacity-40 cursor-not-allowed"
+              title="甘特图需要较大屏幕，请在电脑上打开"
+              className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1.5 text-xs rounded-md whitespace-nowrap opacity-40 cursor-not-allowed"
             >
               <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           )
         }
@@ -47,14 +47,14 @@ export const ViewTabBar = memo(function ViewTabBar() {
           <button
             key={tab.id}
             onClick={() => setProjectViewTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${
               projectViewTab === tab.id
                 ? 'bg-primary/10 text-primary font-semibold'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent'
             }`}
           >
             <span>{tab.icon}</span>
-            <span>{tab.label}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
         )
       })}

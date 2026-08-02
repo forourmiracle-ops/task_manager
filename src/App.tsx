@@ -76,6 +76,15 @@ export default function App() {
   // Auth guard — redirect to login if not authenticated
   const { session, isAuthenticated, loading: authLoading } = useAuth()
 
+  // Close sidebar by default on mobile
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    if (mq.matches) setSidebarOpen(false)
+    const handler = (e: MediaQueryListEvent) => { if (e.matches) setSidebarOpen(false) }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [setSidebarOpen])
+
   useKeyboardShortcuts()
   useRecurringTaskExecutor()
 
@@ -141,7 +150,7 @@ export default function App() {
       <AppUpdateBanner />
 
       {/* Top Navigation */}
-      <header className="border-b border-border flex items-center px-4 gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
+      <header className="border-b border-border flex items-center px-2 md:px-4 gap-1.5 md:gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
@@ -152,15 +161,15 @@ export default function App() {
           </svg>
         </button>
 
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center shadow-md">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <div className="flex items-center gap-1.5 md:gap-2.5">
+          <div className="w-6 h-6 md:w-8 md:h-8 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center shadow-md flex-shrink-0">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M2 9l4-4 3 3 5-5" />
             </svg>
           </div>
           <div className="flex flex-col leading-none">
             <span className="text-sm font-bold tracking-tight text-foreground">TaskFlow</span>
-            <span className="text-[10px] text-muted-foreground font-medium">任务管理系统</span>
+            <span className="hidden sm:block text-[10px] text-muted-foreground font-medium">任务管理系统</span>
           </div>
         </div>
 
@@ -185,7 +194,7 @@ export default function App() {
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 md:gap-3">
           <span className="text-xs text-muted-foreground hidden sm:inline">
             {session?.user?.email}
           </span>
@@ -200,7 +209,7 @@ export default function App() {
           {/* Quick Create */}
           <button
             onClick={() => startCreating(null)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
+            className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-1.5 md:py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
             title="新建项目 (Ctrl+N)"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -238,6 +247,17 @@ export default function App() {
             {VIEW_LABELS[view].label}
           </button>
         ))}
+        <button
+          onClick={() => startCreating(null)}
+          className="flex-1 flex flex-col items-center justify-center text-[10px] text-primary font-semibold"
+        >
+          <span className="bg-primary text-primary-foreground p-1.5 rounded-xl shadow-md">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M8 3v10M3 8h10" />
+            </svg>
+          </span>
+          新建
+        </button>
       </nav>
 
       {/* Create Task Dialog */}
