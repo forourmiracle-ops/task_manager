@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/store/ai-slice'
+import { RichResultCard } from '@/components/ai/RichResultCard'
 
 const TOOL_META: Record<string, { label: string; icon: string; color: string }> = {
   search_tasks:  { label: '搜索任务', icon: '🔍', color: 'from-blue-500 to-blue-600' },
@@ -155,14 +156,18 @@ export const ToolCallCard = memo(function ToolCallCard({ message }: { message: M
                 <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
                   执行结果
                 </div>
-                <div className={cn(
-                  'rounded-lg p-3 text-xs leading-relaxed border',
-                  isSuccess
-                    ? 'bg-emerald-50/70 text-emerald-800 border-emerald-100'
-                    : 'bg-red-50/70 text-red-800 border-red-100',
-                )}>
-                  {message.content}
-                </div>
+                {message.toolData ? (
+                  <RichResultCard message={message} />
+                ) : (
+                  <div className={cn(
+                    'rounded-lg p-3 text-xs leading-relaxed border',
+                    isSuccess
+                      ? 'bg-emerald-50/70 text-emerald-800 border-emerald-100'
+                      : 'bg-red-50/70 text-red-800 border-red-100',
+                  )}>
+                    {message.content}
+                  </div>
+                )}
               </div>
             )}
           </div>
