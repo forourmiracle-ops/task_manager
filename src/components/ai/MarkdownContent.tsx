@@ -96,7 +96,7 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: { cont
         <table className="w-full border-collapse">
           <thead>{renderTableRow(rows[0], lineIdx++, true)}</thead>
           <tbody>
-            {rows.slice(1).map((row, i) => renderTableRow(row, lineIdx++, false))}
+            {rows.slice(1).map((row, _i) => renderTableRow(row, lineIdx++, false))}
           </tbody>
         </table>
       </div>
