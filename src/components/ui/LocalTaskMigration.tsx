@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
 import type { Task } from '@/types'
 
-const MIGRATION_FLAG_KEY = 'taskflow_local_migration_done'
+const MIGRATION_DONE_KEY = 'taskflow_local_migration_done'
+const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
 
 export function LocalTaskMigration() {
+  const queryClient = useQueryClient()
   const [showDialog, setShowDialog] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [result, setResult] = useState<{ done: number; failed: number } | null>(null)
@@ -18,12 +21,25 @@ export function LocalTaskMigration() {
     try {
       const tasks = await localDB.fetchTasks()
       setLocalCount(tasks.length)
-      if (tasks.length > 0 && !localStorage.getItem(MIGRATION_FLAG_KEY)) {
+
+      if (tasks.length === 0) {
+        // No local tasks to migrate — clear flags
+        localStorage.removeItem(MIGRATION_NEEDED_KEY)
+        return
+      }
+
+      // Show migration dialog if:
+      // 1. Migration was never done (no MIGRATION_DONE_KEY)
+      // 2. OR migration is flagged as needed (via fetchTasks detecting local data)
+      const isDone = localStorage.getItem(MIGRATION_DONE_KEY)
+      const isNeeded = localStorage.getItem(MIGRATION_NEEDED_KEY) === '1'
+
+      if (!isDone || isNeeded) {
         setShowDialog(true)
       }
-      if (tasks.length > 0) {
-        setShowManual(true)
-      }
+
+      // Always show the manual button if local tasks exist
+      setShowManual(true)
     } catch {
       // No local storage available
     }
@@ -71,36 +87,47 @@ export function LocalTaskMigration() {
             updated_at: task.updated_at,
           })
         if (error) {
+          console.warn('Migration failed for task:', task.id, error)
           failed++
         } else {
           done++
         }
-      } catch {
+      } catch (err) {
+        console.warn('Migration error for task:', task.id, err)
         failed++
       }
     }
 
     setResult({ done, failed })
-    localStorage.setItem(MIGRATION_FLAG_KEY, '1')
+    // Mark migration as done and clear the needed flag
+    localStorage.setItem(MIGRATION_DONE_KEY, '1')
+    localStorage.removeItem(MIGRATION_NEEDED_KEY)
     setMigrating(false)
     setShowManual(false)
   }
 
   const handleSkip = () => {
-    localStorage.setItem(MIGRATION_FLAG_KEY, '1')
+    localStorage.setItem(MIGRATION_DONE_KEY, '1')
+    localStorage.removeItem(MIGRATION_NEEDED_KEY)
     setShowDialog(false)
     setShowManual(false)
   }
 
+  const handleRefresh = () => {
+    // Invalidate the tasks query to reload from Supabase
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    setShowDialog(false)
+  }
+
   if (!showDialog && !showManual) return null
 
-  // Manual trigger: flag was set but local tasks still exist
+  // Manual trigger: local tasks exist but dialog is not shown
   if (showManual && !showDialog) {
     return (
       <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
         <button
           onClick={() => {
-            localStorage.removeItem(MIGRATION_FLAG_KEY)
+            localStorage.removeItem(MIGRATION_DONE_KEY)
             setShowDialog(true)
           }}
           className="px-4 py-2 text-xs font-semibold bg-amber-50 border border-amber-200 rounded-xl text-amber-700 hover:bg-amber-100 shadow-lg transition-colors"
@@ -122,17 +149,17 @@ export function LocalTaskMigration() {
               {result.failed > 0 && `，${result.failed} 个失败`}
             </p>
             <button
-              onClick={() => setShowDialog(false)}
+              onClick={handleRefresh}
               className="w-full py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90"
             >
-              刷新页面查看
+              刷新查看云端数据
             </button>
           </>
         ) : (
           <>
             <h3 className="text-sm font-bold mb-2">发现本地任务</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              检测到你之前在本设备上创建的任务。是否将它们迁移到云端账号？迁移后可在多设备间同步。
+              检测到你之前在本设备上创建了 {localCount} 个任务。是否将它们迁移到云端账号？迁移后可在多设备间同步。
             </p>
             <div className="flex gap-2">
               <button
