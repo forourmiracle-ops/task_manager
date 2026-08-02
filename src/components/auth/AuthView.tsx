@@ -3,6 +3,9 @@ import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '@/lib/supabase'
 
 export function AuthView() {
+  // Build the redirect URL from the current origin so it works on any deployment
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -14,6 +17,8 @@ export function AuthView() {
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
           providers={[]}
+          redirectTo={origin}
+          onlyThirdPartyProviders={false}
           localization={{
             variables: {
               sign_in: {
