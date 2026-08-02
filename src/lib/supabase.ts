@@ -1,38 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+// 默认 Supabase 配置（anon key 是公开密钥，可安全放在前端代码中）
+// 可通过 Vercel 环境变量覆盖，无需修改则开箱即用
+const DEFAULT_SUPABASE_URL = 'https://tynhqwexdfdtobkmmzdo.supabase.co'
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5bmhxd2V4ZGZkdG9ia21temRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NzcxMTEsImV4cCI6MjA5ODA1MzExMX0.eRum4wrDYvCDVwIAuS5JICpGYXLnP1ncIzVI_s1XJHY'
 
-// Only create real client if properly configured
-const isValidUrl = supabaseUrl && supabaseUrl.startsWith('http')
-const isValidKey = supabaseAnonKey && supabaseAnonKey !== 'your_supabase_anon_key'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
 
-function createMockClient() {
-  const mockError = new Error('Supabase 未配置，请在 .env 中设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY')
-  const authError = () => Promise.resolve({ data: {}, error: mockError })
-  const authNoop = () => Promise.resolve({ data: {}, error: null })
-  return {
-    from: () => {
-      throw mockError
-    },
-    auth: {
-      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-      onAuthStateChange: () => ({
-        data: { subscription: { unsubscribe: () => {} } },
-      }),
-      signOut: authNoop,
-      signInWithPassword: authError,
-      signUp: authError,
-      signInWithOtp: authError,
-      signInWithOAuth: authError,
-      resetPasswordForEmail: authError,
-      updateUser: authError,
-      verifyOtp: authError,
-    },
-  } as unknown as ReturnType<typeof createClient>
-}
-
-export const supabase =
-  isValidUrl && isValidKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : createMockClient()
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
