@@ -1,10 +1,11 @@
 import type { Task } from '@/types'
 import { indexedDB } from '@/lib/indexedDB'
+import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY } from '@/lib/supabase'
 
-// Check if Supabase is configured
+// Check if Supabase is configured (env vars OR hardcoded defaults)
 export function isSupabaseConfigured(): boolean {
-  const url = import.meta.env.VITE_SUPABASE_URL
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const url = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
   return !!(url && key && url !== 'your_supabase_url' && key !== 'your_supabase_anon_key')
 }
 
