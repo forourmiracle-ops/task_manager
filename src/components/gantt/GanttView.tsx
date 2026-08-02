@@ -35,6 +35,15 @@ const DIMENSION_DAYS: Record<Dimension, number> = {
 // so the scroll container ref is stable and effects run once on mount.
 // ──────────────────────────────────────────────────────────────────────────────
 export const GanttView = memo(function GanttView() {
+  // ── Mobile detection ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   // ── Zustand global state ──────────────────────────────────────────────────
   const fontSize = useAppStore((s) => s.fontSize)
   const setFontSize = useAppStore((s) => s.setFontSize)
@@ -296,6 +305,25 @@ export const GanttView = memo(function GanttView() {
   return (
     <GanttErrorBoundary>
       <div className="flex-1 flex flex-col overflow-hidden bg-background">
+        {/* Mobile placeholder */}
+        {isMobile && (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-xs">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/30 flex items-center justify-center">
+                <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
+                  <rect x="2" y="3" width="12" height="10" rx="1" />
+                  <path d="M2 7h12M6 7v6M10 7v6" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold mb-2">甘特图需要较大屏幕</h3>
+              <p className="text-xs text-muted-foreground">
+                甘特图在电脑上查看效果最佳。请在桌面端打开，或切换到列表、看板等其他视图。
+              </p>
+            </div>
+          </div>
+        )}
+        {!isMobile && (
+        <>
         {/* Toolbar — always visible, above overlays */}
         <GanttToolbar
           dimension={dimension}
@@ -407,7 +435,9 @@ export const GanttView = memo(function GanttView() {
             </div>
           )}
         </div>
-      </div>
+        </>
+        )}
+        </div>
     </GanttErrorBoundary>
   )
 })

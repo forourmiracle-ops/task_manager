@@ -198,7 +198,18 @@ export const Sidebar = memo(function Sidebar() {
   const hasDoneResults = filteredDoneTasks.length > 0
 
   return (
-    <aside className="border-r border-border bg-sidebar flex flex-col h-full shadow-elevated min-h-0" style={{ width: 280, minWidth: 280, flexShrink: 0 }}>
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className="md:hidden fixed inset-0 bg-black/40 z-40"
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      <aside className={cn(
+        'border-r border-border bg-sidebar flex flex-col h-full shadow-elevated min-h-0',
+        // Desktop: fixed width sidebar
+        'max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[280px] max-md:animate-in max-md:slide-in-from-left max-md:duration-200',
+      )} style={{ width: 280, minWidth: 280, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-4 border-b border-border bg-muted/10">
         <div className="flex items-center justify-between mb-3">
@@ -462,5 +473,6 @@ export const Sidebar = memo(function Sidebar() {
         onCancel={() => setConfirmState(null)}
       />
     </aside>
+    </>
   )
 })

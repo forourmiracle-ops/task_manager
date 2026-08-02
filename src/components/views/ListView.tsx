@@ -124,10 +124,10 @@ export const ListView = memo(function ListView() {
       >
         <div className="w-8 flex-shrink-0" />
         <div className="flex-1 min-w-0">任务名称</div>
-        <div className="w-16 text-center flex-shrink-0">状态</div>
-        <div className="w-16 text-center flex-shrink-0">优先级</div>
-        <div className="w-24 text-right flex-shrink-0">截止日期</div>
-        <div className="w-10 flex-shrink-0" />
+        <div className="w-16 text-center flex-shrink-0 hidden sm:block">状态</div>
+        <div className="w-16 text-center flex-shrink-0 hidden sm:block">优先级</div>
+        <div className="w-24 text-right flex-shrink-0 hidden sm:block">截止日期</div>
+        <div className="w-10 flex-shrink-0 hidden sm:block" />
       </div>
 
       {/* Virtual list */}
@@ -218,26 +218,26 @@ export const ListView = memo(function ListView() {
                 </div>
 
                 {/* Status */}
-                <div className="w-16 text-center flex-shrink-0">
+                <div className="w-16 text-center flex-shrink-0 hidden sm:block">
                   <span className="text-[10px] text-muted-foreground">{STATUS_LABELS[task.status] ?? task.status}</span>
                 </div>
 
                 {/* Priority */}
-                <div className="w-16 text-center flex-shrink-0">
+                <div className="w-16 text-center flex-shrink-0 hidden sm:block">
                   <span className={`text-[10px] font-medium ${PRIORITY_COLORS[task.priority] ?? ''}`}>
                     {task.priority === 'urgent' ? '紧急' : task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低'}
                   </span>
                 </div>
 
                 {/* Due date */}
-                <div className="w-24 text-right flex-shrink-0">
+                <div className="w-24 text-right flex-shrink-0 hidden sm:block">
                   <span className="text-[10px] text-muted-foreground">
                     {task.due_date ? formatDate(task.due_date) : '-'}
                   </span>
                 </div>
 
                 {/* Quick complete */}
-                <div className="w-10 flex-shrink-0 flex justify-center">
+                <div className="w-10 flex-shrink-0 hidden sm:flex justify-center">
                   {task.status !== 'done' && (
                     <button
                       onClick={(e) => handleComplete(e, task.id)}

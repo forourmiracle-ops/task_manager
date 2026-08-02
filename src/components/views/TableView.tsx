@@ -86,7 +86,8 @@ export const TableView = memo(function TableView() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-auto">
-      <table className="w-full table-fixed">
+      <div className="overflow-x-auto min-w-full">
+      <table className="w-full table-fixed min-w-[600px]">
         {/* Header */}
         <thead className="sticky top-0 z-10 bg-muted/20">
           <tr className="border-b border-border">
@@ -208,6 +209,7 @@ export const TableView = memo(function TableView() {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 })

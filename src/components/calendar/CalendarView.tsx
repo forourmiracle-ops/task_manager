@@ -111,12 +111,12 @@ export const CalendarView = memo(function CalendarView() {
       const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       const dayTasks = getTasksForDate(dateStr)
       cells.push(
-        <div key={`prev-${i}`} className="border-r border-b border-border bg-muted/20 p-1 min-h-[80px] opacity-50">
-          <span className="text-[10px] text-muted-foreground">{day}</span>
+        <div key={`prev-${i}`} className="border-r border-b border-border bg-muted/20 p-0.5 md:p-1 min-h-[60px] md:min-h-[80px] opacity-50">
+          <span className="text-[10px] text-muted-foreground px-0.5">{day}</span>
           {dayTasks.slice(0, 2).map((t) => (
             <div
               key={t.id}
-              className="text-[10px] truncate mt-0.5 px-1 py-0.5 rounded cursor-pointer hover:opacity-80"
+              className="text-[9px] md:text-[10px] truncate mt-0.5 px-0.5 md:px-1 py-0.5 rounded cursor-pointer hover:opacity-80"
               style={{ backgroundColor: getStatusColor(t.status) }}
               onClick={() => setSelectedTaskId(t.id)}
             >
@@ -124,7 +124,7 @@ export const CalendarView = memo(function CalendarView() {
             </div>
           ))}
           {dayTasks.length > 2 && (
-            <span className="text-[10px] text-muted-foreground">+{dayTasks.length - 2}</span>
+            <span className="text-[10px] text-muted-foreground px-0.5">+{dayTasks.length - 2}</span>
           )}
         </div>
       )
@@ -143,7 +143,7 @@ export const CalendarView = memo(function CalendarView() {
         <div
           key={day}
           className={cn(
-            'border-r border-b border-border p-1 min-h-[80px] hover:bg-accent/20 transition-colors',
+            'border-r border-b border-border p-0.5 md:p-1 min-h-[60px] md:min-h-[80px] hover:bg-accent/20 transition-colors',
             isToday && 'bg-blue-50/60',
             !isToday && weekend && !holiday && 'bg-red-50/20',
             !isToday && holiday && 'bg-amber-50/40'
@@ -167,7 +167,7 @@ export const CalendarView = memo(function CalendarView() {
             {dayTasks.slice(0, 3).map((t) => (
               <div
                 key={t.id}
-                className="text-[10px] truncate px-1 py-0.5 rounded cursor-pointer hover:opacity-80 text-white"
+                className="text-[9px] md:text-[10px] truncate px-0.5 md:px-1 py-0.5 rounded cursor-pointer hover:opacity-80 text-white"
                 style={{ backgroundColor: getStatusColor(t.status) }}
                 onClick={() => setSelectedTaskId(t.id)}
                 title={`${t.title}\n${t.start_date || ''} → ${t.due_date || ''}`}
@@ -192,12 +192,12 @@ export const CalendarView = memo(function CalendarView() {
       const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`
       const dayTasks = getTasksForDate(dateStr)
       cells.push(
-        <div key={`next-${i}`} className="border-r border-b border-border bg-muted/20 p-1 min-h-[80px] opacity-50">
-          <span className="text-[10px] text-muted-foreground">{i}</span>
+        <div key={`next-${i}`} className="border-r border-b border-border bg-muted/20 p-0.5 md:p-1 min-h-[60px] md:min-h-[80px] opacity-50">
+          <span className="text-[10px] text-muted-foreground px-0.5">{i}</span>
           {dayTasks.slice(0, 2).map((t) => (
             <div
               key={t.id}
-              className="text-[10px] truncate mt-0.5 px-1 py-0.5 rounded cursor-pointer hover:opacity-80"
+              className="text-[9px] md:text-[10px] truncate mt-0.5 px-0.5 md:px-1 py-0.5 rounded cursor-pointer hover:opacity-80"
               style={{ backgroundColor: getStatusColor(t.status) }}
               onClick={() => setSelectedTaskId(t.id)}
             >
@@ -214,7 +214,7 @@ export const CalendarView = memo(function CalendarView() {
           <div
             key={name}
             className={cn(
-              'text-center text-xs py-1.5 border-b border-border font-medium',
+              'text-center text-[10px] md:text-xs py-1.5 border-b border-border font-medium',
               i === 0 || i === 6 ? 'text-red-400' : 'text-muted-foreground'
             )}
           >
