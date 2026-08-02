@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
+import { useAuth } from '@/hooks/useAuth'
 import type { Task } from '@/types'
 
 const MIGRATION_DONE_KEY = 'taskflow_local_migration_done'
@@ -9,45 +10,64 @@ const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
 
 export function LocalTaskMigration() {
   const queryClient = useQueryClient()
+  const { userId } = useAuth()
   const [showDialog, setShowDialog] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [result, setResult] = useState<{ done: number; failed: number } | null>(null)
   const [localCount, setLocalCount] = useState(0)
   const [showManual, setShowManual] = useState(false)
+  const [checked, setChecked] = useState(false)
 
-  const checkLocalTasks = useCallback(async () => {
-    if (!isSupabaseConfigured()) return
+  // Core check: independently query both localDB and Supabase to decide if migration is needed
+  const checkMigrationNeeded = useCallback(async () => {
+    if (!isSupabaseConfigured() || !userId) return
 
     try {
-      const tasks = await localDB.fetchTasks()
-      setLocalCount(tasks.length)
+      const localTasks = await localDB.fetchTasks()
+      setLocalCount(localTasks.length)
 
-      if (tasks.length === 0) {
-        // No local tasks to migrate — clear flags
-        localStorage.removeItem(MIGRATION_NEEDED_KEY)
+      if (localTasks.length === 0) {
+        // No local tasks — nothing to migrate
+        setShowDialog(false)
+        setShowManual(false)
+        setChecked(true)
         return
       }
 
-      // Show migration dialog if:
-      // 1. Migration was never done (no MIGRATION_DONE_KEY)
-      // 2. OR migration is flagged as needed (via fetchTasks detecting local data)
-      const isDone = localStorage.getItem(MIGRATION_DONE_KEY)
-      const isNeeded = localStorage.getItem(MIGRATION_NEEDED_KEY) === '1'
+      // Query Supabase for current user's tasks
+      const { data: remoteTasks, error } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1)
 
-      if (!isDone || isNeeded) {
+      const hasRemoteTasks = !error && remoteTasks && remoteTasks.length > 0
+
+      if (hasRemoteTasks) {
+        // User already has tasks in Supabase — only show manual merge button
+        setShowDialog(false)
+        setShowManual(true)
+      } else {
+        // Supabase has 0 tasks for this user — migration needed!
+        // Show dialog regardless of previous flags
         setShowDialog(true)
+        setShowManual(false)
+        // Also set the flag so fetchTasks can fall back to local data
+        localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
       }
-
-      // Always show the manual button if local tasks exist
-      setShowManual(true)
-    } catch {
-      // No local storage available
+      setChecked(true)
+    } catch (err) {
+      console.warn('Migration check failed:', err)
+      setChecked(true)
     }
-  }, [])
+  }, [userId])
 
+  // Check on mount + retry after 2s to handle race with fetchTasks
   useEffect(() => {
-    checkLocalTasks()
-  }, [checkLocalTasks])
+    checkMigrationNeeded()
+    const retryTimer = setTimeout(checkMigrationNeeded, 2000)
+    return () => clearTimeout(retryTimer)
+  }, [checkMigrationNeeded])
 
   const handleMigrate = async () => {
     setMigrating(true)
@@ -99,11 +119,17 @@ export function LocalTaskMigration() {
     }
 
     setResult({ done, failed })
-    // Mark migration as done and clear the needed flag
     localStorage.setItem(MIGRATION_DONE_KEY, '1')
     localStorage.removeItem(MIGRATION_NEEDED_KEY)
     setMigrating(false)
     setShowManual(false)
+
+    // Auto-refresh: invalidate query cache to reload from Supabase
+    if (done > 0) {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      }, 500)
+    }
   }
 
   const handleSkip = () => {
@@ -114,14 +140,15 @@ export function LocalTaskMigration() {
   }
 
   const handleRefresh = () => {
-    // Invalidate the tasks query to reload from Supabase
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
     setShowDialog(false)
   }
 
+  // Don't render anything until the check is complete
+  if (!checked) return null
   if (!showDialog && !showManual) return null
 
-  // Manual trigger: local tasks exist but dialog is not shown
+  // Manual trigger: Supabase has tasks but local also has tasks (merge scenario)
   if (showManual && !showDialog) {
     return (
       <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
