@@ -7,11 +7,10 @@ import { supabase } from '@/lib/supabase'
 import { runWithTools } from '@/lib/ai-tools/run-with-tools'
 import { executeDeleteTask } from '@/lib/ai-tools/delete-task'
 import { ToolCallCard } from '@/components/ai/ToolCallCard'
-import { ToolResultCard } from '@/components/ai/ToolResultCard'
 import { ConfirmCard } from '@/components/ai/ConfirmCard'
 import type { ToolContext } from '@/lib/ai-tools/types'
 
-const WELCOME_MESSAGE = '你好！我是 DeepSeek AI 助手。我可以帮你：\n\n1. **创建任务**：直接告诉我任务名称、截止日期、优先级，我帮你创建\n2. **搜索任务**：按状态、优先级、关键词查找任务\n3. **更新任务**：修改任务状态、截止日期等\n4. **项目分析**：分析当前项目进度，识别风险\n5. **生成报告**：生成日/周报摘要\n\n请告诉我你需要什么帮助？'
+const WELCOME_MESSAGE = '你好！我是 DeepSeek AI 助手，可以帮你：\n\n🔍 搜索任务  ·  ➕ 创建任务  ·  ✏️ 更新任务\n📊 分析项目  ·  📝 生成报告  ·  🗑️ 删除任务\n\n直接告诉我你需要什么帮助即可。'
 
 interface PendingConfirmation {
   messageId: string
@@ -273,7 +272,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
           </div>
         ) : (
           messages.map((msg) => {
-            // Render tool call card
+            // Render tool call card (includes result once available)
             if (msg.role === 'tool_call') {
               // Check if this is pending confirmation
               if (pendingConfirmation && pendingConfirmation.messageId === msg.id) {
@@ -289,11 +288,6 @@ export const AIAssistantView = memo(function AIAssistantView() {
                 )
               }
               return <ToolCallCard key={msg.id} message={msg} />
-            }
-
-            // Render tool result card
-            if (msg.role === 'tool_result') {
-              return <ToolResultCard key={msg.id} message={msg} />
             }
 
             // Render user/assistant messages
@@ -317,8 +311,13 @@ export const AIAssistantView = memo(function AIAssistantView() {
         )}
         {isLoading && (
           <div className="flex justify-start items-center gap-2">
-            <div className="bg-muted rounded-lg px-4 py-2 text-sm">
-              <span className="animate-pulse">思考中...</span>
+            <div className="bg-muted/50 rounded-lg px-4 py-2.5 text-sm border border-border/30 flex items-center gap-2">
+              <span className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </span>
+              <span className="text-xs text-muted-foreground">AI 正在思考</span>
             </div>
             <button
               onClick={handleStop}
