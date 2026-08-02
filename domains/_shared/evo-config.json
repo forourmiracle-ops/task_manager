@@ -38,10 +38,10 @@
     "admin_experiences": "domains/_shared/admin-experiences.json"
   },
   "resolved_paths": {
-    "memory_dir": "/workspace/task-manager/memory",
-    "memory_file": "/workspace/task-manager/memory/MEMORY.md",
-    "stm_file": "/workspace/task-manager/memory/short-term-memory.md",
-    "feedback_file": "/workspace/task-manager/domains/_shared/evo-feedback.json",
-    "root": "/workspace/task-manager"
+    "memory_dir": "/workspace/memory",
+    "memory_file": "/workspace/memory/MEMORY.md",
+    "stm_file": "/workspace/memory/short-term-memory.md",
+    "feedback_file": "/workspace/domains/_shared/evo-feedback.json",
+    "root": "/workspace"
   }
 }
