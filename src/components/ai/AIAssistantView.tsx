@@ -8,9 +8,8 @@ import { runWithTools } from '@/lib/ai-tools/run-with-tools'
 import { executeDeleteTask } from '@/lib/ai-tools/delete-task'
 import { ToolCallCard } from '@/components/ai/ToolCallCard'
 import { ConfirmCard } from '@/components/ai/ConfirmCard'
+import { MarkdownContent } from '@/components/ai/MarkdownContent'
 import type { ToolContext } from '@/lib/ai-tools/types'
-
-const WELCOME_MESSAGE = '你好！我是 DeepSeek AI 助手，可以帮你：\n\n🔍 搜索任务  ·  ➕ 创建任务  ·  ✏️ 更新任务\n📊 分析项目  ·  📝 生成报告  ·  🗑️ 删除任务\n\n直接告诉我你需要什么帮助即可。'
 
 interface PendingConfirmation {
   messageId: string
@@ -265,9 +264,37 @@ export const AIAssistantView = memo(function AIAssistantView() {
       {/* Messages */}
       <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-auto p-4 space-y-4 min-h-0">
         {messages.length === 0 ? (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lg px-4 py-2 text-sm bg-muted">
-              <div className="whitespace-pre-wrap break-words">{WELCOME_MESSAGE}</div>
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="max-w-sm w-full">
+              <div className="text-center mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 mx-auto flex items-center justify-center shadow-lg mb-3">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6.4-4.8-6.4 4.8 2.4-7.2-6-4.8h7.6z" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-bold">AI 任务助手</h3>
+                <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek，智能管理你的任务</p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { icon: '🔍', label: '搜索任务', desc: '按状态、关键词查找', color: 'border-blue-200 bg-blue-50/50' },
+                  { icon: '➕', label: '创建任务', desc: '快速创建新任务', color: 'border-emerald-200 bg-emerald-50/50' },
+                  { icon: '✏️', label: '更新任务', desc: '修改状态、进度等', color: 'border-amber-200 bg-amber-50/50' },
+                  { icon: '📊', label: '项目分析', desc: '识别风险与瓶颈', color: 'border-violet-200 bg-violet-50/50' },
+                  { icon: '📝', label: '生成报告', desc: '日/周报摘要', color: 'border-cyan-200 bg-cyan-50/50' },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${item.color} transition-colors`}
+                  >
+                    <span className="text-lg">{item.icon}</span>
+                    <div>
+                      <div className="text-xs font-semibold">{item.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -297,13 +324,17 @@ export const AIAssistantView = memo(function AIAssistantView() {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
+                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
                     msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-white border border-border/50 shadow-sm'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap break-words overflow-x-auto">{msg.content}</div>
+                  {msg.role === 'user' ? (
+                    <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                  ) : (
+                    <MarkdownContent content={msg.content} />
+                  )}
                 </div>
               </div>
             )
