@@ -239,9 +239,24 @@ export const AIAssistantView = memo(function AIAssistantView() {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
       <div className="p-4 border-b border-border flex-shrink-0 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">AI 助手</h2>
-          <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
+        <div className="flex items-center gap-3">
+          {/* DeepSeek 鲸鱼助手头像 */}
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#4D6BFE] to-[#3B4CCA] flex items-center justify-center shadow-md shadow-[#4D6BFE]/20 flex-shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="12" cy="14" rx="8" ry="6" fill="white" opacity="0.95" />
+              <path d="M6 12 Q4 9 6.5 7.5 Q9 9 6 12Z" fill="white" opacity="0.9" />
+              <path d="M12 5 Q12 2.5 13.5 3.5 Q15 4.5 13.5 6" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.9" />
+              <circle cx="9" cy="13" r="1" fill="#4D6BFE" />
+              <circle cx="14.5" cy="13" r="1" fill="#4D6BFE" />
+              <circle cx="9" cy="13" r="0.4" fill="white" />
+              <circle cx="14.5" cy="13" r="0.4" fill="white" />
+              <path d="M10.5 16 Q12 17.5 13.5 16" stroke="#4D6BFE" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold">AI 助手</h2>
+            <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {messages.length > 0 && (
