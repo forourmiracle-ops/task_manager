@@ -278,16 +278,24 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                       boxShadow: `0 0 0 1px ${priorityColor}33`,
                     }}
                   />
-                  <span
-                    className={cn(
-                      'text-[12px] truncate flex-1 ml-2',
-                      hasChildren && 'font-bold',
+                  <div className="flex flex-col flex-1 min-w-0 ml-2 leading-tight">
+                    <span
+                      className={cn(
+                        'text-[12px] truncate',
+                        hasChildren && 'font-bold',
+                        isDone && 'line-through text-muted-foreground',
+                      )}
+                    >
+                      {task.title}
+                    </span>
+                    {task.start_date && task.due_date && (
+                      <span className="text-[9px] text-muted-foreground truncate">
+                        {task.start_date} → {task.due_date}
+                      </span>
                     )}
-                  >
-                    {task.title}
-                  </span>
+                  </div>
                   {hasChildren && childCount > 0 && (
-                    <span className="text-[9px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full ml-1 flex-shrink-0">
+                    <span className="text-[9px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full ml-1 flex-shrink-0 self-start mt-0.5">
                       {childCount}
                     </span>
                   )}

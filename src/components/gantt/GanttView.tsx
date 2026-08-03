@@ -177,8 +177,8 @@ export const GanttView = memo(function GanttView() {
     // 移动端使用更大比例尺，确保任务栏文字可读
     return isMobile ? Math.max(0.55, s * 0.85) : s
   }, [fontSize, isMobile])
-  const ROW_HEIGHT = useMemo(() => Math.round(36 * scale), [scale])
-  const LABEL_WIDTH = useMemo(() => Math.round(isMobile ? 180 : 260 * scale), [scale, isMobile])
+  const ROW_HEIGHT = useMemo(() => Math.round(44 * scale), [scale])
+  const LABEL_WIDTH = useMemo(() => Math.round(isMobile ? 200 : 260 * scale), [scale, isMobile])
 
   // ── Sync dimension with defaultDimension ──────────────────────────────────
   const prevDefaultDimRef = useRef(defaultDimension)
