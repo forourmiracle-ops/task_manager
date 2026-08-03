@@ -135,6 +135,8 @@ export const GanttView = memo(function GanttView() {
     DAY_WIDTH,
     visibleDayRange,
     visibleTasks,
+    viewportTasks,
+    viewportRange,
   } = useGanttViewport({
     scrollLeft,
     scrollWidth,
@@ -194,7 +196,7 @@ export const GanttView = memo(function GanttView() {
 
   // ── Virtual list ──────────────────────────────────────────────────────────
   const virtualizer = useVirtualizer({
-    count: visibleTasks.length,
+    count: viewportTasks.length,
     getScrollElement: () => taskListRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 5,
@@ -328,7 +330,7 @@ export const GanttView = memo(function GanttView() {
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
             virtualItems={virtualItems}
-            visibleTasks={visibleTasks}
+            visibleTasks={viewportTasks}
             allFlatTasks={allFlatTasks}
             expandedIds={expandedIds}
             childCountMap={childCountMap}
@@ -374,7 +376,7 @@ export const GanttView = memo(function GanttView() {
                 <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
                   <GanttTaskRows
                     virtualItems={virtualItems}
-                    visibleTasks={visibleTasks}
+                    visibleTasks={viewportTasks}
                     visibleDayRange={visibleDayRange}
                     DAY_WIDTH={DAY_WIDTH}
                     totalWidth={totalWidth}

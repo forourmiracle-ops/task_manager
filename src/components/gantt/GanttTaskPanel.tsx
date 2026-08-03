@@ -332,7 +332,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
 
           {visibleTasks.length === 0 && (
             <div className="flex items-center justify-center py-12 text-muted-foreground text-xs">
-              当前没有可见任务
+              当前可视范围内没有任务
             </div>
           )}
         </div>
