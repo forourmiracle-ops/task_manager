@@ -216,7 +216,7 @@ export const Sidebar = memo(function Sidebar() {
       <aside className={cn(
         'border-r border-border bg-sidebar flex flex-col h-full shadow-elevated min-h-0',
         // Desktop: fixed width sidebar
-        'max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[85vw] max-md:max-w-[360px] max-md:animate-in max-md:slide-in-from-left max-md:duration-200',
+        'max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[85vw] max-md:max-w-[360px] max-md:animate-in max-md:slide-in-from-left max-md:duration-200 max-md:bg-background',
       )} style={{ width: 280, minWidth: 280, flexShrink: 0 }}>
       {/* Header */}
       <div className="p-4 border-b border-border bg-muted/10">

@@ -174,10 +174,11 @@ export const GanttView = memo(function GanttView() {
   // ── Scale ─────────────────────────────────────────────────────────────────
   const scale = useMemo(() => {
     const s = 0.55 + fontSize * 0.12
-    return isMobile ? Math.max(0.4, s * 0.7) : s
+    // 移动端使用更大比例尺，确保任务栏文字可读
+    return isMobile ? Math.max(0.55, s * 0.85) : s
   }, [fontSize, isMobile])
   const ROW_HEIGHT = useMemo(() => Math.round(36 * scale), [scale])
-  const LABEL_WIDTH = useMemo(() => Math.round(isMobile ? 160 : 260 * scale), [scale, isMobile])
+  const LABEL_WIDTH = useMemo(() => Math.round(isMobile ? 180 : 260 * scale), [scale, isMobile])
 
   // ── Sync dimension with defaultDimension ──────────────────────────────────
   const prevDefaultDimRef = useRef(defaultDimension)
@@ -385,6 +386,7 @@ export const GanttView = memo(function GanttView() {
                     todayPosition={todayPosition}
                     selectedTaskId={selectedTaskId}
                     dragState={dragState}
+                    isMobile={isMobile}
                     onTaskClick={handleTaskClick}
                     onDatePanelClick={handleDatePanelClick}
                   />

@@ -21,6 +21,7 @@ interface GanttTaskRowsProps {
   todayPosition: number
   selectedTaskId: string | null
   dragState: { sourceId: string; targetIdx: number | null } | null
+  isMobile?: boolean
   onTaskClick: (id: string) => void
   onDatePanelClick: (e: React.MouseEvent) => void
 }
@@ -36,6 +37,7 @@ export const GanttTaskRows = memo(function GanttTaskRows({
   todayPosition,
   selectedTaskId,
   dragState,
+  isMobile = false,
   onTaskClick,
   onDatePanelClick,
 }: GanttTaskRowsProps) {
@@ -130,43 +132,70 @@ export const GanttTaskRows = memo(function GanttTaskRows({
             })}
 
             {/* Task bar */}
-            <div
-              data-task-bar
-              className={cn(
-                'absolute rounded-md cursor-pointer transition-all hover:brightness-110 hover:shadow-md group',
-                isSelected && 'ring-2 ring-primary ring-offset-1',
-              )}
-              style={{
-                left: Math.max(left, 0),
-                width: Math.max(width, 4),
-                top: barTop,
-                bottom: barBottom,
-                background: barColor,
-                opacity: barOpacity,
-                boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-              onClick={() => onTaskClick(task.id)}
-              title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
-            >
-              {/* Priority color marker on left */}
-              <div
-                className="absolute inset-y-0 left-0 rounded-l-md"
-                style={{ width: 3, background: PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium }}
-              />
-              {/* Progress fill */}
-              {progressPercent > 0 && (
-                <div
-                  className="absolute inset-y-0 left-0 rounded-l-md bg-white/25"
-                  style={{ width: `${progressPercent}%`, left: 3 }}
-                />
-              )}
-              <span
-                className="absolute inset-0 flex items-center justify-center px-2 text-white font-medium truncate drop-shadow"
-                style={{ paddingLeft: '10px', fontSize: '12px' }}
-              >
-                {task.title}
-              </span>
-            </div>
+            {(() => {
+              const barWidth = Math.max(width, 4)
+              const minTextWidth = isMobile ? 50 : 40
+              const showTextInside = barWidth > minTextWidth
+
+              return (
+                <>
+                  <div
+                    data-task-bar
+                    className={cn(
+                      'absolute rounded-md cursor-pointer transition-all hover:brightness-110 hover:shadow-md group',
+                      isSelected && 'ring-2 ring-primary ring-offset-1',
+                    )}
+                    style={{
+                      left: Math.max(left, 0),
+                      width: barWidth,
+                      top: barTop,
+                      bottom: barBottom,
+                      background: barColor,
+                      opacity: barOpacity,
+                      boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                    onClick={() => onTaskClick(task.id)}
+                    title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
+                  >
+                    {/* Priority color marker on left */}
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-l-md"
+                      style={{ width: 3, background: PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium }}
+                    />
+                    {/* Progress fill */}
+                    {progressPercent > 0 && (
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-l-md bg-white/25"
+                        style={{ width: `${progressPercent}%`, left: 3 }}
+                      />
+                    )}
+                    {showTextInside && (
+                      <span
+                        className="absolute inset-0 flex items-center px-2 text-white font-medium truncate drop-shadow"
+                        style={{ paddingLeft: '10px', fontSize: isMobile ? '10px' : '12px' }}
+                      >
+                        {task.title}
+                      </span>
+                    )}
+                  </div>
+                  {/* Show title outside bar when bar is too narrow */}
+                  {!showTextInside && (
+                    <span
+                      className="absolute flex items-center text-foreground font-medium truncate pointer-events-none"
+                      style={{
+                        left: Math.max(left, 0) + barWidth + 4,
+                        top: barTop,
+                        height: ROW_HEIGHT - barTop - barBottom,
+                        maxWidth: isMobile ? 120 : 200,
+                        fontSize: isMobile ? '10px' : '11px',
+                      }}
+                    >
+                      {task.title}
+                    </span>
+                  )}
+                </>
+              )
+            })()}
           </div>
         )
       })}
