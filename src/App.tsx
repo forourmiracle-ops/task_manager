@@ -223,7 +223,7 @@ export default function App() {
       </header>
 
       {/* Main Content — only active view rendered, lazy-loaded on demand */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
         <Sidebar />
         <Suspense fallback={<ViewSkeleton />}>
           {currentView === 'project' && <ProjectView />}
@@ -231,6 +231,17 @@ export default function App() {
           {currentView === 'settings' && <SettingsView />}
         </Suspense>
         <DetailPanel />
+
+        {/* Mobile FAB — floating action button for quick task creation */}
+        <button
+          onClick={() => startCreating(null)}
+          className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/30 flex items-center justify-center z-40 active:scale-95 transition-transform hover:opacity-90"
+          title="新建项目"
+        >
+          <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M8 3v10M3 8h10" />
+          </svg>
+        </button>
       </div>
 
       {/* Mobile Bottom Nav */}
