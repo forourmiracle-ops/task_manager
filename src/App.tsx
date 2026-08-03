@@ -47,8 +47,16 @@ const VIEW_LABELS: Record<ViewType, { label: string; icon: React.ReactNode }> = 
   ai: {
     label: 'AI 助手',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M8 2l1.5 3.5L13 7l-3.5 1.5L8 12l-1.5-3.5L3 7l3.5-1.5L8 2z" />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* DeepSeek 鲸鱼助手 */}
+        <ellipse cx="12" cy="14" rx="9" ry="7" fill="#4D6BFE" />
+        <path d="M5 12 Q3 8 6 6 Q9 8 5 12Z" fill="#4D6BFE" />
+        <path d="M12 4 Q12 1 14 2 Q16 3 14 5" stroke="#4D6BFE" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+        <circle cx="8.5" cy="13" r="1.2" fill="white" />
+        <circle cx="14.5" cy="13" r="1.2" fill="white" />
+        <circle cx="8.5" cy="13" r="0.5" fill="#1a1a2e" />
+        <circle cx="14.5" cy="13" r="0.5" fill="#1a1a2e" />
+        <path d="M10 16 Q12 18 14 16" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" />
       </svg>
     ),
   },
@@ -164,7 +172,7 @@ export default function App() {
         </button>
 
         <div className="flex items-center gap-1.5 md:gap-2.5">
-          <div className="w-6 h-6 md:w-8 md:h-8 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center shadow-md flex-shrink-0">
+          <div className="w-6 h-6 md:w-8 md:h-8 rounded-xl bg-white text-primary flex items-center justify-center shadow-sm flex-shrink-0 ring-1 ring-border/50">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M2 9l4-4 3 3 5-5" />
             </svg>
