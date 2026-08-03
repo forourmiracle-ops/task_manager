@@ -36,7 +36,7 @@ export const SettingsView = memo(function SettingsView() {
   const handleUpdate = useCallback(async () => {
     setUpdating(true)
     try {
-      window.location.href = 'https://task-manager-framiracle.online/'
+      window.location.href = 'https://www.task-manager-framiracle.com/'
     } catch {
       window.location.reload()
     }
