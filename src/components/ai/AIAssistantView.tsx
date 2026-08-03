@@ -239,16 +239,9 @@ export const AIAssistantView = memo(function AIAssistantView() {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
       <div className="p-4 border-b border-border flex-shrink-0 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md flex-shrink-0">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6.4-4.8-6.4 4.8 2.4-7.2-6-4.8h7.6z" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold">AI 助手</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">基于 DeepSeek 的智能任务管理助手</p>
-          </div>
+        <div>
+          <h2 className="text-sm font-semibold">AI 助手</h2>
+          <p className="text-xs text-muted-foreground mt-1">基于 DeepSeek 的智能任务管理助手</p>
         </div>
         <div className="flex items-center gap-2">
           {messages.length > 0 && (
