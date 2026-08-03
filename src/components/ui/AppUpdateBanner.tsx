@@ -31,7 +31,7 @@ export function AppUpdateBanner() {
     setUpdating(true)
     try {
       // 直接跳转至 Vercel 最新部署地址，确保使用最新版本
-      window.location.href = 'https://task-manager-framiracle-ops.vercel.app/'
+      window.location.href = 'https://task-manager-framiracle.online/'
     } catch {
       // Fallback: just reload
       window.location.reload()
