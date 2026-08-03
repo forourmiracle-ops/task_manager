@@ -67,8 +67,8 @@ export const GanttToolbar = memo(function GanttToolbar({
             className={cn(
               'px-2.5 py-1 text-[11px] rounded-md font-medium transition-all',
               dimension === key
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >
             {label}

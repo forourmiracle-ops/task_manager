@@ -177,6 +177,7 @@ export default function App() {
 
         <div className="w-px h-6 bg-border mx-1 hidden md:block" />
 
+        {/* Desktop view tabs */}
         <nav className="hidden md:flex gap-1 p-1 rounded-xl bg-muted/30">
           {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
             <button
@@ -186,6 +187,24 @@ export default function App() {
                 currentView === view
                   ? 'bg-background text-primary shadow-sm ring-1 ring-border'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+            >
+              {VIEW_LABELS[view].icon}
+              {VIEW_LABELS[view].label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Mobile view tabs — compact, next to logo */}
+        <nav className="flex md:hidden gap-0.5 ml-1">
+          {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
+            <button
+              key={view}
+              onClick={() => setCurrentView(view)}
+              className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded-lg font-medium transition-all ${
+                currentView === view
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground'
               }`}
             >
               {VIEW_LABELS[view].icon}
@@ -208,10 +227,10 @@ export default function App() {
             退出
           </button>
 
-          {/* Quick Create */}
+          {/* Quick Create — hidden on mobile, FAB handles it */}
           <button
             onClick={() => startCreating(null)}
-            className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-1.5 md:py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
+            className="hidden md:flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-1.5 md:py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
             title="新建项目 (Ctrl+N)"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -231,6 +250,17 @@ export default function App() {
           {currentView === 'settings' && <SettingsView />}
         </Suspense>
         <DetailPanel />
+
+        {/* Mobile FAB — floating action button for quick task creation */}
+        <button
+          onClick={() => startCreating(null)}
+          className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/30 flex items-center justify-center z-40 active:scale-95 transition-transform hover:opacity-90"
+          title="新建项目"
+        >
+          <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M8 3v10M3 8h10" />
+          </svg>
+        </button>
       </div>
 
       {/* Mobile Bottom Nav */}
