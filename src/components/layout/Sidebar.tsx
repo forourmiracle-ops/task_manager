@@ -60,12 +60,6 @@ export const Sidebar = memo(function Sidebar() {
   const [doneExpanded, setDoneExpanded] = useState(false)
   const [doneShowAll, setDoneShowAll] = useState(false)
 
-  // 当没有活跃任务时，自动展开已完成区域，避免用户误以为任务列表为空
-  useEffect(() => {
-    if (activeTasks.length === 0 && doneTasks.length > 0) {
-      setDoneExpanded(true)
-    }
-  }, [activeTasks.length, doneTasks.length])
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const updateTask = useUpdateTask()
   const batchComplete = useBatchCompleteTasks()
@@ -82,6 +76,13 @@ export const Sidebar = memo(function Sidebar() {
     if (!tasks) return []
     return tasks.filter((t) => t.status === 'done')
   }, [tasks])
+
+  // 当没有活跃任务时，自动展开已完成区域，避免用户误以为任务列表为空
+  useEffect(() => {
+    if (activeTasks.length === 0 && doneTasks.length > 0) {
+      setDoneExpanded(true)
+    }
+  }, [activeTasks.length, doneTasks.length])
 
   const tree = useMemo(() => (activeTasks.length > 0 ? buildTaskTree(activeTasks) : []), [activeTasks])
 
