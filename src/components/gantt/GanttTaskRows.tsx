@@ -176,7 +176,7 @@ export const GanttTaskRows = memo(function GanttTaskRows({
           className="flex items-center justify-center py-12 text-muted-foreground text-xs"
           style={{ height: ROW_HEIGHT * 3 }}
         >
-          当前没有可见任务
+          当前可视范围内没有任务，请滚动或调整粒度
         </div>
       )}
     </div>
