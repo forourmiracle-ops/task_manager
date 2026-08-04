@@ -2,40 +2,51 @@
 
 TaskFlow 是一款多端通用的工作任务管理工具，支持项目层级管理、甘特图可视化、看板拖拽、日历视图、AI 智能分析等功能。前端基于 React + TypeScript + Vite 构建，数据通过 Supabase（BaaS）云端同步，无需自建服务器。
 
+> 在线体验：[www.task-manager-framiracle.com](https://www.task-manager-framiracle.com)
+
 ## 功能特性
 
 ### 核心功能
 - **多层级任务管理**：支持最多 4 层级（项目 → 阶段 → 任务组 → 子任务），每层级可维护标题、描述、开始/截止日期、优先级、状态、进度、预估工时、标签等
-- **甘特图视图**：可视化展示任务时间线与进度，直观了解项目整体状态
+- **甘特图视图**：可视化展示任务时间线与进度，支持鼠标拖拽画布、Shift+滚轮横向滚动、键盘方向键导航，直观了解项目整体状态
 - **看板视图**：按状态（待办/进行中/已完成/已阻塞）分列展示，支持拖拽流转
 - **日历视图**：按日期排列任务，方便查看日程安排
-- **AI 智能助手**：集成 DeepSeek 大模型 + 联网搜索，支持任务拆解建议与项目分析洞察
+- **AI 智能助手**：集成 DeepSeek 大模型 + 联网搜索，支持任务拆解建议与项目分析洞察，配有专属 DeepSeek 鲸鱼助手形象
 
 ### 用户体验
 - **点击即改**：任务详情页点击任意字段直接编辑，回车或点击外部区域确认，弹出确认提示防止误操作
 - **创建即完整**：创建任务时可展开更多字段，同步设置日期、优先级、状态
 - **8 档字体调节**：设置中提供 8 级字体大小（极小到超大），满足不同视力需求
 - **三种主题模式**：浅色模式 / 夜间模式（深色）/ 护眼模式（暖色），人性化关怀
-- **响应式设计**：适配桌面端三栏布局与移动端底部导航
-- **键盘快捷键**：`Ctrl+N` 快速新建项目，`Ctrl+B` 切换侧边栏
+- **响应式设计**：桌面端三栏布局，移动端底部导航 + 精简顶栏，甘特图自适应缩放
+- **键盘快捷键**：`Ctrl+N` 快速新建项目，`Ctrl+B` 切换侧边栏，`← →` 甘特图横向导航，`?` 查看快捷键列表
+- **用户认证**：支持邮箱注册/登录，Supabase 认证体系
+
+### 移动端适配
+- **精简顶栏**：仅保留汉堡菜单 + AI 快捷入口，视图切换交给底部导航
+- **底部导航栏**：项目 / AI 助手 / 设置 / 新建，拇指可达区域
+- **甘特图适配**：自适应缩放比例，任务栏文字外显，半透明「回到今天」胶囊浮钮
+- **侧边栏**：85vw 宽滑出抽屉，背景不透明确保可读性
 
 ### 数据与同步
 - 基于 Supabase PostgreSQL 云端存储，多设备数据自动同步
-- 离线降级：当 Supabase 不可用时自动回退到浏览器 localStorage
+- 实时协作：通过 Supabase Realtime 订阅实现多端数据实时同步
+- 离线降级：当 Supabase 不可用时自动回退到浏览器 IndexedDB / localStorage
 - 免服务器部署：纯前端应用 + BaaS 后端，零运维成本
 
 ## 技术栈
 
 | 技术 | 用途 |
 |------|------|
-| React 19 + TypeScript 6 | 前端框架 |
-| Vite 8 | 构建工具 |
+| React 19 + TypeScript | 前端框架 |
+| Vite | 构建工具 |
 | Tailwind CSS 4 | 样式框架 |
 | Zustand | 全局状态管理 |
 | TanStack React Query | 服务端数据管理 |
-| Supabase | 数据库 + 实时同步 + 存储 |
-| dhtmlx-gantt | 甘特图组件 |
+| TanStack Virtual | 虚拟列表渲染 |
+| Supabase | 数据库 + 认证 + 实时同步 + 存储 |
 | DeepSeek API | AI 智能分析 |
+| PWA | 渐进式 Web 应用，支持离线缓存 |
 
 ## 快速开始
 
@@ -154,14 +165,17 @@ npm run preview   # 预览生产构建
 task-manager/
 ├── src/
 │   ├── components/
-│   │   ├── ai/            # AI 助手视图
+│   │   ├── ai/            # AI 助手视图（DeepSeek 集成）
+│   │   ├── auth/          # 用户认证（登录/注册）
 │   │   ├── board/         # 看板视图
 │   │   ├── calendar/      # 日历视图
-│   │   ├── gantt/         # 甘特图视图
+│   │   ├── gantt/         # 甘特图视图（自研，含拖拽/键盘导航）
 │   │   ├── layout/        # 布局组件（侧边栏等）
 │   │   ├── settings/      # 设置页面
-│   │   └── tasks/         # 任务详情面板
-│   ├── hooks/             # 自定义 Hooks（数据操作）
+│   │   ├── tasks/         # 任务详情面板
+│   │   ├── ui/            # 通用 UI 组件
+│   │   └── views/         # 视图容器
+│   ├── hooks/             # 自定义 Hooks（数据操作、认证、同步）
 │   ├── lib/               # 工具函数与常量
 │   ├── store/             # Zustand 全局状态
 │   ├── types/             # TypeScript 类型定义
@@ -198,13 +212,13 @@ Task (任务)
 ## 常见问题
 
 ### Q: 手机端如何使用？
-A: 在手机浏览器中访问部署后的 URL 即可。也可通过 Vercel 等平台部署后使用 PWA 方式添加到桌面。
+A: 在手机浏览器中访问 [www.task-manager-framiracle.com](https://www.task-manager-framiracle.com) 即可。移动端针对窄屏做了全面优化：精简顶栏、底部导航、甘特图自适应缩放、半透明浮钮。
 
 ### Q: 数据安全吗？
-A: 数据存储在 Supabase 云端 PostgreSQL 数据库中，传输使用 HTTPS 加密。Row Level Security (RLS) 可在 Supabase 控制台配置。
+A: 数据存储在 Supabase 云端 PostgreSQL 数据库中，传输使用 HTTPS 加密。用户认证通过 Supabase Auth 管理，Row Level Security (RLS) 可在 Supabase 控制台配置。
 
 ### Q: 可以离线使用吗？
-A: 当 Supabase 连接不可用时，系统自动回退到浏览器 localStorage 本地存储，数据不会丢失。网络恢复后需手动同步。
+A: 当 Supabase 连接不可用时，系统自动回退到浏览器 IndexedDB 本地存储，数据不会丢失。网络恢复后自动同步。
 
 ### Q: 如何部署到公网？
 A: 推荐使用 Vercel 一键部署：
@@ -212,7 +226,7 @@ A: 推荐使用 Vercel 一键部署：
 npm i -g vercel
 vercel
 ```
-或直接拖拽 `dist/` 目录到 Netlify、GitHub Pages 等平台。
+构建产物也可部署到 Netlify、GitHub Pages 等平台。部署后建议绑定自定义域名以优化国内访问体验。部署后需在 Supabase 后台更新 Site URL 和 Redirect URLs 为你部署的域名。
 
 ## License
 
