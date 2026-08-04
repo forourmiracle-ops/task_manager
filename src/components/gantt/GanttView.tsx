@@ -1,7 +1,6 @@
 import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
-import type { ViewStartMode } from '@/store'
 import { useUpdateTask } from '@/hooks/useTasks'
 import { cn } from '@/lib/utils'
 import { showDraftToast } from '@/components/ui/DraftToast'
@@ -50,8 +49,6 @@ export const GanttView = memo(function GanttView() {
   const defaultDimension = useAppStore((s) => s.defaultDimension)
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
-  const viewStartMode = useAppStore((s) => s.viewStartMode)
-  const setViewStartMode = useAppStore((s) => s.setViewStartMode)
   const lastSelectedDimension = useAppStore((s) => s.lastSelectedDimension)
   const setLastSelectedDimension = useAppStore((s) => s.setLastSelectedDimension)
 
@@ -96,7 +93,7 @@ export const GanttView = memo(function GanttView() {
     return (defaultDimension as Dimension) || 'quarter'
   })
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [goTodayStage, setGoTodayStage] = useState(0)
+  const [goTodayHighlight, setGoTodayHighlight] = useState(false)
   const goTodayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Drag state
@@ -168,7 +165,6 @@ export const GanttView = memo(function GanttView() {
     totalDays,
     todayOffset,
     dimension,
-    viewStartMode,
   })
 
   // ── Scale ─────────────────────────────────────────────────────────────────
@@ -242,21 +238,16 @@ export const GanttView = memo(function GanttView() {
   }, [setLastSelectedDimension])
 
   const handleGoToday = useCallback(() => {
-    const next = (goTodayStage + 1) % 3
-    setGoTodayStage(next)
     const el = dateScrollRef.current
     if (!el) return
+    const panelWidth = el.clientWidth
+    el.scrollTo({ left: todayOffset * DAY_WIDTH - panelWidth / 2, behavior: 'smooth' })
 
+    // Brief highlight feedback
+    setGoTodayHighlight(true)
     if (goTodayTimerRef.current) clearTimeout(goTodayTimerRef.current)
-    goTodayTimerRef.current = setTimeout(() => setGoTodayStage(0), 1000)
-
-    if (next === 1) {
-      const panelWidth = el.clientWidth
-      el.scrollTo({ left: todayOffset * DAY_WIDTH - panelWidth / 2, behavior: 'smooth' })
-    } else if (next === 2) {
-      el.scrollTo({ left: 0, behavior: 'smooth' })
-    }
-  }, [goTodayStage, todayOffset, DAY_WIDTH])
+    goTodayTimerRef.current = setTimeout(() => setGoTodayHighlight(false), 1000)
+  }, [todayOffset, DAY_WIDTH])
 
   const handleExportPNG = useCallback(() => {
     try { downloadFile(exportToCSV(visibleTasks), 'gantt-tasks.csv', 'text/csv') } catch { /* ignore */ }
@@ -299,6 +290,105 @@ export const GanttView = memo(function GanttView() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleUndo])
 
+  // ── Mouse drag panning (desktop) ──────────────────────────────────────────
+  const dragRef = useRef({ isDragging: false, startX: 0, startScrollLeft: 0 })
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only drag on blank area (not on task bars or interactive elements)
+    const target = e.target as HTMLElement
+    if (target.closest('[data-task-bar]') || target.closest('button') || target.closest('input')) return
+    const el = dateScrollRef.current
+    if (!el) return
+    dragRef.current = { isDragging: true, startX: e.clientX, startScrollLeft: el.scrollLeft }
+    el.style.cursor = 'grabbing'
+    el.style.userSelect = 'none'
+    e.preventDefault()
+  }, [])
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current.isDragging) return
+      const el = dateScrollRef.current
+      if (!el) return
+      const dx = e.clientX - dragRef.current.startX
+      el.scrollLeft = dragRef.current.startScrollLeft - dx
+    }
+    const handleMouseUp = () => {
+      if (!dragRef.current.isDragging) return
+      dragRef.current.isDragging = false
+      const el = dateScrollRef.current
+      if (el) {
+        el.style.cursor = ''
+        el.style.userSelect = ''
+      }
+    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
+  // ── Shift+Wheel horizontal scroll (desktop) ────────────────────────────────
+  useEffect(() => {
+    const el = dateScrollRef.current
+    if (!el) return
+    const handleWheel = (e: WheelEvent) => {
+      if (e.shiftKey) {
+        e.preventDefault()
+        el.scrollLeft += e.deltaY
+      }
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateScrollRef.current])
+
+  // ── Keyboard ← → navigation (desktop) ─────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if focused on input/textarea
+      const target = e.target as HTMLElement
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const el = dateScrollRef.current
+        if (!el) return
+        e.preventDefault()
+        const step = DAY_WIDTH * 7 // one week step
+        el.scrollBy({ left: e.key === 'ArrowLeft' ? -step : step, behavior: 'smooth' })
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [DAY_WIDTH])
+
+  // ── Mobile floating "today" button visibility ──────────────────────────────
+  const [showMobileToday, setShowMobileToday] = useState(false)
+  useEffect(() => {
+    const el = dateScrollRef.current
+    if (!el) return
+    const check = () => {
+      const todayPos = todayOffset * DAY_WIDTH
+      const visibleStart = el.scrollLeft
+      const visibleEnd = el.scrollLeft + el.clientWidth
+      // Show button when today line is not in the visible area
+      setShowMobileToday(todayPos < visibleStart - 50 || todayPos > visibleEnd + 50)
+    }
+    check()
+    const timer = setInterval(check, 500)
+    el.addEventListener('scroll', check)
+    return () => {
+      clearInterval(timer)
+      el.removeEventListener('scroll', check)
+    }
+  }, [todayOffset, DAY_WIDTH])
+
+  const handleMobileGoToday = useCallback(() => {
+    const el = dateScrollRef.current
+    if (!el) return
+    const panelWidth = el.clientWidth
+    el.scrollTo({ left: todayOffset * DAY_WIDTH - panelWidth / 2, behavior: 'smooth' })
+  }, [todayOffset, DAY_WIDTH])
+
   const handleTaskDrop = useCallback((sourceId: string, newParentId: string | null, newSort: number) => {
     updateTask.mutate({ id: sourceId, sort_order: newSort, parent_id: newParentId })
   }, [updateTask])
@@ -312,11 +402,9 @@ export const GanttView = memo(function GanttView() {
         {/* Toolbar — always visible, above overlays */}
         <GanttToolbar
           dimension={dimension}
-          viewStartMode={viewStartMode}
-          goTodayStage={goTodayStage}
+          goTodayHighlight={goTodayHighlight}
           fontSize={fontSize}
           onDimensionChange={handleDimensionChange}
-          onViewStartModeChange={setViewStartMode}
           onGoToday={handleGoToday}
           onZoomIn={() => setFontSize(Math.min(8, fontSize + 1))}
           onZoomOut={() => setFontSize(Math.max(1, fontSize - 1))}
@@ -360,6 +448,7 @@ export const GanttView = memo(function GanttView() {
               className="flex-1 overflow-auto min-w-0"
               data-date-panel
               onClick={handleDatePanelClick}
+              onMouseDown={handleMouseDown}
             >
               <div style={{ minWidth: totalWidth }}>
                 {/* Sticky header area — stays at top during vertical scroll */}
@@ -419,6 +508,20 @@ export const GanttView = memo(function GanttView() {
                 <p className="text-xs text-muted-foreground">创建任务时设置开始和截止日期即可在甘特图中显示</p>
               </div>
             </div>
+          )}
+
+          {/* Mobile floating "today" button — appears when today line is off-screen */}
+          {isMobile && showMobileToday && !isLoading && !isEmpty && (
+            <button
+              onClick={handleMobileGoToday}
+              className="fixed bottom-20 right-4 w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-lg shadow-primary/30 flex items-center justify-center z-40 active:scale-95 transition-transform hover:opacity-90"
+              title="回到今天"
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="8" cy="8" r="6" />
+                <path d="M8 4v4l3 2" />
+              </svg>
+            </button>
           )}
         </div>
       </div>

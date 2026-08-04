@@ -9,15 +9,11 @@ const DIMENSION_LABELS: { key: string; label: string }[] = [
   { key: 'year', label: '年' },
 ]
 
-const goTodayLabels = ['回到今天', '今日置首', '回到今天']
-
 interface GanttToolbarProps {
   dimension: string
-  viewStartMode: string
-  goTodayStage: number
+  goTodayHighlight: boolean
   fontSize: number
   onDimensionChange: (dim: string) => void
-  onViewStartModeChange: (mode: string) => void
   onGoToday: () => void
   onZoomIn: () => void
   onZoomOut: () => void
@@ -29,11 +25,9 @@ interface GanttToolbarProps {
 
 export const GanttToolbar = memo(function GanttToolbar({
   dimension,
-  viewStartMode,
-  goTodayStage,
+  goTodayHighlight,
   fontSize,
   onDimensionChange,
-  onViewStartModeChange,
   onGoToday,
   onZoomIn,
   onZoomOut,
@@ -78,30 +72,23 @@ export const GanttToolbar = memo(function GanttToolbar({
 
       <div className="w-px h-5 bg-border flex-shrink-0" />
 
-      {/* View start mode */}
+      {/* Go today — one-shot action, highlights briefly */}
       <button
         type="button"
-        className="px-2.5 py-1 text-[11px] font-medium text-muted-foreground rounded-md hover:bg-accent hover:text-foreground transition-colors flex-shrink-0 flex items-center gap-1"
-        onClick={() => onViewStartModeChange(viewStartMode === 'periodStart' ? 'fromToday' : 'periodStart')}
-        title={viewStartMode === 'periodStart' ? '当前：对齐周期边界' : '当前：从今日起算'}
-      >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M2 3h4v10H2zM10 7h4v6h-4z" />
-        </svg>
-        <span className="hidden sm:inline">{viewStartMode === 'periodStart' ? '周期对齐' : '今日起算'}</span>
-      </button>
-
-      {/* Go today */}
-      <button
-        type="button"
-        className="px-2.5 py-1 text-[11px] font-medium text-primary rounded-md hover:bg-primary/5 transition-colors flex-shrink-0 flex items-center gap-1"
+        className={cn(
+          'px-2.5 py-1 text-[11px] font-medium rounded-md transition-all flex-shrink-0 flex items-center gap-1',
+          goTodayHighlight
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'text-primary hover:bg-primary/5',
+        )}
         onClick={onGoToday}
+        title="回到今天"
       >
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="8" cy="8" r="6" />
           <path d="M8 4v4l3 2" />
         </svg>
-        <span className="hidden sm:inline">{goTodayLabels[goTodayStage]}</span>
+        <span className="hidden sm:inline">回到今天</span>
       </button>
 
       <div className="flex-1" />
