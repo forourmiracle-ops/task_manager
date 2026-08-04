@@ -203,25 +203,29 @@ export default function App() {
           ))}
         </nav>
 
-        {/* Mobile view tabs — compact, next to logo */}
-        <nav className="flex md:hidden gap-0.5 ml-1">
-          {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
-            <button
-              key={view}
-              onClick={() => setCurrentView(view)}
-              className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded-lg font-medium transition-all ${
-                currentView === view
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground'
-              }`}
-            >
-              {VIEW_LABELS[view].icon}
-              {VIEW_LABELS[view].label}
-            </button>
-          ))}
-        </nav>
-
         <div className="flex-1" />
+
+        {/* Mobile AI quick-access — single icon, high-frequency */}
+        <button
+          onClick={() => setCurrentView('ai')}
+          className={`md:hidden flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
+            currentView === 'ai'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+          title="AI 助手"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="12" cy="14" rx="9" ry="7" fill="#4D6BFE" />
+            <path d="M5 12 Q3 8 6 6 Q9 8 5 12Z" fill="#4D6BFE" />
+            <path d="M12 4 Q12 1 14 2 Q16 3 14 5" stroke="#4D6BFE" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+            <circle cx="8.5" cy="13" r="1.2" fill="white" />
+            <circle cx="14.5" cy="13" r="1.2" fill="white" />
+            <circle cx="8.5" cy="13" r="0.5" fill="#1a1a2e" />
+            <circle cx="14.5" cy="13" r="0.5" fill="#1a1a2e" />
+            <path d="M10 16 Q12 18 14 16" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" />
+          </svg>
+        </button>
 
         <div className="flex items-center gap-1.5 md:gap-3">
           <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -258,17 +262,6 @@ export default function App() {
           {currentView === 'settings' && <SettingsView />}
         </Suspense>
         <DetailPanel />
-
-        {/* Mobile FAB — floating action button for quick task creation */}
-        <button
-          onClick={() => startCreating(null)}
-          className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/30 flex items-center justify-center z-40 active:scale-95 transition-transform hover:opacity-90"
-          title="新建项目"
-        >
-          <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-        </button>
       </div>
 
       {/* Mobile Bottom Nav */}

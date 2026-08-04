@@ -510,17 +510,18 @@ export const GanttView = memo(function GanttView() {
             </div>
           )}
 
-          {/* Mobile floating "today" button — appears when today line is off-screen */}
+          {/* Mobile floating "today" button — subtle capsule, appears when today line is off-screen */}
           {isMobile && showMobileToday && !isLoading && !isEmpty && (
             <button
               onClick={handleMobileGoToday}
-              className="fixed bottom-20 right-4 w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-lg shadow-primary/30 flex items-center justify-center z-40 active:scale-95 transition-transform hover:opacity-90"
+              className="fixed bottom-16 right-3 px-3 py-1.5 bg-background/80 backdrop-blur border border-border/60 text-[11px] font-medium text-muted-foreground rounded-full shadow-sm flex items-center gap-1 z-40 active:scale-95 transition-all hover:text-foreground hover:border-border animate-in fade-in"
               title="回到今天"
             >
-              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="8" cy="8" r="6" />
                 <path d="M8 4v4l3 2" />
               </svg>
+              今天
             </button>
           )}
         </div>
