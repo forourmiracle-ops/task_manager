@@ -19,29 +19,11 @@ const staticHolidays = new Set([
 ])
 
 export function getScrollTarget(
-  viewStartMode: string,
-  dimension: string,
   todayOffset: number,
-  startDate: Date,
   DAY_WIDTH: number,
 ): number {
-  switch (viewStartMode) {
-    case 'today': {
-      const panelWidth = document.querySelector('[data-date-panel]')?.clientWidth || 800
-      return todayOffset * DAY_WIDTH - panelWidth / 2
-    }
-    case 'first': {
-      const firstTask = findFirstTask(startDate, DAY_WIDTH)
-      return firstTask ?? 0
-    }
-    default:
-      return todayOffset * DAY_WIDTH
-  }
-}
-
-function findFirstTask(startDate: Date, DAY_WIDTH: number): number | null {
-  // This is a fallback — the actual first task position is computed by the caller
-  return null
+  const panelWidth = document.querySelector('[data-date-panel]')?.clientWidth || 800
+  return todayOffset * DAY_WIDTH - panelWidth / 2
 }
 
 export function useGanttLayout(params: {
@@ -53,11 +35,10 @@ export function useGanttLayout(params: {
   totalDays: number
   todayOffset: number
   dimension: string
-  viewStartMode: string
 }) {
   const {
     allFlatTasks, visibleDayRange, DAY_WIDTH, startDate, totalDays,
-    todayOffset, dimension, viewStartMode,
+    todayOffset, dimension,
   } = params
 
   const totalWidth = totalDays * DAY_WIDTH
@@ -94,8 +75,8 @@ export function useGanttLayout(params: {
   const todayPosition = todayOffset * DAY_WIDTH
 
   const scrollTarget = useMemo(() => {
-    return getScrollTarget(viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH)
-  }, [viewStartMode, dimension, todayOffset, startDate, DAY_WIDTH])
+    return getScrollTarget(todayOffset, DAY_WIDTH)
+  }, [todayOffset, DAY_WIDTH])
 
   return {
     totalWidth,
