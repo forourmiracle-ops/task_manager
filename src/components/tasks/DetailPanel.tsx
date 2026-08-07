@@ -7,6 +7,7 @@ import { DependencyPicker } from '@/components/tasks/DependencyPicker'
 import { HierarchyTree } from '@/components/tasks/HierarchyTree'
 import { SaveAsTemplate } from '@/components/templates/SaveAsTemplate'
 import { showDraftToast } from '@/components/ui/DraftToast'
+import { sanitizeHtml } from '@/lib/sanitize'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 
 const RichTextEditor = lazy(() => import('@/components/editor/RichTextEditor'))
@@ -680,7 +681,7 @@ export const DetailPanel = memo(function DetailPanel() {
           {task.description ? (
             <div
               className="text-xs prose prose-sm max-w-none leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
-              dangerouslySetInnerHTML={{ __html: task.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(task.description) }}
             />
           ) : (
             <span className="text-xs text-muted-foreground">点击添加描述...</span>

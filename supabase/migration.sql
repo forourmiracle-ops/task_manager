@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   parent_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   title TEXT NOT NULL DEFAULT '新任务',
   description TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done', 'blocked')),
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 -- 索引
 CREATE INDEX idx_tasks_parent_id ON tasks(parent_id);
+CREATE INDEX idx_tasks_user_id ON tasks(user_id);
 CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX idx_tasks_sort_order ON tasks(sort_order);
@@ -33,12 +35,15 @@ CREATE INDEX idx_tasks_sort_order ON tasks(sort_order);
 -- 2. 冲刺表
 CREATE TABLE IF NOT EXISTS sprints (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL,
   name TEXT NOT NULL DEFAULT '新冲刺',
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   goal TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_sprints_user_id ON sprints(user_id);
 
 ALTER TABLE tasks ADD CONSTRAINT fk_tasks_sprint
   FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE SET NULL;
@@ -47,17 +52,20 @@ ALTER TABLE tasks ADD CONSTRAINT fk_tasks_sprint
 CREATE TABLE IF NOT EXISTS comments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   content TEXT NOT NULL DEFAULT '',
   author_id TEXT NOT NULL DEFAULT 'anonymous',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_comments_task_id ON comments(task_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
 
 -- 4. 附件表
 CREATE TABLE IF NOT EXISTS attachments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   file_name TEXT NOT NULL,
   storage_path TEXT NOT NULL,
   size INTEGER NOT NULL DEFAULT 0,
@@ -65,26 +73,32 @@ CREATE TABLE IF NOT EXISTS attachments (
 );
 
 CREATE INDEX idx_attachments_task_id ON attachments(task_id);
+CREATE INDEX idx_attachments_user_id ON attachments(user_id);
 
 -- 5. 提醒表
 CREATE TABLE IF NOT EXISTS reminders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   remind_at TIMESTAMPTZ NOT NULL,
   method TEXT NOT NULL DEFAULT 'browser',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_reminders_task_id ON reminders(task_id);
+CREATE INDEX idx_reminders_user_id ON reminders(user_id);
 CREATE INDEX idx_reminders_remind_at ON reminders(remind_at);
 
 -- 6. AI 对话历史表
 CREATE TABLE IF NOT EXISTS ai_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL,
   session_type TEXT NOT NULL DEFAULT 'task_breakdown',
   messages JSONB NOT NULL DEFAULT '[]',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_ai_sessions_user_id ON ai_sessions(user_id);
 
 -- 7. 更新时间触发器
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -153,21 +167,45 @@ $$ LANGUAGE plpgsql;
 ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 
--- 10. RLS 策略（当前允许所有操作，后续可收紧）
+-- 10. RLS 策略 — 按用户隔离数据，仅允许访问自己的数据
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on tasks" ON tasks FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on tasks" ON tasks;
+CREATE POLICY "tasks_user_isolation" ON tasks
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 ALTER TABLE sprints ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on sprints" ON sprints FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on sprints" ON sprints;
+CREATE POLICY "sprints_user_isolation" ON sprints
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on comments" ON comments FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on comments" ON comments;
+CREATE POLICY "comments_user_isolation" ON comments
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on attachments" ON attachments FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on attachments" ON attachments;
+CREATE POLICY "attachments_user_isolation" ON attachments
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on reminders" ON reminders FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on reminders" ON reminders;
+CREATE POLICY "reminders_user_isolation" ON reminders
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 ALTER TABLE ai_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on ai_sessions" ON ai_sessions FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on ai_sessions" ON ai_sessions;
+CREATE POLICY "ai_sessions_user_isolation" ON ai_sessions
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
