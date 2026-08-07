@@ -115,10 +115,18 @@ export const AIAssistantView = memo(function AIAssistantView() {
       supabase,
     }
 
-    // Build system prompt with task context
-    const systemPrompt = `你是一个项目管理 AI 助手。当前日期：${new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}。当前用户有以下任务：${JSON.stringify(
-      tasks?.map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, progress: t.progress_percent, due: t.due_date })) || []
-    )}。你可以使用工具来搜索、创建、更新、删除任务，以及分析项目和生成报告。当用户请求操作时，请直接使用工具执行，不需要先询问确认（除非是删除操作）。`
+    // Build system prompt with task context (limit to prevent prompt overflow and data exposure)
+    const MAX_TASKS_IN_PROMPT = 50
+    const taskSlice = tasks?.slice(0, MAX_TASKS_IN_PROMPT) || []
+    const taskSummary = taskSlice.map((t) => ({
+      id: t.id, title: t.title, status: t.status, priority: t.priority,
+      progress: t.progress_percent, due: t.due_date,
+    }))
+    const truncatedNote = tasks && tasks.length > MAX_TASKS_IN_PROMPT
+      ? `（仅显示前 ${MAX_TASKS_IN_PROMPT} 个任务，共 ${tasks.length} 个）`
+      : ''
+
+    const systemPrompt = `你是一个项目管理 AI 助手。当前日期：${new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}。当前用户有以下任务${truncatedNote}：${JSON.stringify(taskSummary)}。你可以使用工具来搜索、创建、更新、删除任务，以及分析项目和生成报告。当用户请求操作时，请直接使用工具执行，不需要先询问确认（除非是删除操作）。`
 
     // Build messages for API
     const apiMessages: Array<{

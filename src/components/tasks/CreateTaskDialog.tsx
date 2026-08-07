@@ -21,6 +21,9 @@ export function CreateTaskDialog() {
   const [dateError, setDateError] = useState<string | null>(null)
   const [keepOpen, setKeepOpen] = useState(false)
 
+  const MAX_TITLE = 200
+  const MAX_DESC = 10000
+
   const titleRef = useRef<HTMLInputElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -48,6 +51,14 @@ export function CreateTaskDialog() {
 
   const handleSubmit = () => {
     if (!title.trim()) return
+    if (title.trim().length > MAX_TITLE) {
+      setDateError(`标题不能超过 ${MAX_TITLE} 个字符`)
+      return
+    }
+    if (description.trim().length > MAX_DESC) {
+      setDateError(`描述不能超过 ${MAX_DESC} 个字符`)
+      return
+    }
 
     // Validate subtask dates against parent
     if (isSubtask && parentTask) {
@@ -157,6 +168,7 @@ export function CreateTaskDialog() {
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入任务名称"
+              maxLength={MAX_TITLE}
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
             />
           </div>
@@ -168,9 +180,13 @@ export function CreateTaskDialog() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
+              maxLength={MAX_DESC}
               placeholder="可选描述"
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring resize-none"
             />
+            {description.length > 0 && (
+              <p className="text-[10px] text-muted-foreground text-right mt-0.5">{description.length}/{MAX_DESC}</p>
+            )}
           </div>
 
           {/* Dates */}
