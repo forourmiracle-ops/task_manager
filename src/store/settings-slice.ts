@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type { Dimension } from '@/types'
+import { encrypt } from '@/lib/secure-storage'
 
 export type ThemeMode = 'light' | 'dark' | 'eye-care'
 export type DefaultDimension = 'auto' | Dimension
@@ -10,7 +11,6 @@ const STORED_THEME = (localStorage.getItem('taskflow-theme') || 'light') as Them
 const STORED_FONT_SIZE = Number(localStorage.getItem('taskflow-font-size') || '4')
 const STORED_DEFAULT_DIMENSION = (localStorage.getItem('taskflow-default-dimension') || 'auto') as DefaultDimension
 const STORED_VIEW_START = (localStorage.getItem('taskflow-view-start') || 'periodStart') as ViewStartMode
-const STORED_DEEPSEEK_KEY = localStorage.getItem('taskflow-deepseek-key') || ''
 const STORED_EXPAND_TEMPLATE_LIB = localStorage.getItem('taskflow-expand-template-lib') === 'true'
 const STORED_DENSITY = (localStorage.getItem('taskflow-density') || 'comfortable') as DensityMode
 
@@ -77,9 +77,12 @@ export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSl
     set({ viewStartMode: mode })
   },
 
-  deepseekApiKey: STORED_DEEPSEEK_KEY,
+  deepseekApiKey: '', // 由 useUserSettings hook 异步解密加载
   setDeepseekApiKey: (key) => {
-    localStorage.setItem('taskflow-deepseek-key', key)
+    // 加密后存入 sessionStorage，关闭标签页后密钥自动销毁
+    encrypt(key).then((encrypted) => {
+      sessionStorage.setItem('taskflow-deepseek-key', encrypted)
+    })
     set({ deepseekApiKey: key })
   },
 

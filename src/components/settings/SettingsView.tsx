@@ -210,8 +210,17 @@ export const SettingsView = memo(function SettingsView() {
           <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">AI 服务配置</h3>
           <div className="bg-muted/20 rounded-xl p-4 border border-border/50 space-y-3">
             <p className="text-xs text-muted-foreground">
-              配置 DeepSeek API Key 以启用 AI 助手功能。密钥仅保存在本地浏览器中，不会上传到服务器。
+              配置 DeepSeek API Key 以启用 AI 助手功能。密钥使用 AES-GCM 加密后保存在浏览器会话中（关闭标签页后自动清除），不会上传到云端服务器。
             </p>
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/8 border border-amber-500/15">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-500 flex-shrink-0 mt-0.5">
+                <path d="M8 1.5l7 13H1l7-13z" />
+                <path d="M8 6v3M8 11.5v.5" strokeWidth="2" />
+              </svg>
+              <p className="text-[10px] text-amber-600/80 leading-relaxed">
+                安全提示：API Key 经加密存储，但将直接从浏览器发送至 DeepSeek 服务。请在受信任的设备上使用，建议使用额度受限的 API Key，并定期在 DeepSeek 控制台轮换密钥。
+              </p>
+            </div>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 {/* 隐藏诱饵输入框，防止浏览器密码管理器自动填充到 API Key 字段 */}
@@ -347,11 +356,11 @@ export const SettingsView = memo(function SettingsView() {
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">API Key</span>
               <span className={`text-xs font-medium ${deepseekApiKey ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {deepseekApiKey ? '已配置（仅本地保存）' : '未配置'}
+                {deepseekApiKey ? '已配置（加密存储）' : '未配置'}
               </span>
             </div>
             <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-              任务数据与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。API Key 仅保存在本地浏览器中。
+              任务数据与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。API Key 加密存储在本地浏览器中。
             </p>
           </div>
         </section>
