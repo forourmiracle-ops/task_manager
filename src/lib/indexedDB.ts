@@ -35,7 +35,7 @@ export async function deleteUserDB(userId: string): Promise<void> {
   } catch { /* DB may not exist */ }
   // Delete the database
   return new Promise((resolve) => {
-    const req = indexedDB.deleteDatabase(dbName)
+    const req = globalThis.indexedDB.deleteDatabase(dbName)
     req.onsuccess = () => resolve()
     req.onerror = () => resolve() // Silently ignore errors
     req.onblocked = () => resolve()
@@ -75,6 +75,7 @@ export const indexedDB = {
       depends_on: task.depends_on || [],
       tags: task.tags || [],
       sort_order: task.sort_order ?? existing.length,
+      user_id: task.user_id || userId,
       created_at: now,
       updated_at: now,
     }

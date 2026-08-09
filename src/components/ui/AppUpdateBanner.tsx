@@ -4,7 +4,7 @@ import { checkForUpdates, clearUpdateCache } from '@/lib/update-checker'
 export function AppUpdateBanner() {
   const [visible, setVisible] = useState(false)
   const [latestSha, setLatestSha] = useState('')
-  const [checking, setChecking] = useState(false)
+  const [_checking, setChecking] = useState(false)
   const [updating, setUpdating] = useState(false)
 
   const doCheck = useCallback(async (silent = false) => {

@@ -1,4 +1,4 @@
-import type { ToolDefinition, ToolContext } from './types'
+import type { ToolDefinition } from './types'
 import type { Task } from '@/types'
 
 export const searchTasksTool: ToolDefinition = {

@@ -38,7 +38,7 @@ export function useGanttLayout(params: {
 }) {
   const {
     allFlatTasks, visibleDayRange, DAY_WIDTH, startDate, totalDays,
-    todayOffset, dimension,
+    todayOffset,
   } = params
 
   const totalWidth = totalDays * DAY_WIDTH

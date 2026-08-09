@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Task } from '@/types'
-import { daysBetween, type MonthHeader } from './useGanttData'
+import type { MonthHeader } from './useGanttData'
 
 export const MIN_DAY_WIDTH = 3
 export const DIMENSION_DAYS: Record<string, number> = {

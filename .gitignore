@@ -29,3 +29,6 @@ dist-ssr
 
 # Build artifacts in public/ (should not be tracked)
 public/taskflow-dist.zip
+
+# Trae IDE artifacts
+.trae-html-share-packages/

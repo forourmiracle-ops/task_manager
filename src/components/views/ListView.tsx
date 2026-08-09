@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTasks, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { useAppStore } from '@/store'
 import type { DensityMode } from '@/store'
-import { buildTaskTree, flattenTasks, formatDate, STATUS_LABELS, PRIORITY_COLORS } from '@/lib/utils'
+import { buildTaskTree, formatDate, STATUS_LABELS, PRIORITY_COLORS } from '@/lib/utils'
 import type { Task } from '@/types'
 
 const ROW_HEIGHT: Record<DensityMode, number> = { comfortable: 40, compact: 32 }

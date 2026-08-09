@@ -10,7 +10,7 @@ export function daysBetween(a: Date, b: Date): number {
   return Math.round((bStart.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-interface MonthHeader {
+export interface MonthHeader {
   label: string
   days: number
 }

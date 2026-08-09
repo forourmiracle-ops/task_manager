@@ -2,10 +2,8 @@ import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback, mem
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
 import { useUpdateTask } from '@/hooks/useTasks'
-import { cn } from '@/lib/utils'
 import { showDraftToast } from '@/components/ui/DraftToast'
 import { exportToCSV, downloadFile } from '@/lib/export'
-import type { Task } from '@/types'
 
 import { useGanttData } from './hooks/useGanttData'
 import { useGanttScroll } from './hooks/useGanttScroll'
@@ -19,14 +17,6 @@ import { GanttMonthHeaders } from './GanttMonthHeaders'
 import { GanttErrorBoundary } from './GanttErrorBoundary'
 
 type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
-
-const DIMENSION_DAYS: Record<Dimension, number> = {
-  week: 7,
-  month: 30,
-  quarter: 90,
-  halfyear: 180,
-  year: 365,
-}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // GanttView — Main orchestrator
@@ -49,8 +39,10 @@ export const GanttView = memo(function GanttView() {
   const defaultDimension = useAppStore((s) => s.defaultDimension)
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
-  const lastSelectedDimension = useAppStore((s) => s.lastSelectedDimension)
-  const setLastSelectedDimension = useAppStore((s) => s.setLastSelectedDimension)
+  const [lastSelectedDimension, setLastSelectedDimensionState] = useState<Dimension | null>(() => {
+    const stored = localStorage.getItem('taskflow-last-gantt-dimension')
+    return (stored as Dimension) || null
+  })
 
   const updateTask = useUpdateTask()
 
@@ -133,7 +125,6 @@ export const GanttView = memo(function GanttView() {
     visibleDayRange,
     visibleTasks,
     viewportTasks,
-    viewportRange,
   } = useGanttViewport({
     scrollLeft,
     scrollWidth,
@@ -234,8 +225,9 @@ export const GanttView = memo(function GanttView() {
 
   const handleDimensionChange = useCallback((dim: string) => {
     setDimension(dim as Dimension)
-    setLastSelectedDimension(dim as Dimension)
-  }, [setLastSelectedDimension])
+    setLastSelectedDimensionState(dim as Dimension)
+    localStorage.setItem('taskflow-last-gantt-dimension', dim)
+  }, [])
 
   const handleGoToday = useCallback(() => {
     const el = dateScrollRef.current
@@ -418,7 +410,7 @@ export const GanttView = memo(function GanttView() {
         <div className="flex-1 flex overflow-hidden relative min-w-0">
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
-            virtualItems={virtualItems}
+            virtualItems={virtualItems as { index: number; start: number; size: number; key: number }[]}
             visibleTasks={viewportTasks}
             allFlatTasks={allFlatTasks}
             expandedIds={expandedIds}
@@ -465,7 +457,7 @@ export const GanttView = memo(function GanttView() {
                 {/* Task rows */}
                 <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
                   <GanttTaskRows
-                    virtualItems={virtualItems}
+                    virtualItems={virtualItems as { index: number; start: number; size: number; key: number }[]}
                     visibleTasks={viewportTasks}
                     visibleDayRange={visibleDayRange}
                     DAY_WIDTH={DAY_WIDTH}

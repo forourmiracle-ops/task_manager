@@ -1,6 +1,6 @@
 import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
-import { BubbleMenu } from '@tiptap/extension-bubble-menu'
+import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
@@ -9,7 +9,7 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
-import type { SuggestionProps } from '@tiptap/suggestion'
+// SuggestionProps not needed - removed unused import
 
 // ── Slash Command items ──
 interface SlashCommand {
@@ -96,9 +96,6 @@ function createSlashCommandPlugin() {
       handleKeyDown(view, event) {
         // Track slash command state in a DOM attribute
         const { state } = view
-        const { from } = state.selection
-        const $from = state.doc.resolve(from)
-        const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)
 
         if (event.key === 'Escape') {
           if (slashCommandPluginKey.getState(state)?.active) {
@@ -271,7 +268,7 @@ export const RichTextEditor = memo(function RichTextEditor({
         HTMLAttributes: { class: 'rounded-lg max-w-full' },
       }),
       Placeholder.configure({ placeholder }),
-      slashPluginRef.current,
+      slashPluginRef.current as unknown as Extension,
       // Custom extension to detect / typing
       Extension.create({
         name: 'slashHandler',

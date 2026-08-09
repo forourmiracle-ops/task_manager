@@ -2,9 +2,8 @@ import { memo, useMemo, useCallback, useState } from 'react'
 import { useTasks, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { useAppStore } from '@/store'
 import { buildTaskTree, flattenTasks, formatDate, STATUS_LABELS, PRIORITY_COLORS } from '@/lib/utils'
-import type { Task } from '@/types'
 
-type SortField = 'title' | 'status' | 'priority' | 'due_date' | 'estimated_hours' | 'progress'
+type SortField = 'title' | 'status' | 'priority' | 'due_date' | 'estimated_hours' | 'progress_percent'
 type SortDir = 'asc' | 'desc'
 
 const COLUMNS: { key: SortField; label: string; width: string }[] = [
@@ -13,7 +12,7 @@ const COLUMNS: { key: SortField; label: string; width: string }[] = [
   { key: 'priority', label: '优先级', width: 'w-20' },
   { key: 'due_date', label: '截止日期', width: 'w-28' },
   { key: 'estimated_hours', label: '预估工时', width: 'w-20' },
-  { key: 'progress', label: '进度', width: 'w-20' },
+  { key: 'progress_percent', label: '进度', width: 'w-20' },
 ]
 
 export const TableView = memo(function TableView() {

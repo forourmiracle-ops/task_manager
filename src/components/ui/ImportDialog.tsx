@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 import { useCreateTask } from '@/hooks/useTasks'
 import { parseFile, type ImportResult } from '@/lib/import'
-import type { Task } from '@/types'
 
 interface ImportDialogProps {
   open: boolean
@@ -37,7 +36,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
     for (const task of result.tasks) {
       if (!task.title) continue
       try {
-        await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve, _reject) => {
           createTask.mutate(task as Parameters<typeof createTask.mutate>[0], {
             onSuccess: () => { count++; resolve() },
             onError: (err) => { console.error('Import error:', err); resolve() },

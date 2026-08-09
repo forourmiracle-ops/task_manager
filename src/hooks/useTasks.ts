@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,7 +7,6 @@ import type { Task } from '@/types'
 
 const TASKS_KEY = 'tasks'
 const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
-const MIGRATION_DONE_KEY = 'taskflow_local_migration_done'
 const SYNC_ERROR_KEY = 'taskflow_sync_error'
 
 const useLocal = !isSupabaseConfigured()
@@ -213,7 +212,7 @@ export function useCreateTask() {
 
 export function useUpdateTask() {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<Task, Error, Partial<Task> & { id: string }, { previous: Task[] | undefined }>({
     mutationFn: updateTask,
     onMutate: async (updated) => {
       await queryClient.cancelQueries({ queryKey: [TASKS_KEY] })
@@ -269,7 +268,7 @@ async function batchCompleteTasks(taskIds: string[]): Promise<void> {
 
 export function useBatchCompleteTasks() {
   const queryClient = useQueryClient()
-  return useMutation<void, Error, string[]>({
+  return useMutation<void, Error, string[], { previous: Task[] | undefined }>({
     mutationFn: batchCompleteTasks,
     onMutate: async (taskIds) => {
       await queryClient.cancelQueries({ queryKey: [TASKS_KEY] })

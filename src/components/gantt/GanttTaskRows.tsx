@@ -85,8 +85,6 @@ export const GanttTaskRows = memo(function GanttTaskRows({
         const progressPercent = task.progress_percent || 0
         const depth = task.depth ?? 0
         const isChild = depth > 0
-        const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
-
         const barColor = (() => {
           switch (task.status) {
             case 'done': return 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)'

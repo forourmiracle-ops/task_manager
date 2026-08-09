@@ -1,4 +1,4 @@
-import type { ToolContext, ToolDefinition, ToolResult } from './types'
+import type { ToolContext, ToolResult } from './types'
 import { getTool } from './tool-registry'
 import { getToolDefinitionsForAPI } from './tool-registry'
 

@@ -58,7 +58,7 @@ export const Sidebar = memo(function Sidebar() {
   const ROW_HEIGHT = density === 'compact' ? 32 : 36
 
   const [doneExpanded, setDoneExpanded] = useState(false)
-  const [doneShowAll, setDoneShowAll] = useState(false)
+  const [doneShowAll] = useState(false)
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const updateTask = useUpdateTask()
@@ -88,7 +88,7 @@ export const Sidebar = memo(function Sidebar() {
 
   // Debounced search
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value)
     clearTimeout(debounceRef.current)

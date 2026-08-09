@@ -1,4 +1,4 @@
-import type { ToolDefinition, ToolContext } from './types'
+import type { ToolDefinition } from './types'
 
 const MAX_BATCH = 50
 

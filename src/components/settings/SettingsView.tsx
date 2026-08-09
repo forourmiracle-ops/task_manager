@@ -27,7 +27,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
 export const SettingsView = memo(function SettingsView() {
   const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey, density, setDensity } = useAppStore()
   const [showKey, setShowKey] = useState(false)
-  const { checking, result, check, clearResult } = useUpdateCheck()
+  const { checking, result, check } = useUpdateCheck()
   const [updating, setUpdating] = useState(false)
   const syncStatus = useSyncStatus()
   const { data: tasks } = useTasks()

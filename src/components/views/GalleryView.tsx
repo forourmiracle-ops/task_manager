@@ -2,7 +2,6 @@ import { memo, useMemo, useCallback } from 'react'
 import { useTasks, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { useAppStore } from '@/store'
 import { buildTaskTree, flattenTasks, formatDate, STATUS_LABELS, PRIORITY_COLORS } from '@/lib/utils'
-import type { Task } from '@/types'
 
 export const GalleryView = memo(function GalleryView() {
   const { data: tasks, isLoading } = useTasks()

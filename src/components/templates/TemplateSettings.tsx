@@ -1,7 +1,7 @@
 import { useState, memo } from 'react'
 import { useTemplates, useCreateTemplate, useUpdateTemplate, useDeleteTemplate, useDuplicateTemplate } from '@/hooks/useTemplates'
 import { useAppStore } from '@/store'
-import type { Template, TemplateType, TemplateContent } from '@/types'
+import type { Template, TemplateType } from '@/types'
 
 const TYPE_LABELS: Record<TemplateType, string> = {
   project: '项目模板',

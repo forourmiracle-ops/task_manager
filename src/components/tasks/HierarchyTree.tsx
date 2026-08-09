@@ -131,7 +131,6 @@ export function HierarchyTree({ task, tasks, onSelect }: HierarchyTreeProps) {
   // Render from root, expanding the ancestor chain
   const renderAncestorChain = (t: Task, depth: number): React.ReactNode => {
     const isCurrent = t.id === task.id
-    const isAncestor = ancestors.some((a) => a.id === t.id)
     const nodeChildren = getChildren(t.id)
 
     // Find the next ancestor in the chain

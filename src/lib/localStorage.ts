@@ -110,6 +110,7 @@ const legacyLocalStorage = {
       depends_on: task.depends_on || [],
       tags: task.tags || [],
       sort_order: task.sort_order ?? tasks.length,
+      user_id: task.user_id || userId,
       created_at: now,
       updated_at: now,
     }

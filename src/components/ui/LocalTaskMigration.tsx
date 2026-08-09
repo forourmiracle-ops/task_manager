@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { localDB, isSupabaseConfigured } from '@/lib/localStorage'
 import { useAuth } from '@/hooks/useAuth'
-import type { Task } from '@/types'
 
 const MIGRATION_DONE_KEY = 'taskflow_local_migration_done'
 const MIGRATION_NEEDED_KEY = 'taskflow_migration_needed'
@@ -77,7 +76,7 @@ export function LocalTaskMigration() {
       setMigrating(false)
       return
     }
-    const tasks = await localDB.fetchTasks()
+    const tasks = await localDB.fetchTasks(user.id)
     let done = 0
     let failed = 0
 
