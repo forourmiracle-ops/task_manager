@@ -91,9 +91,9 @@ export default function App() {
   // 监听 userId 变化：切换/登出后清空内存消息，确保新会话看不到旧用户对话
   useEffect(() => {
     if (session?.user?.id) {
-      // 先清空内存中的旧用户消息，再切换 key 并加载新用户消息
-      clearAIMessages()
+      // 先切换 key 并迁移（避免 clearAIMessages 把默认 key 覆写为空导致 v1 数据无法迁移），再清空内存
       setAIStorageUserId(session.user.id)
+      clearAIMessages()
     } else {
       // 登出/会话过期：清空内存消息
       clearAIMessages()

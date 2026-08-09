@@ -64,9 +64,9 @@ export function setAIStorageUserId(userId: string): void {
   const oldKey = getStorageKey()
   _currentAIUserId = userId
 
-  // 迁移旧 key 的数据到新 key
+  // 迁移旧 key 的数据到新 key（仅允许从默认 key 迁移 v1 遗留数据，禁止用户间串数据）
   const newKey = getStorageKey()
-  if (oldKey !== newKey) {
+  if (oldKey === 'taskflow-ai-storage' && oldKey !== newKey) {
     const oldData = localStorage.getItem(oldKey)
     if (oldData && !localStorage.getItem(newKey)) {
       try {
