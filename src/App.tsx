@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { useAppStore, setAIStorageUserId } from '@/store'
+import { useAppStore, setAIStorageUserId, clearAIMessages } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
@@ -88,9 +88,15 @@ export default function App() {
   const { session, isAuthenticated, loading: authLoading } = useAuth()
 
   // Set per-user AI storage key when authenticated
+  // 监听 userId 变化：切换/登出后清空内存消息，确保新会话看不到旧用户对话
   useEffect(() => {
     if (session?.user?.id) {
+      // 先清空内存中的旧用户消息，再切换 key 并加载新用户消息
+      clearAIMessages()
       setAIStorageUserId(session.user.id)
+    } else {
+      // 登出/会话过期：清空内存消息
+      clearAIMessages()
     }
   }, [session?.user?.id])
 
@@ -100,6 +106,7 @@ export default function App() {
     if (userId) {
       clearAIStorage(userId)
       await clearUserLocalData(userId)
+      clearAIMessages()
     }
     supabase.auth.signOut()
   }

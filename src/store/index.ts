@@ -77,6 +77,10 @@ export function setAIStorageUserId(userId: string): void {
       } catch { /* ignore */ }
     }
   }
+
+  // 重新加载当前用户 key 下的消息（persist 初始化时 _currentAIUserId 尚未设置，
+  // 因此需要手动触发一次 rehydrate 来读取用户自己的对话历史）
+  useAppStore.persist.rehydrate()
 }
 
 /** 清理当前用户的 AI 对话存储 */

@@ -386,6 +386,21 @@ BEGIN
   END IF;
 END $$;
 
+-- 对其他表的孤儿数据做同样回填
+DO $$
+DECLARE
+  _first_user_id uuid;
+BEGIN
+  SELECT id INTO _first_user_id FROM auth.users ORDER BY created_at LIMIT 1;
+  IF _first_user_id IS NOT NULL THEN
+    UPDATE sprints SET user_id = _first_user_id WHERE user_id IS NULL;
+    UPDATE comments SET user_id = _first_user_id WHERE user_id IS NULL;
+    UPDATE attachments SET user_id = _first_user_id WHERE user_id IS NULL;
+    UPDATE reminders SET user_id = _first_user_id WHERE user_id IS NULL;
+    UPDATE ai_sessions SET user_id = _first_user_id WHERE user_id IS NULL;
+  END IF;
+END $$;
+
 -- ============================================================
 -- 验证部署结果
 -- ============================================================

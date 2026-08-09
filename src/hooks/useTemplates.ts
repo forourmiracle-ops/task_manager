@@ -17,6 +17,8 @@ async function fetchTemplates(): Promise<Template[]> {
 }
 
 async function createTemplate(tmpl: Partial<Template>): Promise<Template> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   const { data, error } = await supabase
     .from('templates')
     .insert({
@@ -26,6 +28,7 @@ async function createTemplate(tmpl: Partial<Template>): Promise<Template> {
       scope: 'custom',
       icon: tmpl.icon || '📋',
       content: tmpl.content || { version: 1, title: '新模板' },
+      user_id: user.id,
     })
     .select()
     .single()
@@ -34,6 +37,8 @@ async function createTemplate(tmpl: Partial<Template>): Promise<Template> {
 }
 
 async function updateTemplate(tmpl: Partial<Template> & { id: string }): Promise<Template> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   const { data, error } = await supabase
     .from('templates')
     .update({
@@ -44,6 +49,7 @@ async function updateTemplate(tmpl: Partial<Template> & { id: string }): Promise
       updated_at: new Date().toISOString(),
     })
     .eq('id', tmpl.id)
+    .eq('user_id', user.id)
     .select()
     .single()
   if (error) throw error
@@ -51,11 +57,19 @@ async function updateTemplate(tmpl: Partial<Template> & { id: string }): Promise
 }
 
 async function deleteTemplate(id: string): Promise<void> {
-  const { error } = await supabase.from('templates').delete().eq('id', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
+  const { error } = await supabase
+    .from('templates')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
   if (error) throw error
 }
 
 async function duplicateTemplate(id: string): Promise<Template> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   const { data: source, error: fetchErr } = await supabase
     .from('templates')
     .select('*')
@@ -72,6 +86,7 @@ async function duplicateTemplate(id: string): Promise<Template> {
       scope: 'custom',
       icon: source.icon,
       content: source.content,
+      user_id: user.id,
     })
     .select()
     .single()
@@ -91,6 +106,8 @@ async function fetchRecurringTasks(): Promise<RecurringTask[]> {
 }
 
 async function createRecurringTask(rt: Partial<RecurringTask>): Promise<RecurringTask> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   const { data, error } = await supabase
     .from('recurring_tasks')
     .insert({
@@ -101,6 +118,7 @@ async function createRecurringTask(rt: Partial<RecurringTask>): Promise<Recurrin
       days_of_week: rt.days_of_week || [],
       next_run: rt.next_run || new Date().toISOString(),
       enabled: rt.enabled ?? true,
+      user_id: user.id,
     })
     .select()
     .single()
@@ -109,6 +127,8 @@ async function createRecurringTask(rt: Partial<RecurringTask>): Promise<Recurrin
 }
 
 async function updateRecurringTask(rt: Partial<RecurringTask> & { id: string }): Promise<RecurringTask> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   const { data, error } = await supabase
     .from('recurring_tasks')
     .update({
@@ -121,6 +141,7 @@ async function updateRecurringTask(rt: Partial<RecurringTask> & { id: string }):
       parent_task_id: rt.parent_task_id,
     })
     .eq('id', rt.id)
+    .eq('user_id', user.id)
     .select()
     .single()
   if (error) throw error
@@ -128,7 +149,13 @@ async function updateRecurringTask(rt: Partial<RecurringTask> & { id: string }):
 }
 
 async function deleteRecurringTask(id: string): Promise<void> {
-  const { error } = await supabase.from('recurring_tasks').delete().eq('id', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
+  const { error } = await supabase
+    .from('recurring_tasks')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
   if (error) throw error
 }
 
