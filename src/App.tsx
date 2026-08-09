@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { useAppStore } from '@/store'
+import { useAppStore, setAIStorageUserId } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
 import { DetailPanel } from '@/components/tasks/DetailPanel'
@@ -16,6 +16,8 @@ import { useRealtimeSubscription } from '@/hooks/useTasks'
 import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { supabase } from '@/lib/supabase'
+import { clearUserLocalData } from '@/lib/localStorage'
+import { clearAIStorage } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthView } from '@/components/auth/AuthView'
 import type { ViewType } from '@/types'
@@ -84,6 +86,23 @@ export default function App() {
 
   // Auth guard — redirect to login if not authenticated
   const { session, isAuthenticated, loading: authLoading } = useAuth()
+
+  // Set per-user AI storage key when authenticated
+  useEffect(() => {
+    if (session?.user?.id) {
+      setAIStorageUserId(session.user.id)
+    }
+  }, [session?.user?.id])
+
+  // Sign out handler — clear all local data for the current user
+  const handleSignOut = async () => {
+    const userId = session?.user?.id
+    if (userId) {
+      clearAIStorage(userId)
+      await clearUserLocalData(userId)
+    }
+    supabase.auth.signOut()
+  }
 
   // Close sidebar by default on mobile
   useEffect(() => {
@@ -232,7 +251,7 @@ export default function App() {
             {session?.user?.email}
           </span>
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={handleSignOut}
             className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-accent transition-colors"
             title="退出登录"
           >

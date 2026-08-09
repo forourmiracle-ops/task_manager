@@ -1,5 +1,5 @@
 import type { Task } from '@/types'
-import { indexedDB } from '@/lib/indexedDB'
+import { indexedDB, deleteUserDB } from '@/lib/indexedDB'
 import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY } from '@/lib/supabase'
 
 // Check if Supabase is configured (env vars OR hardcoded defaults)
@@ -9,86 +9,88 @@ export function isSupabaseConfigured(): boolean {
   return !!(url && key && url !== 'your_supabase_url' && key !== 'your_supabase_anon_key')
 }
 
-// Primary fallback: IndexedDB (async, large capacity)
-// Secondary fallback: localStorage (sync, limited capacity)
+// Primary fallback: IndexedDB (async, large capacity, per-user)
+// Secondary fallback: localStorage (sync, limited capacity, per-user)
 export const localDB = {
-  async fetchTasks(): Promise<Task[]> {
+  async fetchTasks(userId: string): Promise<Task[]> {
     try {
-      return await indexedDB.fetchTasks()
+      return await indexedDB.fetchTasks(userId)
     } catch (err) {
       console.warn('IndexedDB fetch failed, using localStorage:', err)
-      return legacyLocalStorage.fetchTasks()
+      return legacyLocalStorage.fetchTasks(userId)
     }
   },
 
-  async createTask(task: Partial<Task>): Promise<Task> {
+  async createTask(userId: string, task: Partial<Task>): Promise<Task> {
     try {
-      return await indexedDB.createTask(task)
+      return await indexedDB.createTask(userId, task)
     } catch (err) {
       console.warn('IndexedDB create failed, using localStorage:', err)
-      return legacyLocalStorage.createTask(task)
+      return legacyLocalStorage.createTask(userId, task)
     }
   },
 
-  async updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
+  async updateTask(userId: string, task: Partial<Task> & { id: string }): Promise<Task> {
     try {
-      return await indexedDB.updateTask(task)
+      return await indexedDB.updateTask(userId, task)
     } catch (err) {
       console.warn('IndexedDB update failed, using localStorage:', err)
-      return legacyLocalStorage.updateTask(task)
+      return legacyLocalStorage.updateTask(userId, task)
     }
   },
 
-  async batchUpdateTasks(updates: Array<Partial<Task> & { id: string }>): Promise<Task[]> {
+  async batchUpdateTasks(userId: string, updates: Array<Partial<Task> & { id: string }>): Promise<Task[]> {
     try {
-      return await indexedDB.batchUpdateTasks(updates)
+      return await indexedDB.batchUpdateTasks(userId, updates)
     } catch (err) {
       console.warn('IndexedDB batch update failed, using localStorage:', err)
-      return legacyLocalStorage.batchUpdateTasks(updates)
+      return legacyLocalStorage.batchUpdateTasks(userId, updates)
     }
   },
 
-  async deleteTask(id: string): Promise<void> {
+  async deleteTask(userId: string, id: string): Promise<void> {
     try {
-      return await indexedDB.deleteTask(id)
+      return await indexedDB.deleteTask(userId, id)
     } catch (err) {
       console.warn('IndexedDB delete failed, using localStorage:', err)
-      return legacyLocalStorage.deleteTask(id)
+      return legacyLocalStorage.deleteTask(userId, id)
     }
   },
 }
 
-// Legacy localStorage fallback (kept as last resort)
-const STORAGE_KEY = 'taskflow_tasks'
+// Legacy localStorage fallback (kept as last resort, per-user)
+function storageKey(userId: string): string {
+  return `taskflow_${userId}_tasks`
+}
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-function loadTasks(): Task[] {
+function loadTasks(userId: string): Task[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey(userId))
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
   }
 }
 
-function saveTasks(tasks: Task[]): void {
+function saveTasks(userId: string, tasks: Task[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+    localStorage.setItem(storageKey(userId), JSON.stringify(tasks))
   } catch (err) {
     console.error('localStorage write failed (QuotaExceeded?):', err)
   }
 }
 
 const legacyLocalStorage = {
-  async fetchTasks(): Promise<Task[]> {
-    return loadTasks().sort((a, b) => a.sort_order - b.sort_order)
+  async fetchTasks(userId: string): Promise<Task[]> {
+    return loadTasks(userId).sort((a, b) => a.sort_order - b.sort_order)
   },
 
-  async createTask(task: Partial<Task>): Promise<Task> {
-    const tasks = loadTasks()
+  async createTask(userId: string, task: Partial<Task>): Promise<Task> {
+    const tasks = loadTasks(userId)
     const now = new Date().toISOString()
     const newTask: Task = {
       id: generateId(),
@@ -112,21 +114,21 @@ const legacyLocalStorage = {
       updated_at: now,
     }
     tasks.push(newTask)
-    saveTasks(tasks)
+    saveTasks(userId, tasks)
     return newTask
   },
 
-  async updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
-    const tasks = loadTasks()
+  async updateTask(userId: string, task: Partial<Task> & { id: string }): Promise<Task> {
+    const tasks = loadTasks(userId)
     const index = tasks.findIndex((t) => t.id === task.id)
     if (index === -1) throw new Error('Task not found')
     tasks[index] = { ...tasks[index], ...task, updated_at: new Date().toISOString() }
-    saveTasks(tasks)
+    saveTasks(userId, tasks)
     return tasks[index]
   },
 
-  async batchUpdateTasks(updates: Array<Partial<Task> & { id: string }>): Promise<Task[]> {
-    const tasks = loadTasks()
+  async batchUpdateTasks(userId: string, updates: Array<Partial<Task> & { id: string }>): Promise<Task[]> {
+    const tasks = loadTasks(userId)
     const results: Task[] = []
     const updateMap = new Map(updates.map((u) => [u.id, u]))
     for (let i = 0; i < tasks.length; i++) {
@@ -136,12 +138,12 @@ const legacyLocalStorage = {
         results.push(tasks[i])
       }
     }
-    saveTasks(tasks)
+    saveTasks(userId, tasks)
     return results
   },
 
-  async deleteTask(id: string): Promise<void> {
-    let tasks = loadTasks()
+  async deleteTask(userId: string, id: string): Promise<void> {
+    let tasks = loadTasks(userId)
     const idsToDelete = new Set<string>([id])
     let changed = true
     while (changed) {
@@ -154,6 +156,40 @@ const legacyLocalStorage = {
       }
     }
     tasks = tasks.filter((t) => !idsToDelete.has(t.id))
-    saveTasks(tasks)
+    saveTasks(userId, tasks)
   },
+}
+
+/** 清理指定用户的所有本地存储数据 */
+export async function clearUserLocalData(userId: string): Promise<void> {
+  // 清理 IndexedDB
+  await deleteUserDB(userId)
+
+  // 清理 localStorage
+  const keysToRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(`taskflow_${userId}_`)) {
+      keysToRemove.push(key)
+    }
+  }
+  // 也清理旧版全局 key（无 userId 前缀的遗留数据）
+  const legacyKeys = [
+    'taskflow_tasks',
+    'taskflow_comments',
+    'taskflow-ai-storage',
+    'taskflow_migration_needed',
+    'taskflow_local_migration_done',
+    'taskflow_sync_error',
+    'taskflow-update-last-check',
+  ]
+  for (const key of legacyKeys) {
+    localStorage.removeItem(key)
+  }
+  for (const key of keysToRemove) {
+    localStorage.removeItem(key)
+  }
+
+  // 清理 sessionStorage 中的 API Key
+  sessionStorage.removeItem('taskflow-deepseek-key')
 }

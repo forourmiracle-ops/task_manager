@@ -23,7 +23,7 @@ export function LocalTaskMigration() {
     if (!isSupabaseConfigured() || !userId) return
 
     try {
-      const localTasks = await localDB.fetchTasks()
+      const localTasks = await localDB.fetchTasks(userId)
       setLocalCount(localTasks.length)
 
       if (localTasks.length === 0) {

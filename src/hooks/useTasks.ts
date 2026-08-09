@@ -55,7 +55,7 @@ export function getSyncError(): string | null {
 async function fetchTasks(userId: string | undefined): Promise<Task[]> {
   if (useLocal) {
     setSyncStatus('offline')
-    return localDB.fetchTasks()
+    return localDB.fetchTasks(userId || 'local')
   }
   if (!userId) {
     setSyncStatus('checking')
@@ -70,43 +70,21 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
     if (error) throw error
     const tasks = (data as Task[]) || []
 
-    // Auto-claim orphaned tasks (user_id IS NULL) if current user has no tasks yet
-    if (tasks.length === 0) {
-      try {
-        await supabase.rpc('fn_claim_orphaned_tasks')
-        const { data: claimed } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('user_id', userId)
-          .order('sort_order')
-        const claimedTasks = (claimed as Task[]) || []
-        if (claimedTasks.length > 0) {
-          // Successfully claimed orphaned tasks — clear migration flags
-          localStorage.removeItem(MIGRATION_NEEDED_KEY)
-          setSyncStatus('online')
-          return claimedTasks
-        }
-      } catch {
-        // fn_claim_orphaned_tasks not deployed yet — ignore
-      }
-    }
-
     // If Supabase has no tasks, always fall back to localDB so the user
     // can see their data. LocalTaskMigration handles the migration prompt.
     if (tasks.length === 0) {
       try {
-        const localTasks = await localDB.fetchTasks()
+        const localTasks = await localDB.fetchTasks(userId)
         if (localTasks.length > 0) {
           localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
-          setSyncStatus('online') // Supabase is reachable, just no tasks yet
+          setSyncStatus('online')
           return localTasks
         }
       } catch {
         // localDB unavailable — ignore
       }
-      setSyncStatus('online') // Supabase reachable, empty state
+      setSyncStatus('online')
     } else {
-      // Supabase has tasks — clear any stale migration flags
       localStorage.removeItem(MIGRATION_NEEDED_KEY)
       setSyncStatus('online')
     }
@@ -116,13 +94,12 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase fetch failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    // On Supabase error, fall back to local data
-    return localDB.fetchTasks()
+    return localDB.fetchTasks(userId || 'local')
   }
 }
 
 async function createTask(task: Partial<Task>): Promise<Task> {
-  if (useLocal) return localDB.createTask(task)
+  if (useLocal) return localDB.createTask('local', task)
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('未登录')
@@ -154,13 +131,15 @@ async function createTask(task: Partial<Task>): Promise<Task> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase create failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.createTask(task)
+    return localDB.createTask('local', task)
   }
 }
 
 async function updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
-  if (useLocal) return localDB.updateTask(task)
+  if (useLocal) return localDB.updateTask('local', task)
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('未登录')
     const { data, error } = await supabase
       .from('tasks')
       .update({
@@ -168,6 +147,7 @@ async function updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
         updated_at: new Date().toISOString(),
       })
       .eq('id', task.id)
+      .eq('user_id', user.id)
       .select()
       .single()
     if (error) throw error
@@ -177,21 +157,27 @@ async function updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase update failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.updateTask(task)
+    return localDB.updateTask('local', task)
   }
 }
 
 async function deleteTask(id: string): Promise<void> {
-  if (useLocal) return localDB.deleteTask(id)
+  if (useLocal) return localDB.deleteTask('local', id)
   try {
-    const { error } = await supabase.from('tasks').delete().eq('id', id)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('未登录')
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
     if (error) throw error
     setSyncStatus('online')
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase delete failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.deleteTask(id)
+    return localDB.deleteTask('local', id)
   }
 }
 
@@ -266,7 +252,7 @@ export function useDeleteTask() {
 
 async function batchCompleteTasks(taskIds: string[]): Promise<void> {
   if (useLocal) {
-    await localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+    await localDB.batchUpdateTasks('local', taskIds.map((id) => ({ id, status: 'done' as const })))
     return
   }
   try {
@@ -277,7 +263,7 @@ async function batchCompleteTasks(taskIds: string[]): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase batch complete failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    await localDB.batchUpdateTasks(taskIds.map((id) => ({ id, status: 'done' as const })))
+    await localDB.batchUpdateTasks('local', taskIds.map((id) => ({ id, status: 'done' as const })))
   }
 }
 

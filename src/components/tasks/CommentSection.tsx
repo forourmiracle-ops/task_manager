@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useComments, useCreateComment } from '@/hooks/useComments'
+import { useAuth } from '@/hooks/useAuth'
 import { format } from 'date-fns'
 
 interface CommentSectionProps {
@@ -7,8 +8,9 @@ interface CommentSectionProps {
 }
 
 export function CommentSection({ taskId }: CommentSectionProps) {
-  const { data: comments = [], isLoading } = useComments(taskId)
-  const createComment = useCreateComment()
+  const { userId } = useAuth()
+  const { data: comments = [], isLoading } = useComments(taskId, userId ?? '')
+  const createComment = useCreateComment(userId ?? '')
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 

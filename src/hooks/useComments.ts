@@ -4,25 +4,28 @@ import { isSupabaseConfigured } from '@/lib/localStorage'
 import type { Comment } from '@/types'
 
 const COMMENTS_KEY = 'comments'
-const LOCAL_KEY = 'taskflow_comments'
 const useLocal = !isSupabaseConfigured()
 
-function loadLocalComments(): Comment[] {
+function localCommentsKey(userId: string): string {
+  return `taskflow_${userId}_comments`
+}
+
+function loadLocalComments(userId: string): Comment[] {
   try {
-    const raw = localStorage.getItem(LOCAL_KEY)
+    const raw = localStorage.getItem(localCommentsKey(userId))
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
   }
 }
 
-function saveLocalComments(comments: Comment[]): void {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(comments))
+function saveLocalComments(userId: string, comments: Comment[]): void {
+  localStorage.setItem(localCommentsKey(userId), JSON.stringify(comments))
 }
 
-async function fetchComments(taskId: string): Promise<Comment[]> {
+async function fetchComments(taskId: string, userId: string): Promise<Comment[]> {
   if (useLocal) {
-    return loadLocalComments()
+    return loadLocalComments(userId)
       .filter((c) => c.task_id === taskId)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }
@@ -39,16 +42,16 @@ async function fetchComments(taskId: string): Promise<Comment[]> {
     return (data as Comment[]) || []
   } catch (err) {
     console.warn('Supabase comments fetch failed, using local storage:', err)
-    return loadLocalComments()
+    return loadLocalComments(userId)
       .filter((c) => c.task_id === taskId)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }
 }
 
-async function createComment(comment: Pick<Comment, 'task_id' | 'content' | 'author_id'>): Promise<Comment> {
+async function createComment(comment: Pick<Comment, 'task_id' | 'content' | 'author_id'>, userId: string): Promise<Comment> {
   const now = new Date().toISOString()
   if (useLocal) {
-    const comments = loadLocalComments()
+    const comments = loadLocalComments(userId)
     const newComment: Comment = {
       id: crypto.randomUUID(),
       task_id: comment.task_id,
@@ -57,7 +60,7 @@ async function createComment(comment: Pick<Comment, 'task_id' | 'content' | 'aut
       created_at: now,
     }
     comments.push(newComment)
-    saveLocalComments(comments)
+    saveLocalComments(userId, comments)
     return newComment
   }
   try {
@@ -76,7 +79,7 @@ async function createComment(comment: Pick<Comment, 'task_id' | 'content' | 'aut
     return data as Comment
   } catch (err) {
     console.warn('Supabase comment create failed, using local storage:', err)
-    const comments = loadLocalComments()
+    const comments = loadLocalComments(userId)
     const newComment: Comment = {
       id: crypto.randomUUID(),
       task_id: comment.task_id,
@@ -85,24 +88,24 @@ async function createComment(comment: Pick<Comment, 'task_id' | 'content' | 'aut
       created_at: now,
     }
     comments.push(newComment)
-    saveLocalComments(comments)
+    saveLocalComments(userId, comments)
     return newComment
   }
 }
 
-export function useComments(taskId: string) {
+export function useComments(taskId: string, userId: string) {
   return useQuery({
-    queryKey: [COMMENTS_KEY, taskId],
-    queryFn: () => fetchComments(taskId),
+    queryKey: [COMMENTS_KEY, taskId, userId],
+    queryFn: () => fetchComments(taskId, userId),
     staleTime: 30_000,
-    enabled: !!taskId,
+    enabled: !!taskId && !!userId,
   })
 }
 
-export function useCreateComment() {
+export function useCreateComment(userId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: createComment,
+    mutationFn: (comment: Pick<Comment, 'task_id' | 'content' | 'author_id'>) => createComment(comment, userId),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [COMMENTS_KEY, data.task_id] })
     },

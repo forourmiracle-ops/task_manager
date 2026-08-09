@@ -1,15 +1,16 @@
 import { openDB, type IDBPDatabase } from 'idb'
 import type { Task } from '@/types'
 
-const DB_NAME = 'taskflow'
 const DB_VERSION = 1
 const STORE_NAME = 'tasks'
 
-let dbPromise: Promise<IDBPDatabase> | null = null
+// Per-user database cache: userId → DB promise
+const dbCache = new Map<string, Promise<IDBPDatabase>>()
 
-function getDB(): Promise<IDBPDatabase> {
-  if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
+function getDB(userId: string): Promise<IDBPDatabase> {
+  const dbName = `taskflow_${userId}`
+  if (!dbCache.has(userId)) {
+    dbCache.set(userId, openDB(dbName, DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' })
@@ -18,9 +19,27 @@ function getDB(): Promise<IDBPDatabase> {
           store.createIndex('status', 'status')
         }
       },
-    })
+    }))
   }
-  return dbPromise
+  return dbCache.get(userId)!
+}
+
+/** 删除指定用户的 IndexedDB 数据库 */
+export async function deleteUserDB(userId: string): Promise<void> {
+  dbCache.delete(userId)
+  const dbName = `taskflow_${userId}`
+  // Close any open connection first
+  try {
+    const db = await openDB(dbName, DB_VERSION)
+    db.close()
+  } catch { /* DB may not exist */ }
+  // Delete the database
+  return new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase(dbName)
+    req.onsuccess = () => resolve()
+    req.onerror = () => resolve() // Silently ignore errors
+    req.onblocked = () => resolve()
+  })
 }
 
 function generateId(): string {
@@ -28,14 +47,14 @@ function generateId(): string {
 }
 
 export const indexedDB = {
-  async fetchTasks(): Promise<Task[]> {
-    const db = await getDB()
+  async fetchTasks(userId: string): Promise<Task[]> {
+    const db = await getDB(userId)
     const tasks = await db.getAll(STORE_NAME)
     return tasks.sort((a, b) => a.sort_order - b.sort_order)
   },
 
-  async createTask(task: Partial<Task>): Promise<Task> {
-    const db = await getDB()
+  async createTask(userId: string, task: Partial<Task>): Promise<Task> {
+    const db = await getDB(userId)
     const now = new Date().toISOString()
     const existing = await db.getAll(STORE_NAME)
     const newTask: Task = {
@@ -63,8 +82,8 @@ export const indexedDB = {
     return newTask
   },
 
-  async updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
-    const db = await getDB()
+  async updateTask(userId: string, task: Partial<Task> & { id: string }): Promise<Task> {
+    const db = await getDB(userId)
     const existing = await db.get(STORE_NAME, task.id)
     if (!existing) throw new Error('Task not found')
     const updated = { ...existing, ...task, updated_at: new Date().toISOString() }
@@ -72,8 +91,8 @@ export const indexedDB = {
     return updated
   },
 
-  async batchUpdateTasks(updates: Array<Partial<Task> & { id: string }>): Promise<Task[]> {
-    const db = await getDB()
+  async batchUpdateTasks(userId: string, updates: Array<Partial<Task> & { id: string }>): Promise<Task[]> {
+    const db = await getDB(userId)
     const tx = db.transaction(STORE_NAME, 'readwrite')
     const results: Task[] = []
     for (const update of updates) {
@@ -87,8 +106,8 @@ export const indexedDB = {
     return results
   },
 
-  async deleteTask(id: string): Promise<void> {
-    const db = await getDB()
+  async deleteTask(userId: string, id: string): Promise<void> {
+    const db = await getDB(userId)
     const allTasks = await db.getAll(STORE_NAME)
     const idsToDelete = new Set<string>([id])
     let changed = true

@@ -1,16 +1,15 @@
 -- ============================================================
 -- TaskFlow 完整数据库部署脚本
 -- 在 Supabase SQL Editor 中一次性执行即可完成所有设置
--- (https://supabase.com/dashboard/project/tynhqwexdfdtobkmmzdo)
 -- ============================================================
 
 -- ============================================================
--- 1. 任务表 (如果不存在则创建)
+-- 1. 任务表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   parent_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   title TEXT NOT NULL DEFAULT '新任务',
   description TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done', 'blocked')),
@@ -30,34 +29,28 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 2. 添加 user_id 列（如果表已存在但缺少此列）
--- ============================================================
+-- 为已有表添加 user_id 列（如果缺失）
 DO $$
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables WHERE table_name = 'tasks'
-  ) AND NOT EXISTS (
-    SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'user_id'
-  ) THEN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tasks')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'user_id') THEN
     ALTER TABLE tasks ADD COLUMN user_id UUID REFERENCES auth.users(id);
   END IF;
 END $$;
 
--- ============================================================
--- 3. 索引
--- ============================================================
+-- 索引
 CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
-CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
 
 -- ============================================================
--- 4. 冲刺表
+-- 2. 冲刺表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sprints (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   name TEXT NOT NULL DEFAULT '新冲刺',
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
@@ -65,60 +58,125 @@ CREATE TABLE IF NOT EXISTS sprints (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sprints')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sprints' AND column_name = 'user_id') THEN
+    ALTER TABLE sprints ADD COLUMN user_id UUID REFERENCES auth.users(id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_sprints_user_id ON sprints(user_id);
+
 -- ============================================================
--- 5. 评论表
+-- 3. 评论表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS comments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   content TEXT NOT NULL DEFAULT '',
   author_id TEXT NOT NULL DEFAULT 'anonymous',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'comments')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'comments' AND column_name = 'user_id') THEN
+    ALTER TABLE comments ADD COLUMN user_id UUID REFERENCES auth.users(id);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_comments_task_id ON comments(task_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
 
 -- ============================================================
--- 6. 附件表
+-- 4. 附件表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS attachments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   file_name TEXT NOT NULL,
   storage_path TEXT NOT NULL,
   size INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'attachments')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'attachments' AND column_name = 'user_id') THEN
+    ALTER TABLE attachments ADD COLUMN user_id UUID REFERENCES auth.users(id);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_user_id ON attachments(user_id);
 
 -- ============================================================
--- 7. 提醒表
+-- 5. 提醒表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS reminders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   remind_at TIMESTAMPTZ NOT NULL,
   method TEXT NOT NULL DEFAULT 'browser',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'reminders')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reminders' AND column_name = 'user_id') THEN
+    ALTER TABLE reminders ADD COLUMN user_id UUID REFERENCES auth.users(id);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_reminders_task_id ON reminders(task_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_remind_at ON reminders(remind_at);
 
 -- ============================================================
--- 8. AI 对话历史表
+-- 6. AI 对话历史表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ai_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   session_type TEXT NOT NULL DEFAULT 'task_breakdown',
   messages JSONB NOT NULL DEFAULT '[]',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_sessions')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ai_sessions' AND column_name = 'user_id') THEN
+    ALTER TABLE ai_sessions ADD COLUMN user_id UUID REFERENCES auth.users(id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_ai_sessions_user_id ON ai_sessions(user_id);
+
 -- ============================================================
--- 9. 更新时间触发器
+-- 7. 用户设置表（主题、字体等偏好，不存储 API Key）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_settings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  theme TEXT NOT NULL DEFAULT 'light',
+  font_size INTEGER NOT NULL DEFAULT 4,
+  density TEXT NOT NULL DEFAULT 'comfortable',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
+
+-- ============================================================
+-- 8. 更新时间触发器
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -134,43 +192,7 @@ CREATE TRIGGER tasks_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
--- 10. 递归查询任务树函数
--- ============================================================
-CREATE OR REPLACE FUNCTION get_task_tree()
-RETURNS TABLE (
-  id UUID,
-  parent_id UUID,
-  title TEXT,
-  status TEXT,
-  priority TEXT,
-  start_date DATE,
-  due_date DATE,
-  progress_percent INTEGER,
-  depth INTEGER,
-  path UUID[]
-) AS $$
-BEGIN
-  RETURN QUERY
-  WITH RECURSIVE task_tree AS (
-    SELECT
-      t.id, t.parent_id, t.title, t.status, t.priority,
-      t.start_date, t.due_date, t.progress_percent, 0 AS depth, ARRAY[t.id] AS path
-    FROM tasks t
-    WHERE t.parent_id IS NULL
-    UNION ALL
-    SELECT
-      t.id, t.parent_id, t.title, t.status, t.priority,
-      t.start_date, t.due_date, t.progress_percent, tt.depth + 1, tt.path || t.id
-    FROM tasks t
-    JOIN task_tree tt ON t.parent_id = tt.id
-    WHERE tt.depth < 3
-  )
-  SELECT * FROM task_tree ORDER BY path;
-END;
-$$ LANGUAGE plpgsql;
-
--- ============================================================
--- 11. 批量完成任务 RPC
+-- 9. 批量完成任务 RPC
 -- ============================================================
 CREATE OR REPLACE FUNCTION batch_complete_tasks(p_task_ids uuid[])
 RETURNS void
@@ -193,7 +215,7 @@ END;
 $$;
 
 -- ============================================================
--- 12. 认领孤儿任务 RPC
+-- 10. 认领孤儿任务 RPC（仅用于手动迁移，不在生产代码中调用）
 -- ============================================================
 CREATE OR REPLACE FUNCTION fn_claim_orphaned_tasks()
 RETURNS integer
@@ -214,7 +236,7 @@ END;
 $$;
 
 -- ============================================================
--- 13. 循环依赖检测 RPC
+-- 11. 循环依赖检测 RPC
 -- ============================================================
 CREATE OR REPLACE FUNCTION check_dependency_cycle(p_task_id uuid, p_candidate_id uuid)
 RETURNS boolean
@@ -238,32 +260,99 @@ END;
 $$;
 
 -- ============================================================
--- 14. RLS 策略 — 用户隔离
+-- 12. RLS 策略 — 所有表按用户隔离
 -- ============================================================
+
+-- tasks
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-
--- 移除旧的开放策略
 DROP POLICY IF EXISTS "Allow all on tasks" ON tasks;
-
--- 创建用户隔离策略（如果不存在）
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own tasks' AND tablename = 'tasks') THEN
-    CREATE POLICY "Users can view own tasks" ON tasks FOR SELECT USING (auth.uid() = user_id);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tasks_user_isolation' AND tablename = 'tasks') THEN
+    CREATE POLICY "tasks_user_isolation" ON tasks
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert own tasks' AND tablename = 'tasks') THEN
-    CREATE POLICY "Users can insert own tasks" ON tasks FOR INSERT WITH CHECK (auth.uid() = user_id);
+END $$;
+
+-- sprints
+ALTER TABLE sprints ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on sprints" ON sprints;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'sprints_user_isolation' AND tablename = 'sprints') THEN
+    CREATE POLICY "sprints_user_isolation" ON sprints
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own tasks' AND tablename = 'tasks') THEN
-    CREATE POLICY "Users can update own tasks" ON tasks FOR UPDATE USING (auth.uid() = user_id);
+END $$;
+
+-- comments
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on comments" ON comments;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'comments_user_isolation' AND tablename = 'comments') THEN
+    CREATE POLICY "comments_user_isolation" ON comments
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can delete own tasks' AND tablename = 'tasks') THEN
-    CREATE POLICY "Users can delete own tasks" ON tasks FOR DELETE USING (auth.uid() = user_id);
+END $$;
+
+-- attachments
+ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on attachments" ON attachments;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'attachments_user_isolation' AND tablename = 'attachments') THEN
+    CREATE POLICY "attachments_user_isolation" ON attachments
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- reminders
+ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on reminders" ON reminders;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'reminders_user_isolation' AND tablename = 'reminders') THEN
+    CREATE POLICY "reminders_user_isolation" ON reminders
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- ai_sessions
+ALTER TABLE ai_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on ai_sessions" ON ai_sessions;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'ai_sessions_user_isolation' AND tablename = 'ai_sessions') THEN
+    CREATE POLICY "ai_sessions_user_isolation" ON ai_sessions
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- user_settings
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'user_settings_user_isolation' AND tablename = 'user_settings') THEN
+    CREATE POLICY "user_settings_user_isolation" ON user_settings
+      FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 -- ============================================================
--- 15. 启用 Realtime
+-- 13. 收紧 SECURITY DEFINER 函数执行权限
+-- ============================================================
+REVOKE EXECUTE ON FUNCTION batch_complete_tasks(uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION batch_complete_tasks(uuid[]) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION fn_claim_orphaned_tasks() FROM PUBLIC, anon, authenticated;
+-- 此函数仅用于手动迁移，不授予任何角色
+
+REVOKE EXECUTE ON FUNCTION check_dependency_cycle(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION check_dependency_cycle(uuid, uuid) TO authenticated;
+
+-- ============================================================
+-- 14. 启用 Realtime（仅 tasks 表，不含 user_settings）
 -- ============================================================
 DO $$
 BEGIN
@@ -274,8 +363,18 @@ BEGIN
   END IF;
 END $$;
 
+-- 从 Realtime 移除 user_settings（不再包含 API Key）
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'user_settings'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE user_settings;
+  END IF;
+END $$;
+
 -- ============================================================
--- 16. 迁移现有数据：将孤儿任务分配给第一个注册用户
+-- 15. 迁移现有数据：将孤儿任务分配给第一个注册用户
 -- ============================================================
 DO $$
 DECLARE
@@ -290,59 +389,24 @@ END $$;
 -- ============================================================
 -- 验证部署结果
 -- ============================================================
+SELECT '=== 表结构验证 ===' AS info;
 SELECT
-  'tasks 表列' AS check_item,
-  string_agg(column_name, ', ' ORDER BY ordinal_position) AS result
+  table_name,
+  string_agg(column_name, ', ' ORDER BY ordinal_position) AS columns
 FROM information_schema.columns
-WHERE table_name = 'tasks' AND table_schema = 'public'
-UNION ALL
-SELECT 'RLS 策略', string_agg(policyname, ', ') FROM pg_policies WHERE tablename = 'tasks'
-UNION ALL
-SELECT '任务总数', count(*)::text FROM tasks
-UNION ALL
-SELECT '孤儿任务(NULL user_id)', count(*)::text FROM tasks WHERE user_id IS NULL
-UNION ALL
-SELECT 'Realtime 发布', '已配置' WHERE EXISTS (
-  SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'tasks'
-);
+WHERE table_schema = 'public' AND table_name IN ('tasks', 'sprints', 'comments', 'attachments', 'reminders', 'ai_sessions', 'user_settings')
+GROUP BY table_name
+ORDER BY table_name;
 
--- ============================================================
--- 17. 用户设置表（跨设备同步 API Key、主题等偏好）
--- ============================================================
-CREATE TABLE IF NOT EXISTS user_settings (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
-  deepseek_api_key TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+SELECT '=== RLS 策略验证 ===' AS info;
+SELECT tablename, string_agg(policyname, ', ') AS policies
+FROM pg_policies
+WHERE tablename IN ('tasks', 'sprints', 'comments', 'attachments', 'reminders', 'ai_sessions', 'user_settings')
+GROUP BY tablename
+ORDER BY tablename;
 
--- 索引
-CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
+SELECT '=== 孤儿任务检查 ===' AS info;
+SELECT count(*) AS orphaned_tasks FROM tasks WHERE user_id IS NULL;
 
--- RLS 启用
-ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
-
--- RLS 策略
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own settings' AND tablename = 'user_settings') THEN
-    CREATE POLICY "Users can view own settings" ON user_settings FOR SELECT USING (auth.uid() = user_id);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert own settings' AND tablename = 'user_settings') THEN
-    CREATE POLICY "Users can insert own settings" ON user_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own settings' AND tablename = 'user_settings') THEN
-    CREATE POLICY "Users can update own settings" ON user_settings FOR UPDATE USING (auth.uid() = user_id);
-  END IF;
-END $$;
-
--- Realtime 发布
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'user_settings'
-  ) THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE user_settings;
-  END IF;
-END $$;
+SELECT '=== Realtime 发布 ===' AS info;
+SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
