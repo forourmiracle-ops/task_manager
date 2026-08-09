@@ -78,9 +78,20 @@ export function setAIStorageUserId(userId: string): void {
     }
   }
 
-  // 重新加载当前用户 key 下的消息（persist 初始化时 _currentAIUserId 尚未设置，
-  // 因此需要手动触发一次 rehydrate 来读取用户自己的对话历史）
-  useAppStore.persist.rehydrate()
+  // 重新加载当前用户 key 下的消息（同步读取，避免异步 rehydrate 被后续
+  // clearAIMessages 写空数据覆盖导致用户历史丢失）
+  try {
+    const raw = localStorage.getItem(newKey)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed?.state?.messages?.length) {
+        useAppStore.setState({ messages: parsed.state.messages })
+        return
+      }
+    }
+  } catch { /* ignore */ }
+  // 新 key 无数据时设为 []（此时写空是安全的，因为磁盘上本来就没有数据）
+  useAppStore.setState({ messages: [] })
 }
 
 /** 清理当前用户的 AI 对话存储 */

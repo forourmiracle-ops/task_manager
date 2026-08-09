@@ -88,12 +88,11 @@ export default function App() {
   const { session, isAuthenticated, loading: authLoading } = useAuth()
 
   // Set per-user AI storage key when authenticated
-  // 监听 userId 变化：切换/登出后清空内存消息，确保新会话看不到旧用户对话
+  // 监听 userId 变化：切换 key 并加载用户历史消息，登出时清空内存
   useEffect(() => {
     if (session?.user?.id) {
-      // 先切换 key 并迁移（避免 clearAIMessages 把默认 key 覆写为空导致 v1 数据无法迁移），再清空内存
+      // setAIStorageUserId 内部同步完成迁移 + 加载用户消息，无需再调 clearAIMessages
       setAIStorageUserId(session.user.id)
-      clearAIMessages()
     } else {
       // 登出/会话过期：清空内存消息
       clearAIMessages()
