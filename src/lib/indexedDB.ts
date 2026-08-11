@@ -24,24 +24,6 @@ function getDB(userId: string): Promise<IDBPDatabase> {
   return dbCache.get(userId)!
 }
 
-/** 删除指定用户的 IndexedDB 数据库 */
-export async function deleteUserDB(userId: string): Promise<void> {
-  dbCache.delete(userId)
-  const dbName = `taskflow_${userId}`
-  // Close any open connection first
-  try {
-    const db = await openDB(dbName, DB_VERSION)
-    db.close()
-  } catch { /* DB may not exist */ }
-  // Delete the database
-  return new Promise((resolve) => {
-    const req = globalThis.indexedDB.deleteDatabase(dbName)
-    req.onsuccess = () => resolve()
-    req.onerror = () => resolve() // Silently ignore errors
-    req.onblocked = () => resolve()
-  })
-}
-
 function generateId(): string {
   return crypto.randomUUID()
 }

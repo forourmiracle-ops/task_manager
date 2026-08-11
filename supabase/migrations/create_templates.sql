@@ -98,10 +98,11 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Fetch the template
+  -- Fetch the template with ownership check
   SELECT * INTO _template
   FROM templates
-  WHERE id = _rec.template_id;
+  WHERE id = _rec.template_id
+    AND (user_id = auth.uid() OR scope = 'builtin');
 
   IF NOT FOUND THEN
     RETURN NULL;
@@ -130,3 +131,7 @@ BEGIN
   RETURN _new_task_id;
 END;
 $$;
+
+-- 收紧函数执行权限：仅允许已认证用户调用
+REVOKE EXECUTE ON FUNCTION fn_claim_recurring_task(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION fn_claim_recurring_task(uuid) TO authenticated;

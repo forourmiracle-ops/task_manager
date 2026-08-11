@@ -28,16 +28,24 @@ interface Callbacks {
 }
 
 const MAX_LOOPS = 10
-const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions'
+const MAX_RESULT_LENGTH = 2000
+
+/** 截断工具结果中的标题/描述等不可信数据，防止长文本注入 */
+function sanitizeToolResult(content: string): string {
+  if (content.length <= MAX_RESULT_LENGTH) return content
+  return content.slice(0, MAX_RESULT_LENGTH) + '…[已截断]'
+}
 
 export async function runWithTools(
   messages: DeepSeekMessage[],
-  apiKey: string,
+  supabaseUrl: string,
+  accessToken: string,
   context: ToolContext,
   signal: AbortSignal,
   callbacks: Callbacks,
 ): Promise<void> {
   const tools = getToolDefinitionsForAPI()
+  const proxyUrl = `${supabaseUrl}/functions/v1/ai-proxy`
 
   for (let loop = 0; loop < MAX_LOOPS; loop++) {
     if (signal.aborted) {
@@ -45,14 +53,13 @@ export async function runWithTools(
       return
     }
 
-    const response = await fetch(DEEPSEEK_API, {
+    const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
         messages,
         tools,
         stream: true,
@@ -62,8 +69,12 @@ export async function runWithTools(
 
     if (!response.ok) {
       const errData = await response.json().catch(() => null)
-      const errMsg = errData?.error?.message || `HTTP ${response.status}`
-      callbacks.onError(`AI 服务调用失败：${errMsg}`)
+      const errMsg = errData?.error || `HTTP ${response.status}`
+      if (response.status === 401) {
+        callbacks.onError('登录已过期，请重新登录后重试。')
+      } else {
+        callbacks.onError(`AI 服务调用失败：${errMsg}`)
+      }
       return
     }
 
@@ -80,7 +91,6 @@ export async function runWithTools(
     }
 
     // Add assistant message with tool_calls to messages BEFORE tool results
-    // Required by API: tool role messages must follow an assistant message with tool_calls
     messages.push({
       role: 'assistant',
       content: textContent || null,
@@ -101,7 +111,6 @@ export async function runWithTools(
           success: false,
           message: `未知工具: ${tc.function.name}`,
         })
-        // Add tool result to messages for AI context
         messages.push({
           role: 'tool',
           content: `未知工具: ${tc.function.name}`,
@@ -118,10 +127,11 @@ export async function runWithTools(
         // Refresh task data after any mutation
         context.queryClient.invalidateQueries({ queryKey: ['tasks'] })
 
-        // Add tool result to messages for AI context
+        // Add tool result to messages for AI context (sanitized)
+        const resultStr = sanitizeToolResult(JSON.stringify({ success: result.success, message: result.message }))
         messages.push({
           role: 'tool',
-          content: JSON.stringify({ success: result.success, message: result.message }),
+          content: resultStr,
           tool_call_id: tc.id,
         })
       } catch (err) {
@@ -149,7 +159,6 @@ async function parseStreamResponse(
   let buffer = ''
   let textContent = ''
 
-  // Accumulate tool calls by index
   const toolCallMap = new Map<number, { id: string; name: string; arguments: string }>()
 
   while (true) {
@@ -177,7 +186,6 @@ async function parseStreamResponse(
           onTextDelta(delta.content)
         }
 
-        // Accumulate tool calls
         if (delta?.tool_calls) {
           for (const tc of delta.tool_calls) {
             const idx = tc.index ?? 0

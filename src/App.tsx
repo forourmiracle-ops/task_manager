@@ -97,8 +97,9 @@ export default function App() {
       // setAIStorageUserId 内部同步完成迁移 + 加载用户消息，无需再调 clearAIMessages
       setAIStorageUserId(session.user.id)
     } else {
-      // 登出/会话过期：清空内存消息
+      // 登出/会话过期：清空内存消息 + 清除 React Query 缓存，避免跨账号数据残留
       clearAIMessages()
+      queryClient.clear()
     }
   }, [session?.user?.id])
 

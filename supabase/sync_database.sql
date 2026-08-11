@@ -260,7 +260,72 @@ END;
 $$;
 
 -- ============================================================
--- 12. RLS 策略 — 所有表按用户隔离
+-- 12. 认领并执行周期任务 RPC（带模板归属校验）
+--     SECURITY DEFINER 函数，需收紧权限防止模板内容泄漏
+-- ============================================================
+CREATE OR REPLACE FUNCTION fn_claim_recurring_task(p_task_id uuid)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  _rec           recurring_tasks%ROWTYPE;
+  _template      templates%ROWTYPE;
+  _new_task_id   uuid;
+BEGIN
+  -- Lock the recurring task row to prevent concurrent claims
+  SELECT * INTO _rec
+  FROM recurring_tasks
+  WHERE id = p_task_id
+    AND enabled = true
+    AND next_run <= now()
+    AND user_id = auth.uid()
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  -- Fetch the template with ownership check
+  SELECT * INTO _template
+  FROM templates
+  WHERE id = _rec.template_id
+    AND (user_id = auth.uid() OR scope = 'builtin');
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  -- Create the task from template content
+  INSERT INTO tasks (title, description, status, priority, estimated_hours, user_id, parent_id)
+  VALUES (
+    _template.content->>'title',
+    _template.content->>'description',
+    COALESCE(_template.content->'defaultValues'->>'status', 'todo'),
+    COALESCE(_template.content->'defaultValues'->>'priority', 'medium'),
+    COALESCE((_template.content->'defaultValues'->>'estimated_hours')::numeric, NULL),
+    _rec.user_id,
+    _rec.parent_task_id
+  )
+  RETURNING id INTO _new_task_id;
+
+  -- Update the recurring task schedule (anti-backlog: max prevents batch generation)
+  UPDATE recurring_tasks
+  SET
+    next_run = GREATEST(next_run + (_rec.interval || ' ' || _rec.frequency)::interval, now()),
+    last_run = now()
+  WHERE id = p_task_id;
+
+  RETURN _new_task_id;
+END;
+$$;
+
+-- 收紧函数执行权限：仅允许已认证用户调用
+REVOKE EXECUTE ON FUNCTION fn_claim_recurring_task(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION fn_claim_recurring_task(uuid) TO authenticated;
+
+-- ============================================================
+-- 13. RLS 策略 — 所有表按用户隔离
 -- ============================================================
 
 -- tasks
@@ -340,7 +405,7 @@ BEGIN
 END $$;
 
 -- ============================================================
--- 13. 收紧 SECURITY DEFINER 函数执行权限
+-- 14. 收紧 SECURITY DEFINER 函数执行权限
 -- ============================================================
 REVOKE EXECUTE ON FUNCTION batch_complete_tasks(uuid[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION batch_complete_tasks(uuid[]) TO authenticated;
@@ -352,7 +417,7 @@ REVOKE EXECUTE ON FUNCTION check_dependency_cycle(uuid, uuid) FROM PUBLIC, anon,
 GRANT EXECUTE ON FUNCTION check_dependency_cycle(uuid, uuid) TO authenticated;
 
 -- ============================================================
--- 14. 启用 Realtime（仅 tasks 表，不含 user_settings）
+-- 15. 启用 Realtime（仅 tasks 表，不含 user_settings）
 -- ============================================================
 DO $$
 BEGIN
@@ -374,7 +439,7 @@ BEGIN
 END $$;
 
 -- ============================================================
--- 15. 迁移现有数据：将孤儿任务分配给第一个注册用户
+-- 16. 迁移现有数据：将孤儿任务分配给第一个注册用户
 -- ============================================================
 DO $$
 DECLARE

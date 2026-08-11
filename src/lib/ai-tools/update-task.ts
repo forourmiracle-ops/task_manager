@@ -1,11 +1,11 @@
-import type { ToolDefinition } from './types'
+import type { ToolDefinition, ToolContext } from './types'
 
 const MAX_BATCH = 50
 
 export const updateTaskTool: ToolDefinition = {
   name: 'update_task',
   description:
-    '更新任务字段。可更新标题、状态、优先级、截止日期、进度百分比等。支持批量更新（上限 50）。需提供 task_ids（任务 ID 列表）和要更新的字段。',
+    '更新任务字段。可更新标题、状态、优先级、截止日期、进度百分比等。支持批量更新（上限 50）。需提供 task_ids（任务 ID 列表）和要更新的字段。更新任务需要用户确认。',
   parameters: {
     type: 'object',
     properties: {
@@ -34,64 +34,79 @@ export const updateTaskTool: ToolDefinition = {
     },
     required: ['task_ids'],
   },
-  async execute(args, ctx) {
-    try {
-      const ids = (args.task_ids as string[]) || []
-      if (ids.length === 0) {
-        return { success: false, message: '未指定要更新的任务 ID。' }
-      }
-      if (ids.length > MAX_BATCH) {
-        return {
-          success: false,
-          message: `批量更新数量（${ids.length}）超过上限（${MAX_BATCH}），请分批操作。`,
-        }
-      }
-
-      // Build update payload — only include fields that are explicitly provided
-      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      const updatableFields = [
-        'title', 'status', 'priority', 'due_date', 'start_date',
-        'progress_percent', 'estimated_hours', 'parent_id', 'tags',
-      ]
-      for (const field of updatableFields) {
-        if (args[field] !== undefined) {
-          updates[field] = args[field]
-        }
-      }
-
-      if (Object.keys(updates).length <= 1) {
-        return { success: false, message: '未提供任何要更新的字段。' }
-      }
-
-      const results: string[] = []
-      for (const id of ids) {
-        const { data, error } = await ctx.supabase
-          .from('tasks')
-          .update(updates)
-          .eq('id', id)
-          .eq('user_id', ctx.userId)
-          .select('title')
-          .single()
-
-        if (error) {
-          results.push(`❌ ${id}：${error.message}`)
-        } else {
-          results.push(`✅ ${(data as { title: string }).title}`)
-        }
-      }
-
-      const succeeded = results.filter((r) => r.startsWith('✅')).length
-      const failed = results.filter((r) => r.startsWith('❌')).length
-
-      return {
-        success: failed === 0,
-        message: `更新完成：${succeeded} 个成功${failed > 0 ? `，${failed} 个失败` : ''}\n${results.join('\n')}`,
-      }
-    } catch (err) {
+  async execute(args, _ctx) {
+    const ids = (args.task_ids as string[]) || []
+    if (ids.length === 0) {
+      return { success: false, message: '未指定要更新的任务 ID。' }
+    }
+    if (ids.length > MAX_BATCH) {
       return {
         success: false,
-        message: `更新任务失败：${err instanceof Error ? err.message : '未知错误'}`,
+        message: `批量更新数量（${ids.length}）超过上限（${MAX_BATCH}），请分批操作。`,
       }
     }
+
+    // 返回确认提示，不直接写库
+    return {
+      success: true,
+      message: `确认更新 ${ids.length} 个任务？`,
+      requiresConfirmation: true,
+      data: { taskTitle: ids.length === 1 ? `任务 ${ids[0]}` : `${ids.length} 个任务` },
+    }
   },
+}
+
+/** 确认后实际执行更新任务 */
+export async function executeUpdateTask(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const ids = (args.task_ids as string[]) || []
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    const updatableFields = [
+      'title', 'status', 'priority', 'due_date', 'start_date',
+      'progress_percent', 'estimated_hours', 'parent_id', 'tags',
+    ]
+    for (const field of updatableFields) {
+      if (args[field] !== undefined) {
+        updates[field] = args[field]
+      }
+    }
+
+    if (Object.keys(updates).length <= 1) {
+      return { success: false, message: '未提供任何要更新的字段。' }
+    }
+
+    const results: string[] = []
+    for (const id of ids) {
+      const { data, error } = await ctx.supabase
+        .from('tasks')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', ctx.userId)
+        .select('title')
+        .single()
+
+      if (error) {
+        results.push(`❌ ${id}：${error.message}`)
+      } else {
+        results.push(`✅ ${(data as { title: string }).title}`)
+      }
+    }
+
+    const succeeded = results.filter((r) => r.startsWith('✅')).length
+    const failed = results.filter((r) => r.startsWith('❌')).length
+
+    return {
+      success: failed === 0,
+      message: `更新完成：${succeeded} 个成功${failed > 0 ? `，${failed} 个失败` : ''}\n${results.join('\n')}`,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      message: `更新任务失败：${err instanceof Error ? err.message : '未知错误'}`,
+    }
+  }
 }

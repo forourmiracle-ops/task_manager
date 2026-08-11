@@ -60,9 +60,9 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
     setSyncStatus('checking')
     return []
   }
-  // 确保携带当前用户 JWT，避免 session 滞后导致 401
-  await supabase.auth.getSession()
   try {
+    // 确保携带当前用户 JWT，避免 session 滞后导致 401
+    await supabase.auth.getSession()
     const { data, error } = await supabase
       .from('tasks')
       .select('*')

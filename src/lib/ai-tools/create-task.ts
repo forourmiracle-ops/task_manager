@@ -1,11 +1,11 @@
-import type { ToolDefinition } from './types'
+import type { ToolDefinition, ToolContext } from './types'
 
 const MAX_CHILDREN = 20
 
 export const createTaskTool: ToolDefinition = {
   name: 'create_task',
   description:
-    '创建新任务。可以创建单个任务或带子任务树的父任务。子任务数量上限为 20。需提供 title（必填），可选 status、priority、due_date、parent_id、estimated_hours、tags。',
+    '创建新任务。可以创建单个任务或带子任务树的父任务。子任务数量上限为 20。需提供 title（必填），可选 status、priority、due_date、parent_id、estimated_hours、tags。创建任务需要用户确认。',
   parameters: {
     type: 'object',
     properties: {
@@ -43,68 +43,81 @@ export const createTaskTool: ToolDefinition = {
     },
     required: ['title'],
   },
-  async execute(args, ctx) {
-    try {
-      const children = (args.children as Array<Record<string, unknown>>) || []
-      if (children.length > MAX_CHILDREN) {
-        return {
-          success: false,
-          message: `子任务数量（${children.length}）超过上限（${MAX_CHILDREN}），请减少子任务数量。`,
-        }
-      }
-
-      // Create parent task
-      const { data: parent, error: parentError } = await ctx.supabase
-        .from('tasks')
-        .insert({
-          title: args.title as string,
-          description: (args.description as string) || '',
-          status: (args.status as string) || 'todo',
-          priority: (args.priority as string) || 'medium',
-          due_date: (args.due_date as string) || null,
-          start_date: (args.start_date as string) || null,
-          parent_id: (args.parent_id as string) || null,
-          estimated_hours: (args.estimated_hours as number) || null,
-          tags: (args.tags as string[]) || [],
-          user_id: ctx.userId,
-        })
-        .select('id, title')
-        .single()
-
-      if (parentError) throw parentError
-
-      const created: string[] = [(parent as { id: string; title: string }).title]
-
-      // Create children
-      for (const child of children) {
-        const { error: childError } = await ctx.supabase.from('tasks').insert({
-          title: child.title as string,
-          status: (child.status as string) || 'todo',
-          priority: (child.priority as string) || 'medium',
-          due_date: (child.due_date as string) || null,
-          parent_id: (parent as { id: string }).id,
-          user_id: ctx.userId,
-        })
-
-        if (childError) {
-          return {
-            success: false,
-            message: `父任务「${(parent as { title: string }).title}」创建成功，但子任务「${child.title}」创建失败：${childError.message}`,
-          }
-        }
-        created.push(child.title as string)
-      }
-
-      return {
-        success: true,
-        message: `任务创建成功：${created.join(' → ')}`,
-        data: parent,
-      }
-    } catch (err) {
+  async execute(args, _ctx) {
+    const children = (args.children as Array<Record<string, unknown>>) || []
+    if (children.length > MAX_CHILDREN) {
       return {
         success: false,
-        message: `创建任务失败：${err instanceof Error ? err.message : '未知错误'}`,
+        message: `子任务数量（${children.length}）超过上限（${MAX_CHILDREN}），请减少子任务数量。`,
       }
     }
+
+    // 返回确认提示，不直接写库
+    return {
+      success: true,
+      message: `确认创建任务「${args.title}」？`,
+      requiresConfirmation: true,
+      data: { taskTitle: args.title },
+    }
   },
+}
+
+/** 确认后实际执行创建任务 */
+export async function executeCreateTask(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const children = (args.children as Array<Record<string, unknown>>) || []
+
+    const { data: parent, error: parentError } = await ctx.supabase
+      .from('tasks')
+      .insert({
+        title: args.title as string,
+        description: (args.description as string) || '',
+        status: (args.status as string) || 'todo',
+        priority: (args.priority as string) || 'medium',
+        due_date: (args.due_date as string) || null,
+        start_date: (args.start_date as string) || null,
+        parent_id: (args.parent_id as string) || null,
+        estimated_hours: (args.estimated_hours as number) || null,
+        tags: (args.tags as string[]) || [],
+        user_id: ctx.userId,
+      })
+      .select('id, title')
+      .single()
+
+    if (parentError) throw parentError
+
+    const created: string[] = [(parent as { id: string; title: string }).title]
+
+    for (const child of children) {
+      const { error: childError } = await ctx.supabase.from('tasks').insert({
+        title: child.title as string,
+        status: (child.status as string) || 'todo',
+        priority: (child.priority as string) || 'medium',
+        due_date: (child.due_date as string) || null,
+        parent_id: (parent as { id: string }).id,
+        user_id: ctx.userId,
+      })
+
+      if (childError) {
+        return {
+          success: false,
+          message: `父任务「${(parent as { title: string }).title}」创建成功，但子任务「${child.title}」创建失败：${childError.message}`,
+        }
+      }
+      created.push(child.title as string)
+    }
+
+    return {
+      success: true,
+      message: `任务创建成功：${created.join(' → ')}`,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      message: `创建任务失败：${err instanceof Error ? err.message : '未知错误'}`,
+    }
+  }
 }

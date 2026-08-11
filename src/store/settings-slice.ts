@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand'
 import type { Dimension } from '@/types'
-import { encrypt } from '@/lib/secure-storage'
 
 export type ThemeMode = 'light' | 'dark' | 'eye-care'
 export type DefaultDimension = 'auto' | Dimension
@@ -43,8 +42,6 @@ export interface SettingsSlice {
   setDefaultDimension: (dim: DefaultDimension) => void
   viewStartMode: ViewStartMode
   setViewStartMode: (mode: ViewStartMode) => void
-  deepseekApiKey: string
-  setDeepseekApiKey: (key: string) => void
   expandTemplateLib: boolean
   setExpandTemplateLib: (v: boolean) => void
   density: DensityMode
@@ -75,15 +72,6 @@ export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSl
   setViewStartMode: (mode) => {
     localStorage.setItem('taskflow-view-start', mode)
     set({ viewStartMode: mode })
-  },
-
-  deepseekApiKey: '', // 由 useUserSettings hook 异步解密加载
-  setDeepseekApiKey: (key) => {
-    // 加密后存入 sessionStorage，关闭标签页后密钥自动销毁
-    encrypt(key).then((encrypted) => {
-      sessionStorage.setItem('taskflow-deepseek-key', encrypted)
-    })
-    set({ deepseekApiKey: key })
   },
 
   expandTemplateLib: STORED_EXPAND_TEMPLATE_LIB,

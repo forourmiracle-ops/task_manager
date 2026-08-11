@@ -25,8 +25,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; desc: string; icon: stri
 ]
 
 export const SettingsView = memo(function SettingsView() {
-  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, deepseekApiKey, setDeepseekApiKey, density, setDensity } = useAppStore()
-  const [showKey, setShowKey] = useState(false)
+  const { theme, setTheme, fontSize, setFontSize, defaultDimension, setDefaultDimension, density, setDensity } = useAppStore()
   const { checking, result, check } = useUpdateCheck()
   const [updating, setUpdating] = useState(false)
   const syncStatus = useSyncStatus()
@@ -205,63 +204,6 @@ export const SettingsView = memo(function SettingsView() {
           </div>
         </section>
 
-        {/* DeepSeek API Key */}
-        <section>
-          <h3 className="text-[10px] font-bold mb-3 uppercase text-muted-foreground tracking-wider">AI 服务配置</h3>
-          <div className="bg-muted/20 rounded-xl p-4 border border-border/50 space-y-3">
-            <p className="text-xs text-muted-foreground">
-              配置 DeepSeek API Key 以启用 AI 助手功能。密钥使用 AES-GCM 加密后保存在浏览器会话中（关闭标签页后自动清除），不会上传到云端服务器。
-            </p>
-            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/8 border border-amber-500/15">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-500 flex-shrink-0 mt-0.5">
-                <path d="M8 1.5l7 13H1l7-13z" />
-                <path d="M8 6v3M8 11.5v.5" strokeWidth="2" />
-              </svg>
-              <p className="text-[10px] text-amber-600/80 leading-relaxed">
-                安全提示：API Key 经加密存储，但将直接从浏览器发送至 DeepSeek 服务。请在受信任的设备上使用，建议使用额度受限的 API Key，并定期在 DeepSeek 控制台轮换密钥。
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                {/* 隐藏诱饵输入框，防止浏览器密码管理器自动填充到 API Key 字段 */}
-                <input type="text" name="username" autoComplete="username" style={{ display: 'none' }} tabIndex={-1} readOnly />
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={deepseekApiKey}
-                  onChange={(e) => setDeepseekApiKey(e.target.value)}
-                  placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  className="w-full px-3 py-2 pr-10 text-sm font-mono border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
-                  autoComplete="new-password"
-                  name="api-key"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
-                  title={showKey ? '隐藏' : '显示'}
-                >
-                  {showKey ? (
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M2 8s3-5 6-5 6 5 6 5-3 5-6 5-6-5-6-5z" />
-                      <circle cx="8" cy="8" r="2" />
-                      <line x1="2" y1="14" x2="14" y2="2" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M2 8s3-5 6-5 6 5 6 5-3 5-6 5-6-5-6-5z" />
-                      <circle cx="8" cy="8" r="2" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              <span className={deepseekApiKey ? 'text-emerald-500' : 'text-amber-500'}>●</span>
-              {deepseekApiKey ? '已配置' : '未配置 — 请前往 platform.deepseek.com 获取 API Key'}
-            </div>
-          </div>
-        </section>
-
         {/* Templates */}
         <section>
           <TemplateSettings />
@@ -353,14 +295,8 @@ export const SettingsView = memo(function SettingsView() {
               <span className="text-xs text-muted-foreground">云同步任务数</span>
               <span className="text-xs font-medium">{tasks?.length ?? 0} 个</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">API Key</span>
-              <span className={`text-xs font-medium ${deepseekApiKey ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {deepseekApiKey ? '已配置（加密存储）' : '未配置'}
-              </span>
-            </div>
             <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-              任务数据与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。API Key 加密存储在本地浏览器中。
+              任务数据与你的账户绑定，登录同一账户后可在电脑、手机等设备间自动同步。AI 功能通过 Supabase Edge Function 代理调用，无需在浏览器中配置 API Key。
             </p>
           </div>
         </section>

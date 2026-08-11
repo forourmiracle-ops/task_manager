@@ -55,7 +55,7 @@ TaskFlow 是一款多端通用的工作任务管理工具，支持项目层级�
 - **Node.js** >= 18.x（推荐 20.x）
 - **npm** >= 9.x
 - 一个 [Supabase](https://supabase.com) 账号（免费套餐即可）
-- 一个 [DeepSeek](https://platform.deepseek.com) API Key（可选，用于 AI 功能）
+- 一个 [DeepSeek](https://platform.deepseek.com) API Key（可选，用于 AI 功能，通过 Edge Function 代理配置）
 
 ### 安装步骤
 
@@ -80,12 +80,11 @@ npm install
 cp .env.example .env
 ```
 
-编辑 `.env` 文件，填入你的 Supabase 和 DeepSeek 配置：
+编辑 `.env` 文件，填入你的 Supabase 配置：
 
 ```env
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
-VITE_DEEPSEEK_API_KEY=sk-your-deepseek-api-key
 ```
 
 4. **初始化数据库**
@@ -121,8 +120,13 @@ npm run preview   # 预览生产构建
 ### DeepSeek AI 配置（可选）
 
 1. 在 [platform.deepseek.com](https://platform.deepseek.com) 注册并获取 API Key
-2. 填入 `.env` 文件的 `VITE_DEEPSEEK_API_KEY`
-3. 若不配置，AI 助手功能将不可用，但不影响其他功能
+2. 使用 Supabase CLI 部署 Edge Function 代理：
+   ```bash
+   supabase secrets set DEEPSEEK_API_KEY=sk-your-deepseek-api-key
+   supabase functions deploy ai-proxy
+   ```
+3. AI 功能通过 Edge Function 代理调用 DeepSeek API，前端不再直接持有或传输 API Key
+4. 若不配置，AI 助手功能将不可用，但不影响其他功能
 
 ## 使用指南
 
