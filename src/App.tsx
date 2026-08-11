@@ -101,7 +101,7 @@ export default function App() {
       clearAIMessages()
       queryClient.clear()
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, queryClient])
 
   // Sign out handler — clear all local data and cache for the current user
   const handleSignOut = async () => {

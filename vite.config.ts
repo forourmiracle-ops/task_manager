@@ -18,6 +18,17 @@ export default defineConfig({
     'import.meta.env.VITE_COMMIT_SHA': JSON.stringify(commitSha),
   },
   plugins: [
+    // Dev 模式放宽 CSP script-src 以允许 React Refresh 内联 preamble
+    {
+      name: 'csp-dev-relax',
+      transformIndexHtml(html) {
+        return html.replace(
+          /script-src\s+'self'\s+https:\/\/tynhqwexdfdtobkmmzdo\.supabase\.co/,
+          "script-src 'self' 'unsafe-inline' https://tynhqwexdfdtobkmmzdo.supabase.co",
+        )
+      },
+      apply: 'serve',
+    },
     react(),
     tailwindcss(),
     VitePWA({

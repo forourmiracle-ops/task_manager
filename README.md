@@ -89,7 +89,20 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 4. **初始化数据库**
 
-在 Supabase 控制台的 **SQL Editor** 中执行 `supabase/migration.sql` 文件中的全部 SQL 语句，以创建所需的数据库表。
+在 Supabase 控制台的 **SQL Editor** 中按以下顺序执行 SQL 文件：
+
+```bash
+# 1. 先建模板表与周期任务表（仅执行一次，不可重复执行）
+supabase/migrations/create_templates.sql
+
+# 2. 再建主库表结构、函数、RLS 策略（可重复执行，幂等）
+supabase/sync_database.sql
+
+# 3. 最后导入内置模板数据（仅执行一次）
+supabase/migrations/seed_builtin_templates.sql
+```
+
+> **注意：** `sync_database.sql` 第 12 节新增的 `fn_claim_recurring_task` 函数引用了 `recurring_tasks` 和 `templates` 表的 `%ROWTYPE`，因此必须先执行 `create_templates.sql` 建好这两张表。`sync_database.sql` 使用 `IF NOT EXISTS` / `CREATE OR REPLACE` 保证幂等，可重复执行；`create_templates.sql` 和 `seed_builtin_templates.sql` 只能执行一次。
 
 5. **启动开发服务器**
 
