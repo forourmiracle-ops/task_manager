@@ -1,5 +1,5 @@
 import type { Task } from '@/types'
-import { indexedDB, deleteUserDB } from '@/lib/indexedDB'
+import { indexedDB } from '@/lib/indexedDB'
 import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY } from '@/lib/supabase'
 
 // Check if Supabase is configured (env vars OR hardcoded defaults)
@@ -161,12 +161,9 @@ const legacyLocalStorage = {
   },
 }
 
-/** 清理指定用户的所有本地存储数据 */
+/** 清理指定用户的所有本地存储数据（保留 IndexedDB，分区隔离已足够） */
 export async function clearUserLocalData(userId: string): Promise<void> {
-  // 清理 IndexedDB
-  await deleteUserDB(userId)
-
-  // 清理 localStorage
+  // 清理 localStorage（按用户分区 key 和遗留全局 key）
   const keysToRemove: string[] = []
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)

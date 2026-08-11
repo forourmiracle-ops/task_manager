@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAppStore, setAIStorageUserId, clearAIMessages } from '@/store'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog'
@@ -84,6 +85,8 @@ export default function App() {
     setImportDialogOpen,
   } = useAppStore()
 
+  const queryClient = useQueryClient()
+
   // Auth guard — redirect to login if not authenticated
   const { session, isAuthenticated, loading: authLoading } = useAuth()
 
@@ -99,7 +102,7 @@ export default function App() {
     }
   }, [session?.user?.id])
 
-  // Sign out handler — clear all local data for the current user
+  // Sign out handler — clear all local data and cache for the current user
   const handleSignOut = async () => {
     const userId = session?.user?.id
     if (userId) {
@@ -107,6 +110,8 @@ export default function App() {
       await clearUserLocalData(userId)
       clearAIMessages()
     }
+    // 清除上一个用户的 React Query 缓存，避免跨账号数据残留
+    queryClient.clear()
     supabase.auth.signOut()
   }
 

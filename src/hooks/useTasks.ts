@@ -60,6 +60,8 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
     setSyncStatus('checking')
     return []
   }
+  // 确保携带当前用户 JWT，避免 session 滞后导致 401
+  await supabase.auth.getSession()
   try {
     const { data, error } = await supabase
       .from('tasks')
@@ -93,15 +95,18 @@ async function fetchTasks(userId: string | undefined): Promise<Task[]> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase fetch failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.fetchTasks(userId || 'local')
+    const localTasks = await localDB.fetchTasks(userId || 'local')
+    // 本地无数据时抛出错误，让 React Query 保留 previousData，避免空数据覆盖真实数据
+    if (localTasks.length === 0) throw err
+    return localTasks
   }
 }
 
 async function createTask(task: Partial<Task>): Promise<Task> {
   if (useLocal) return localDB.createTask('local', task)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
     const { data, error } = await supabase
       .from('tasks')
       .insert({
@@ -130,15 +135,15 @@ async function createTask(task: Partial<Task>): Promise<Task> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase create failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.createTask('local', task)
+    return localDB.createTask(user.id, task)
   }
 }
 
 async function updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
   if (useLocal) return localDB.updateTask('local', task)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
     const { data, error } = await supabase
       .from('tasks')
       .update({
@@ -156,15 +161,15 @@ async function updateTask(task: Partial<Task> & { id: string }): Promise<Task> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase update failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.updateTask('local', task)
+    return localDB.updateTask(user.id, task)
   }
 }
 
 async function deleteTask(id: string): Promise<void> {
   if (useLocal) return localDB.deleteTask('local', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
     const { error } = await supabase
       .from('tasks')
       .delete()
@@ -176,12 +181,12 @@ async function deleteTask(id: string): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase delete failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    return localDB.deleteTask('local', id)
+    return localDB.deleteTask(user.id, id)
   }
 }
 
 export function useTasks(userId?: string) {
-  const { userId: authUserId } = useAuth()
+  const { userId: authUserId, loading } = useAuth()
   const effectiveUserId = userId ?? authUserId
 
   return useQuery({
@@ -193,7 +198,7 @@ export function useTasks(userId?: string) {
     refetchOnMount: true,
     refetchInterval: 30_000, // Poll every 30s as fallback if Realtime fails
     retry: 2,
-    enabled: !!effectiveUserId || useLocal,
+    enabled: (!loading && !!effectiveUserId) || useLocal,
   })
 }
 
@@ -254,6 +259,8 @@ async function batchCompleteTasks(taskIds: string[]): Promise<void> {
     await localDB.batchUpdateTasks('local', taskIds.map((id) => ({ id, status: 'done' as const })))
     return
   }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
   try {
     const { error } = await supabase.rpc('batch_complete_tasks', { p_task_ids: taskIds })
     if (error) throw error
@@ -262,7 +269,7 @@ async function batchCompleteTasks(taskIds: string[]): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('Supabase batch complete failed, using local storage:', msg)
     setSyncStatus('error', msg)
-    await localDB.batchUpdateTasks('local', taskIds.map((id) => ({ id, status: 'done' as const })))
+    await localDB.batchUpdateTasks(user.id, taskIds.map((id) => ({ id, status: 'done' as const })))
   }
 }
 

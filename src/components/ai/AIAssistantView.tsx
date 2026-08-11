@@ -18,6 +18,15 @@ interface PendingConfirmation {
   taskTitle: string
 }
 
+// 快捷卡片提示语映射（组件外常量，避免 useCallback 依赖抖动）
+const QUICK_PROMPTS: Record<string, string> = {
+  '搜索任务': '帮我搜索任务',
+  '创建任务': '帮我创建一个任务',
+  '更新任务': '帮我更新任务状态',
+  '项目分析': '帮我分析当前项目',
+  '生成报告': '帮我生成一份周报',
+}
+
 export const AIAssistantView = memo(function AIAssistantView() {
   const { data: tasks } = useTasks()
   const { session } = useAuth()
@@ -38,6 +47,16 @@ export const AIAssistantView = memo(function AIAssistantView() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const isUserScrolledUpRef = useRef(false)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const handleQuickPrompt = useCallback((label: string) => {
+    const prompt = QUICK_PROMPTS[label]
+    if (prompt) {
+      setInput(prompt)
+      // 延迟聚焦，确保 state 更新后 DOM 已渲染
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
+  }, [])
 
   // Auto-scroll when new content arrives
   useEffect(() => {
@@ -299,22 +318,23 @@ export const AIAssistantView = memo(function AIAssistantView() {
               </div>
               <div className="space-y-2">
                 {[
-                  { icon: '🔍', label: '搜索任务', desc: '按状态、关键词查找', color: 'border-blue-200 bg-blue-50/50' },
-                  { icon: '➕', label: '创建任务', desc: '快速创建新任务', color: 'border-emerald-200 bg-emerald-50/50' },
-                  { icon: '✏️', label: '更新任务', desc: '修改状态、进度等', color: 'border-amber-200 bg-amber-50/50' },
-                  { icon: '📊', label: '项目分析', desc: '识别风险与瓶颈', color: 'border-violet-200 bg-violet-50/50' },
-                  { icon: '📝', label: '生成报告', desc: '日/周报摘要', color: 'border-cyan-200 bg-cyan-50/50' },
+                  { icon: '🔍', label: '搜索任务', desc: '按状态、关键词查找', color: 'border-blue-200 bg-blue-50/50 hover:bg-blue-100/50' },
+                  { icon: '➕', label: '创建任务', desc: '快速创建新任务', color: 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/50' },
+                  { icon: '✏️', label: '更新任务', desc: '修改状态、进度等', color: 'border-amber-200 bg-amber-50/50 hover:bg-amber-100/50' },
+                  { icon: '📊', label: '项目分析', desc: '识别风险与瓶颈', color: 'border-violet-200 bg-violet-50/50 hover:bg-violet-100/50' },
+                  { icon: '📝', label: '生成报告', desc: '日/周报摘要', color: 'border-cyan-200 bg-cyan-50/50 hover:bg-cyan-100/50' },
                 ].map((item) => (
-                  <div
+                  <button
                     key={item.label}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${item.color} transition-colors`}
+                    onClick={() => handleQuickPrompt(item.label)}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${item.color} transition-colors cursor-pointer text-left`}
                   >
                     <span className="text-lg">{item.icon}</span>
                     <div>
                       <div className="text-xs font-semibold">{item.label}</div>
                       <div className="text-[10px] text-muted-foreground">{item.desc}</div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -387,6 +407,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
       <form onSubmit={handleSend} className="p-4 border-t border-border flex-shrink-0">
         <div className="flex gap-2">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
