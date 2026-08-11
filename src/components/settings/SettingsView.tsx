@@ -239,9 +239,11 @@ export const SettingsView = memo(function SettingsView() {
             </button>
             {result && (
               <div className={`text-xs p-3 rounded-lg ${
-                result.hasUpdate
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                  : 'bg-green-50 text-green-700 border border-green-200'
+                result.status === 'error'
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : result.hasUpdate
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-green-50 text-green-700 border border-green-200'
               }`}>
                 {result.message}
                 {result.hasUpdate && (

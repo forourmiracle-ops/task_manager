@@ -6,6 +6,8 @@ interface UpdateStatus {
   hasUpdate: boolean
   latestSha: string
   currentSha: string
+  /** 检查状态：latest=已是最新, error=检查失败（未注入SHA或网络异常）, unknown=有更新可用 */
+  status: 'latest' | 'error' | 'unknown'
 }
 
 let cachedStatus: UpdateStatus | null = null
@@ -15,13 +17,13 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
     // Rate limit: skip if checked within last 2 hours
     const lastCheck = localStorage.getItem(LAST_CHECK_KEY)
     if (lastCheck && Date.now() - Number(lastCheck) < CHECK_INTERVAL_MS) {
-      return cachedStatus ?? { hasUpdate: false, latestSha: '', currentSha: '' }
+      return cachedStatus ?? { hasUpdate: false, latestSha: '', currentSha: '', status: 'error' }
     }
 
     const currentSha = (import.meta as any).env?.VITE_COMMIT_SHA || ''
     if (!currentSha) {
       console.warn('[UpdateChecker] No VITE_COMMIT_SHA defined at build time')
-      return { hasUpdate: false, latestSha: '', currentSha: '' }
+      return { hasUpdate: false, latestSha: '', currentSha: '', status: 'error' }
     }
 
     const response = await fetch(
@@ -35,7 +37,7 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
 
     if (!response.ok) {
       console.warn('[UpdateChecker] GitHub API returned', response.status)
-      return { hasUpdate: false, latestSha: '', currentSha }
+      return { hasUpdate: false, latestSha: '', currentSha, status: 'error' }
     }
 
     const data = await response.json()
@@ -47,12 +49,13 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
       hasUpdate: latestSha !== currentSha && latestSha !== '',
       latestSha,
       currentSha,
+      status: latestSha === currentSha ? 'latest' : 'unknown',
     }
 
     return cachedStatus
   } catch (err) {
     console.warn('[UpdateChecker] Failed to check for updates:', err)
-    return { hasUpdate: false, latestSha: '', currentSha: '' }
+    return { hasUpdate: false, latestSha: '', currentSha: '', status: 'error' }
   }
 }
 

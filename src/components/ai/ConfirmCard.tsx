@@ -4,6 +4,10 @@ interface ConfirmCardProps {
   message: string
   taskTitle: string
   taskStatus: string
+  /** 确认按钮文案，默认"确认" */
+  confirmLabel?: string
+  /** 工具名称，用于区分按钮颜色 */
+  toolName?: string
   onConfirm: () => void
   onCancel: () => void
 }
@@ -15,14 +19,30 @@ const STATUS_LABELS: Record<string, string> = {
   blocked: '阻塞',
 }
 
+/** delete_task 保持红色，create_task/update_task 使用主题主色 */
+function getButtonClass(toolName: string): string {
+  switch (toolName) {
+    case 'delete_task':
+      return 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
+    case 'create_task':
+    case 'update_task':
+      return 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm'
+    default:
+      return 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm'
+  }
+}
+
 export const ConfirmCard = memo(function ConfirmCard({
   message,
   taskTitle,
   taskStatus,
+  confirmLabel = '确认',
+  toolName = '',
   onConfirm,
   onCancel,
 }: ConfirmCardProps) {
   const statusLabel = STATUS_LABELS[taskStatus] || taskStatus
+  const btnClass = getButtonClass(toolName)
 
   return (
     <div className="flex justify-start">
@@ -50,9 +70,9 @@ export const ConfirmCard = memo(function ConfirmCard({
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 py-2 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${btnClass}`}
           >
-            确认删除
+            {confirmLabel}
           </button>
         </div>
       </div>

@@ -32,7 +32,12 @@ const QUICK_PROMPTS: Record<string, string> = {
   '生成报告': '帮我生成一份周报',
 }
 
-/** 确认卡片文案映射 */
+/** 确认按钮文案映射 */
+const CONFIRM_BUTTON_LABELS: Record<string, string> = {
+  create_task: '确认创建',
+  update_task: '确认更新',
+  delete_task: '确认删除',
+}
 const CONFIRM_MESSAGES: Record<string, string> = {
   create_task: '确认创建以下任务？',
   update_task: '确认更新以下任务？',
@@ -363,12 +368,15 @@ export const AIAssistantView = memo(function AIAssistantView() {
             if (msg.role === 'tool_call') {
               if (pendingConfirmation && pendingConfirmation.messageId === msg.id) {
                 const confirmMsg = CONFIRM_MESSAGES[pendingConfirmation.toolName] || '确认执行此操作？'
+                const confirmLabel = CONFIRM_BUTTON_LABELS[pendingConfirmation.toolName] || '确认'
                 return (
                   <ConfirmCard
                     key={msg.id}
                     message={confirmMsg}
                     taskTitle={pendingConfirmation.taskTitle || ''}
                     taskStatus={pendingConfirmation.taskStatus || ''}
+                    confirmLabel={confirmLabel}
+                    toolName={pendingConfirmation.toolName}
                     onConfirm={handleConfirm}
                     onCancel={handleCancel}
                   />

@@ -4,6 +4,7 @@ import { checkForUpdates, clearUpdateCache } from '@/lib/update-checker'
 export function AppUpdateBanner() {
   const [visible, setVisible] = useState(false)
   const [latestSha, setLatestSha] = useState('')
+  const [status, setStatus] = useState<'latest' | 'error' | 'unknown'>('latest')
   const [_checking, setChecking] = useState(false)
   const [updating, setUpdating] = useState(false)
 
@@ -11,8 +12,9 @@ export function AppUpdateBanner() {
     setChecking(true)
     try {
       const result = await checkForUpdates()
-      if (result.hasUpdate) {
+      if (result.hasUpdate || result.status === 'error') {
         setLatestSha(result.latestSha)
+        setStatus(result.status)
         setVisible(true)
       } else if (!silent) {
         setVisible(false)
@@ -39,6 +41,27 @@ export function AppUpdateBanner() {
   }, [])
 
   if (!visible) return null
+
+  // Error banner: cannot check for updates
+  if (status === 'error') {
+    return (
+      <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl shadow-lg max-w-md animate-in slide-in-from-top-2">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-600 flex-shrink-0">
+          <path d="M8 2v6M8 12v.5" strokeWidth="2" />
+          <circle cx="8" cy="8" r="6" />
+        </svg>
+        <p className="text-xs text-amber-800 flex-1">
+          无法检查更新（构建未包含版本信息 / 网络异常）
+        </p>
+        <button
+          onClick={() => setVisible(false)}
+          className="text-[11px] text-amber-600 hover:text-amber-800 transition-colors"
+        >
+          忽略
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl shadow-lg max-w-md animate-in slide-in-from-top-2">
@@ -71,21 +94,28 @@ export function AppUpdateBanner() {
 
 export function useUpdateCheck() {
   const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<{ hasUpdate: boolean; message: string } | null>(null)
+  const [result, setResult] = useState<{ hasUpdate: boolean; message: string; status: 'latest' | 'error' | 'unknown' } | null>(null)
 
   const check = useCallback(async () => {
     setChecking(true)
     clearUpdateCache()
     try {
       const r = await checkForUpdates()
+      let message: string
+      if (r.status === 'error') {
+        message = '无法检查更新（构建未包含版本信息 / 网络异常）'
+      } else if (r.hasUpdate) {
+        message = `发现新版本，最新提交: ${r.latestSha}`
+      } else {
+        message = '已是最新版本'
+      }
       setResult({
         hasUpdate: r.hasUpdate,
-        message: r.hasUpdate
-          ? `发现新版本，最新提交: ${r.latestSha}`
-          : '已是最新版本',
+        message,
+        status: r.status,
       })
     } catch {
-      setResult({ hasUpdate: false, message: '检查更新失败，请稍后重试' })
+      setResult({ hasUpdate: false, message: '无法检查更新（构建未包含版本信息 / 网络异常）', status: 'error' })
     } finally {
       setChecking(false)
     }

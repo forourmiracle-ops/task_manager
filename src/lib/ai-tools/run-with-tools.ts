@@ -124,6 +124,11 @@ export async function runWithTools(
         const result = await tool.execute(args, context)
         callbacks.onToolResult(msgId, result)
 
+        // 需要用户确认时，停止流式继续，不再回填模型
+        if (result.requiresConfirmation) {
+          return
+        }
+
         // Refresh task data after any mutation
         context.queryClient.invalidateQueries({ queryKey: ['tasks'] })
 

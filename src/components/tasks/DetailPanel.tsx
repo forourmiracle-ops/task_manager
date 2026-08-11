@@ -40,6 +40,12 @@ export const DetailPanel = memo(function DetailPanel() {
     }
   }, [rawTask])
 
+  // 缓存净化后的描述，避免每次渲染重新净化
+  const sanitizedDescription = useMemo(() => {
+    if (!rawTask?.description) return ''
+    return sanitizeHtml(rawTask.description)
+  }, [rawTask?.description])
+
   const [editingField, setEditingField] = useState<EditableField | null>(null)
   const [editValue, setEditValue] = useState('')
   const [savedField, setSavedField] = useState<EditableField | null>(null)
@@ -107,7 +113,7 @@ export const DetailPanel = memo(function DetailPanel() {
           break
         case 'description':
           if (value !== (t.description || '')) {
-            payload.description = value || ''
+            payload.description = sanitizeHtml(value) || ''
             changed = true
           }
           break
@@ -330,7 +336,27 @@ export const DetailPanel = memo(function DetailPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingField])
 
-  if (!detailPanelOpen || !task) return null
+  if (!detailPanelOpen) return null
+
+  if (!task) {
+    return (
+      <aside className="border-l border-border bg-background flex flex-col h-full overflow-auto shadow-elevated min-h-0 md:w-[340px] md:min-w-[340px] md:flex-shrink-0 max-md:fixed max-md:inset-0 max-md:z-50 max-md:animate-in max-md:slide-in-from-right max-md:duration-200" style={{ width: 340, minWidth: 340, flexShrink: 0 }}>
+        <div className="p-4 border-b border-border flex items-center bg-muted/10 sticky top-0 z-10">
+          <div className="h-5 w-24 bg-muted/30 rounded animate-pulse" />
+        </div>
+        <div className="flex-1 p-4 space-y-4 overflow-auto">
+          <div className="min-h-[160px] bg-muted/10 rounded-xl border border-border/30 animate-pulse" />
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-16 bg-muted/10 rounded-xl border border-border/30 animate-pulse" />
+            ))}
+          </div>
+          <div className="h-24 bg-muted/10 rounded-xl border border-border/30 animate-pulse" />
+          <div className="h-12 bg-muted/10 rounded-xl border border-border/30 animate-pulse" />
+        </div>
+      </aside>
+    )
+  }
 
   const getTaskDepth = (taskId: string): number => {
     if (!tasks) return 0
@@ -358,7 +384,7 @@ export const DetailPanel = memo(function DetailPanel() {
       let value = ''
       switch (field) {
         case 'title': value = task.title || ''; break
-        case 'description': value = task.description || ''; break
+        case 'description': value = sanitizedDescription; break
         case 'status': value = task.status || 'todo'; break
         case 'priority': value = task.priority || 'medium'; break
         case 'start_date': value = task.start_date || ''; break
@@ -406,7 +432,7 @@ export const DetailPanel = memo(function DetailPanel() {
         return (
           <div data-detail-editor className="min-h-[100px] border border-primary/40 rounded-lg bg-background overflow-hidden">
             <Suspense fallback={
-              <div className="flex items-center justify-center h-[100px] text-xs text-muted-foreground">
+              <div className="flex items-center justify-center min-h-[160px] text-xs text-muted-foreground bg-muted/10 rounded-lg">
                 <span className="animate-pulse">加载编辑器...</span>
               </div>
             }>
