@@ -10,10 +10,20 @@ CREATE OR REPLACE FUNCTION check_dependency_cycle(
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _cycle_found boolean := false;
 BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM tasks WHERE id = p_task_id AND user_id = auth.uid())
+     OR NOT EXISTS (SELECT 1 FROM tasks WHERE id = p_candidate_id AND user_id = auth.uid()) THEN
+    RETURN false;
+  END IF;
+
   -- Recursive CTE: traverse the dependency chain starting from p_task_id
   -- If p_candidate_id appears in the chain, adding it as a dependency creates a cycle
   WITH RECURSIVE dep_chain AS (

@@ -1,6 +1,5 @@
 import type { ToolContext, ToolResult } from './types'
-import { getTool } from './tool-registry'
-import { getToolDefinitionsForAPI } from './tool-registry'
+import { getTool, getToolDefinitionsForAPI } from './tool-registry'
 
 interface DeepSeekMessage {
   role: string

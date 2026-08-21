@@ -19,6 +19,7 @@ interface PendingConfirmation {
   taskId?: string
   taskTitle?: string
   taskStatus?: string
+  updatedAt?: string
   /** 工具参数，确认后传给 execute 函数 */
   args?: Record<string, unknown>
 }
@@ -122,7 +123,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
           result = await executeUpdateTask(args || {}, ctx)
           break
         case 'delete_task':
-          result = await executeDeleteTask(pendingConfirmation.taskId || '', ctx)
+          result = await executeDeleteTask(pendingConfirmation.taskId || '', ctx, pendingConfirmation.updatedAt)
           break
         default:
           result = { success: false, message: `未知操作: ${toolName}` }
@@ -249,6 +250,7 @@ export const AIAssistantView = memo(function AIAssistantView() {
               taskId: confirmData?.taskId as string | undefined,
               taskTitle: confirmData?.taskTitle as string | undefined,
               taskStatus: confirmData?.taskStatus as string | undefined,
+              updatedAt: confirmData?.updatedAt as string | undefined,
               args: callMsg?.toolArgs || {},
             })
             return

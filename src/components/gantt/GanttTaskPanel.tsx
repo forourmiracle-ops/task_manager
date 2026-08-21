@@ -1,4 +1,5 @@
 import { memo, useState, useCallback } from 'react'
+import type { ReactVirtualizer, VirtualItem } from '@tanstack/react-virtual'
 import { cn, collectUnfinishedDescendantsFromFlat, collectDescendantIdsFromFlat } from '@/lib/utils'
 import { useUpdateTask, useBatchCompleteTasks } from '@/hooks/useTasks'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -18,25 +19,30 @@ interface ConfirmState {
   externalBlockedCount: number
 }
 
+interface DragState {
+  sourceId: string
+  targetIdx: number | null
+}
+
 interface GanttTaskPanelProps {
-  virtualItems: { index: number; start: number; size: number; key: number }[]
+  virtualItems: VirtualItem[]
   visibleTasks: Task[]
   allFlatTasks: Task[]
   expandedIds: Set<string>
   childCountMap: { countMap: Map<string, number>; hasChildrenMap: Map<string, boolean> }
   parentMap: Map<string, string>
   selectedTaskId: string | null
-  dragState: { sourceId: string; targetIdx: number | null } | null
+  dragState: DragState | null
   LABEL_WIDTH: number
   ROW_HEIGHT: number
-  updateDragState: (next: any) => void
+  updateDragState: (next: DragState | null | ((prev: DragState | null) => DragState | null)) => void
   onSaveUndoSnapshot: (snapshot: { sourceId: string; oldSortOrder: number; oldParentId: string | null }) => void
   taskListRef: React.RefObject<HTMLDivElement | null>
   onTaskClick: (id: string) => void
   toggleExpanded: (e: React.MouseEvent, id: string) => void
   handleTaskListScroll: (e: React.UIEvent<HTMLDivElement>) => void
   onTaskDrop: (sourceId: string, newParentId: string | null, newSort: number) => void
-  virtualizer: any
+  virtualizer: ReactVirtualizer<HTMLDivElement, Element>
 }
 
 export const GanttTaskPanel = memo(function GanttTaskPanel({
@@ -172,7 +178,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                 onDragOver={(e) => {
                   e.preventDefault()
                   e.dataTransfer.dropEffect = 'move'
-                  updateDragState((prev: any) => {
+                  updateDragState((prev: DragState | null) => {
                     if (prev?.sourceId !== task.id) {
                       return { sourceId: prev?.sourceId || '', targetIdx: idx }
                     }
@@ -180,7 +186,7 @@ export const GanttTaskPanel = memo(function GanttTaskPanel({
                   })
                 }}
                 onDragLeave={() => {
-                  updateDragState((prev: any) => {
+                  updateDragState((prev: DragState | null) => {
                     if (prev?.targetIdx === idx) {
                       return { ...prev, targetIdx: null }
                     }

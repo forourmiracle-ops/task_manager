@@ -2,7 +2,7 @@ import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback, mem
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppStore } from '@/store'
 import { useUpdateTask } from '@/hooks/useTasks'
-import { showDraftToast } from '@/components/ui/DraftToast'
+import { showDraftToast } from '@/components/ui/draftToastBus'
 import { exportToCSV, downloadFile } from '@/lib/export'
 
 import { useGanttData } from './hooks/useGanttData'
@@ -199,7 +199,7 @@ export const GanttView = memo(function GanttView() {
     const el = dateScrollRef.current
     if (!el || DAY_WIDTH <= 0) return
     el.scrollLeft = Math.max(0, scrollTarget)
-  }, [scrollTarget, DAY_WIDTH, allFlatTasks.length])
+  }, [scrollTarget, DAY_WIDTH, allFlatTasks.length, dateScrollRef])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleTaskClick = useCallback((id: string) => {
@@ -239,7 +239,7 @@ export const GanttView = memo(function GanttView() {
     setGoTodayHighlight(true)
     if (goTodayTimerRef.current) clearTimeout(goTodayTimerRef.current)
     goTodayTimerRef.current = setTimeout(() => setGoTodayHighlight(false), 1000)
-  }, [todayOffset, DAY_WIDTH])
+  }, [todayOffset, DAY_WIDTH, dateScrollRef])
 
   const handleExportPNG = useCallback(() => {
     try { downloadFile(exportToCSV(visibleTasks), 'gantt-tasks.csv', 'text/csv') } catch { /* ignore */ }
@@ -294,7 +294,7 @@ export const GanttView = memo(function GanttView() {
     el.style.cursor = 'grabbing'
     el.style.userSelect = 'none'
     e.preventDefault()
-  }, [])
+  }, [dateScrollRef])
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragRef.current.isDragging) return
@@ -318,7 +318,7 @@ export const GanttView = memo(function GanttView() {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [])
+  }, [dateScrollRef])
 
   // ── Shift+Wheel horizontal scroll (desktop) ────────────────────────────────
   useEffect(() => {
@@ -332,8 +332,7 @@ export const GanttView = memo(function GanttView() {
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateScrollRef.current])
+  }, [dateScrollRef])
 
   // ── Keyboard ← → navigation (desktop) ─────────────────────────────────────
   useEffect(() => {
@@ -351,7 +350,7 @@ export const GanttView = memo(function GanttView() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [DAY_WIDTH])
+  }, [DAY_WIDTH, dateScrollRef])
 
   // ── Mobile floating "today" button visibility ──────────────────────────────
   const [showMobileToday, setShowMobileToday] = useState(false)
@@ -372,14 +371,14 @@ export const GanttView = memo(function GanttView() {
       clearInterval(timer)
       el.removeEventListener('scroll', check)
     }
-  }, [todayOffset, DAY_WIDTH])
+  }, [todayOffset, DAY_WIDTH, dateScrollRef])
 
   const handleMobileGoToday = useCallback(() => {
     const el = dateScrollRef.current
     if (!el) return
     const panelWidth = el.clientWidth
     el.scrollTo({ left: todayOffset * DAY_WIDTH - panelWidth / 2, behavior: 'smooth' })
-  }, [todayOffset, DAY_WIDTH])
+  }, [todayOffset, DAY_WIDTH, dateScrollRef])
 
   const handleTaskDrop = useCallback((sourceId: string, newParentId: string | null, newSort: number) => {
     updateTask.mutate({ id: sourceId, sort_order: newSort, parent_id: newParentId })
@@ -410,7 +409,7 @@ export const GanttView = memo(function GanttView() {
         <div className="flex-1 flex overflow-hidden relative min-w-0">
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
-            virtualItems={virtualItems as { index: number; start: number; size: number; key: number }[]}
+            virtualItems={virtualItems}
             visibleTasks={viewportTasks}
             allFlatTasks={allFlatTasks}
             expandedIds={expandedIds}
@@ -457,7 +456,7 @@ export const GanttView = memo(function GanttView() {
                 {/* Task rows */}
                 <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
                   <GanttTaskRows
-                    virtualItems={virtualItems as { index: number; start: number; size: number; key: number }[]}
+                    virtualItems={virtualItems}
                     visibleTasks={viewportTasks}
                     visibleDayRange={visibleDayRange}
                     DAY_WIDTH={DAY_WIDTH}

@@ -1,16 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-
-interface DraftToastData {
-  message: string
-  onUndo: () => void
-}
-
-let showToast: ((data: DraftToastData | null) => void) | null = null
-
-export function showDraftToast(data: DraftToastData | null) {
-  showToast?.(data)
-}
+import {
+  type DraftToastData,
+  setDraftToastHandler,
+} from './draftToastBus'
 
 export function DraftToastContainer() {
   const [toast, setToast] = useState<DraftToastData | null>(null)
@@ -18,7 +11,7 @@ export function DraftToastContainer() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  showToast = useCallback((data: DraftToastData | null) => {
+  const showToast = useCallback((data: DraftToastData | null) => {
     if (timerRef.current) clearTimeout(timerRef.current)
     if (!data) {
       setVisible(false)
@@ -34,6 +27,11 @@ export function DraftToastContainer() {
       setTimeout(() => setToast(null), 300)
     }, 3500)
   }, [])
+
+  useEffect(() => {
+    setDraftToastHandler(showToast)
+    return () => setDraftToastHandler(null)
+  }, [showToast])
 
   // Click outside to dismiss
   useEffect(() => {
@@ -51,7 +49,6 @@ export function DraftToastContainer() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      showToast = null
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [])

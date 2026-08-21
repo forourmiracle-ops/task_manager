@@ -17,26 +17,31 @@ CREATE TABLE IF NOT EXISTS templates (
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 
 -- Builtin templates are visible to all authenticated users
+DROP POLICY IF EXISTS "Builtin templates visible to all" ON templates;
 CREATE POLICY "Builtin templates visible to all"
   ON templates FOR SELECT
-  USING (scope = 'builtin');
+  USING (scope = 'builtin' AND auth.uid() IS NOT NULL);
 
 -- Custom templates are visible to their owner
+DROP POLICY IF EXISTS "Custom templates visible to owner" ON templates;
 CREATE POLICY "Custom templates visible to owner"
   ON templates FOR SELECT
   USING (scope = 'custom' AND user_id = auth.uid());
 
 -- Only owner can insert custom templates
+DROP POLICY IF EXISTS "Users can insert custom templates" ON templates;
 CREATE POLICY "Users can insert custom templates"
   ON templates FOR INSERT
   WITH CHECK (scope = 'custom' AND user_id = auth.uid());
 
 -- Only owner can update their custom templates
+DROP POLICY IF EXISTS "Users can update own templates" ON templates;
 CREATE POLICY "Users can update own templates"
   ON templates FOR UPDATE
   USING (scope = 'custom' AND user_id = auth.uid());
 
 -- Only owner can delete their custom templates
+DROP POLICY IF EXISTS "Users can delete own templates" ON templates;
 CREATE POLICY "Users can delete own templates"
   ON templates FOR DELETE
   USING (scope = 'custom' AND user_id = auth.uid());
@@ -58,18 +63,22 @@ CREATE TABLE IF NOT EXISTS recurring_tasks (
 
 ALTER TABLE recurring_tasks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own recurring tasks" ON recurring_tasks;
 CREATE POLICY "Users can view own recurring tasks"
   ON recurring_tasks FOR SELECT
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can insert own recurring tasks" ON recurring_tasks;
 CREATE POLICY "Users can insert own recurring tasks"
   ON recurring_tasks FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update own recurring tasks" ON recurring_tasks;
 CREATE POLICY "Users can update own recurring tasks"
   ON recurring_tasks FOR UPDATE
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can delete own recurring tasks" ON recurring_tasks;
 CREATE POLICY "Users can delete own recurring tasks"
   ON recurring_tasks FOR DELETE
   USING (user_id = auth.uid());
@@ -79,6 +88,7 @@ CREATE OR REPLACE FUNCTION fn_claim_recurring_task(p_task_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _rec           recurring_tasks%ROWTYPE;
@@ -105,6 +115,15 @@ BEGIN
     AND (user_id = auth.uid() OR scope = 'builtin');
 
   IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  IF _rec.parent_task_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM tasks
+       WHERE id = _rec.parent_task_id
+         AND user_id = auth.uid()
+     ) THEN
     RETURN NULL;
   END IF;
 

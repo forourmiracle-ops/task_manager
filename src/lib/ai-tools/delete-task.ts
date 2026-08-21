@@ -1,4 +1,5 @@
 import type { ToolDefinition, ToolContext } from './types'
+import { deleteTaskForUser } from '@/lib/task-service'
 
 export const deleteTaskTool: ToolDefinition = {
   name: 'delete_task',
@@ -20,7 +21,7 @@ export const deleteTaskTool: ToolDefinition = {
     if (taskId) {
       const { data: task, error: lookupError } = await ctx.supabase
         .from('tasks')
-        .select('id, title, status')
+        .select('id, title, status, updated_at')
         .eq('id', taskId)
         .eq('user_id', ctx.userId)
         .single()
@@ -33,7 +34,7 @@ export const deleteTaskTool: ToolDefinition = {
         success: true,
         message: `确认删除任务「${(task as { title: string }).title}」？`,
         requiresConfirmation: true,
-        data: { taskId, taskTitle: (task as { title: string }).title, taskStatus: (task as { status: string }).status },
+        data: { taskId, taskTitle: (task as { title: string }).title, taskStatus: (task as { status: string }).status, updatedAt: (task as { updated_at: string }).updated_at },
       }
     }
 
@@ -44,7 +45,7 @@ export const deleteTaskTool: ToolDefinition = {
 
     const { data: matches, error: searchError } = await ctx.supabase
       .from('tasks')
-      .select('id, title, status')
+      .select('id, title, status, updated_at')
       .eq('user_id', ctx.userId)
       .ilike('title', `%${taskTitle}%`)
       .limit(5)
@@ -68,28 +69,22 @@ export const deleteTaskTool: ToolDefinition = {
     }
 
     // 命中 1 个
-    const match = matches[0] as { id: string; title: string; status: string }
+    const match = matches[0] as { id: string; title: string; status: string; updated_at: string }
     return {
       success: true,
       message: `确认删除任务「${match.title}」？`,
       requiresConfirmation: true,
-      data: { taskId: match.id, taskTitle: match.title, taskStatus: match.status },
+      data: { taskId: match.id, taskTitle: match.title, taskStatus: match.status, updatedAt: match.updated_at },
     }
   },
 }
 
-export async function executeDeleteTask(taskId: string, ctx: ToolContext): Promise<{
+export async function executeDeleteTask(taskId: string, ctx: ToolContext, expectedUpdatedAt?: string): Promise<{
   success: boolean
   message: string
 }> {
   try {
-    const { error } = await ctx.supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId)
-      .eq('user_id', ctx.userId)
-
-    if (error) throw error
+    await deleteTaskForUser(ctx.userId, taskId, expectedUpdatedAt)
 
     return { success: true, message: `任务已删除。` }
   } catch (err) {

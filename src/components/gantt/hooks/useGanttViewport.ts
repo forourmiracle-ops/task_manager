@@ -66,7 +66,7 @@ export function useGanttViewport(params: {
       start: addDays(startDate, Math.max(0, startIndex)),
       end: addDays(startDate, Math.min(totalDays - 1, endIndex)),
     }
-  }, [scrollLeft, scrollWidth, datePanelWidth, startDate, endDate, totalDays, DAY_WIDTH])
+  }, [scrollLeft, scrollWidth, datePanelWidth, startDate, totalDays, DAY_WIDTH])
 
   const visibleTasks = useMemo(() => {
     return allFlatTasks.filter((t) => {

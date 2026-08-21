@@ -5,13 +5,22 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import { execSync } from 'child_process'
 
-// Get current commit SHA for update checking
-let commitSha = ''
-try {
-  commitSha = execSync('git rev-parse --short HEAD').toString().trim()
-} catch {
-  // Not a git repo or git not available
+// Hosted build services may expose the SHA without including the .git folder.
+let commitSha = (
+  process.env.VITE_COMMIT_SHA
+  || process.env.VERCEL_GIT_COMMIT_SHA
+  || process.env.GITHUB_SHA
+  || process.env.COMMIT_SHA
+  || ''
+).trim()
+if (!commitSha) {
+  try {
+    commitSha = execSync('git rev-parse --short HEAD').toString().trim()
+  } catch {
+    // Update checking remains unavailable when no build metadata exists.
+  }
 }
+commitSha = commitSha.slice(0, 7)
 
 export default defineConfig({
   define: {

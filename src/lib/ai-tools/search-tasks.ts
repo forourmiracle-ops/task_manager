@@ -1,5 +1,5 @@
 import type { ToolDefinition } from './types'
-import type { Task } from '@/types'
+import { fetchTasksForUser } from '@/lib/task-service'
 
 export const searchTasksTool: ToolDefinition = {
   name: 'search_tasks',
@@ -27,33 +27,15 @@ export const searchTasksTool: ToolDefinition = {
     const limit = (args.limit as number) || 20
 
     try {
-      let query = ctx.supabase
-        .from('tasks')
-        .select('id, title, status, priority, due_date, progress_percent, parent_id')
-        .eq('user_id', ctx.userId)
-        .limit(limit)
-
-      if (args.keyword) {
-        query = query.or(`title.ilike.%${args.keyword}%,description.ilike.%${args.keyword}%`)
-      }
-      if (args.status) {
-        query = query.eq('status', args.status)
-      }
-      if (args.priority) {
-        query = query.eq('priority', args.priority)
-      }
-      if (args.due_before) {
-        query = query.lte('due_date', args.due_before)
-      }
-      if (args.due_after) {
-        query = query.gte('due_date', args.due_after)
-      }
-
-      const { data, error } = await query.order('sort_order')
-
-      if (error) throw error
-
-      const tasks = (data as Task[]) || []
+      const allTasks = await fetchTasksForUser(ctx.userId)
+      const keyword = typeof args.keyword === 'string' ? args.keyword.trim().toLowerCase() : ''
+      const tasks = allTasks
+        .filter((task) => !keyword || `${task.title} ${task.description}`.toLowerCase().includes(keyword))
+        .filter((task) => !args.status || task.status === args.status)
+        .filter((task) => !args.priority || task.priority === args.priority)
+        .filter((task) => !args.due_before || (task.due_date && task.due_date <= args.due_before))
+        .filter((task) => !args.due_after || (task.due_date && task.due_date >= args.due_after))
+        .slice(0, Math.max(1, Math.min(limit, 100)))
       if (tasks.length === 0) {
         return { success: true, message: '未找到匹配的任务。', data: [] }
       }

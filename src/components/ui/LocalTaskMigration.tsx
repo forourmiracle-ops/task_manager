@@ -15,6 +15,7 @@ export function LocalTaskMigration() {
   const [result, setResult] = useState<{ done: number; failed: number } | null>(null)
   const [localCount, setLocalCount] = useState(0)
   const [showManual, setShowManual] = useState(false)
+  const [failedTaskIds, setFailedTaskIds] = useState<string[]>([])
   const [checked, setChecked] = useState(false)
 
   // Core check: independently query both localDB and Supabase to decide if migration is needed
@@ -76,9 +77,13 @@ export function LocalTaskMigration() {
       setMigrating(false)
       return
     }
-    const tasks = await localDB.fetchTasks(user.id)
+    const allTasks = await localDB.fetchTasks(user.id)
+    const tasks = failedTaskIds.length > 0
+      ? allTasks.filter((task) => failedTaskIds.includes(task.id))
+      : allTasks
     let done = 0
     let failed = 0
+    const currentFailedTaskIds: string[] = []
 
     for (const task of tasks) {
       try {
@@ -108,20 +113,29 @@ export function LocalTaskMigration() {
         if (error) {
           console.warn('Migration failed for task:', task.id, error)
           failed++
+          currentFailedTaskIds.push(task.id)
         } else {
           done++
         }
       } catch (err) {
         console.warn('Migration error for task:', task.id, err)
         failed++
+        currentFailedTaskIds.push(task.id)
       }
     }
 
+    setFailedTaskIds(currentFailedTaskIds)
     setResult({ done, failed })
-    localStorage.setItem(MIGRATION_DONE_KEY, '1')
-    localStorage.removeItem(MIGRATION_NEEDED_KEY)
+    if (failed === 0) {
+      localStorage.setItem(MIGRATION_DONE_KEY, '1')
+      localStorage.removeItem(MIGRATION_NEEDED_KEY)
+    } else {
+      // Keep the migration marker so the user can retry failed records.
+      localStorage.removeItem(MIGRATION_DONE_KEY)
+      localStorage.setItem(MIGRATION_NEEDED_KEY, '1')
+    }
     setMigrating(false)
-    setShowManual(false)
+    setShowManual(failed > 0)
 
     // Auto-refresh: invalidate query cache to reload from Supabase
     if (done > 0) {
@@ -132,6 +146,7 @@ export function LocalTaskMigration() {
   }
 
   const handleSkip = () => {
+    setFailedTaskIds([])
     localStorage.setItem(MIGRATION_DONE_KEY, '1')
     localStorage.removeItem(MIGRATION_NEEDED_KEY)
     setShowDialog(false)
@@ -153,6 +168,7 @@ export function LocalTaskMigration() {
       <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
         <button
           onClick={() => {
+            setFailedTaskIds([])
             localStorage.removeItem(MIGRATION_DONE_KEY)
             setShowDialog(true)
           }}
@@ -169,17 +185,32 @@ export function LocalTaskMigration() {
       <div className="bg-background rounded-xl shadow-xl border border-border p-6 max-w-sm w-full mx-4">
         {result ? (
           <>
-            <h3 className="text-sm font-bold mb-2">迁移完成</h3>
+            <h3 className="text-sm font-bold mb-2">
+              {result.failed > 0 ? '迁移未完成' : '迁移完成'}
+            </h3>
             <p className="text-xs text-muted-foreground mb-4">
               成功迁移 {result.done} 个任务
               {result.failed > 0 && `，${result.failed} 个失败`}
             </p>
-            <button
-              onClick={handleRefresh}
-              className="w-full py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90"
-            >
-              刷新查看云端数据
-            </button>
+            <div className="flex gap-2">
+              {result.failed > 0 && (
+                <button
+                  onClick={() => {
+                    setResult(null)
+                    setShowDialog(true)
+                  }}
+                  className="flex-1 py-2 text-xs font-semibold border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50"
+                >
+                  重试失败项
+                </button>
+              )}
+              <button
+                onClick={handleRefresh}
+                className="flex-1 py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+              >
+                刷新查看云端数据
+              </button>
+            </div>
           </>
         ) : (
           <>

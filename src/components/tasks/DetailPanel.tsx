@@ -6,9 +6,10 @@ import { CommentSection } from '@/components/tasks/CommentSection'
 import { DependencyPicker } from '@/components/tasks/DependencyPicker'
 import { HierarchyTree } from '@/components/tasks/HierarchyTree'
 import { SaveAsTemplate } from '@/components/templates/SaveAsTemplate'
-import { showDraftToast } from '@/components/ui/DraftToast'
+import { showDraftToast } from '@/components/ui/draftToastBus'
 import { sanitizeHtml } from '@/lib/sanitize'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
+import { TaskConflictError, type UpdateTaskInput } from '@/lib/task-service'
 
 const RichTextEditor = lazy(() => import('@/components/editor/RichTextEditor'))
 
@@ -96,11 +97,11 @@ export const DetailPanel = memo(function DetailPanel() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [setDetailPanelOpen, setSelectedTaskId])
 
-  const buildPayload = (field: EditableField, value: string): Partial<Task> & { id: string } | null => {
+  const buildPayload = (field: EditableField, value: string): UpdateTaskInput | null => {
     const t = taskRef.current
     if (!t) return null
 
-    const payload: Partial<Task> & { id: string } = { id: t.id }
+    const payload: UpdateTaskInput = { id: t.id, expectedUpdatedAt: t.updated_at }
     let changed = false
 
     try {
@@ -218,17 +219,17 @@ export const DetailPanel = memo(function DetailPanel() {
           if (conflictMessage) {
             // Save as draft despite conflict
             setValidationError(conflictMessage)
-            const payload = buildPayload(field, value) || { id: t.id, [field]: value || null }
+            const payload = buildPayload(field, value) || { id: t.id, expectedUpdatedAt: t.updated_at, [field]: value || null }
             const oldValue = field === 'start_date' ? (t.start_date || '') : (t.due_date || '')
             setEditingField(null)
             setEditValue('')
 
-            updateTask.mutate(payload as Partial<Task> & { id: string }, {
+            updateTask.mutate(payload, {
               onSuccess: () => {
                 showDraftToast({
                   message: `日期与父任务冲突：${conflictMessage}`,
                   onUndo: () => {
-                    updateTask.mutate({ id: t.id, [field]: oldValue || null } as Partial<Task> & { id: string })
+                    updateTask.mutate({ id: t.id, expectedUpdatedAt: taskRef.current?.updated_at, [field]: oldValue || null })
                   },
                 })
               },
@@ -253,6 +254,12 @@ export const DetailPanel = memo(function DetailPanel() {
           },
           onError: (err) => {
             console.error('Save failed:', err)
+            if (err instanceof TaskConflictError) {
+              showDraftToast({
+                message: '保存失败：任务已被其他设备修改，请刷新后重新编辑。',
+                onUndo: () => {},
+              })
+            }
           },
         })
       }
@@ -396,6 +403,7 @@ export const DetailPanel = memo(function DetailPanel() {
       }
       setEditingField(field)
       setEditValue(value)
+      editValueRef.current = value
       originalValueRef.current = value
       setValidationError(null)
       setShowSaveConfirm(false)
@@ -408,13 +416,19 @@ export const DetailPanel = memo(function DetailPanel() {
     if (!task) return
     try {
       if (confirm('确定删除此任务？子任务将一并删除。')) {
-        deleteTask.mutate(task.id, {
+        deleteTask.mutate({ id: task.id, expectedUpdatedAt: task.updated_at }, {
           onSuccess: () => {
             setSelectedTaskId(null)
             setDetailPanelOpen(false)
           },
           onError: (err) => {
             console.error('Delete failed:', err)
+            if (err instanceof TaskConflictError) {
+              showDraftToast({
+                message: '删除失败：任务已被其他设备修改，请刷新后重试。',
+                onUndo: () => {},
+              })
+            }
           },
         })
       }
@@ -567,6 +581,28 @@ export const DetailPanel = memo(function DetailPanel() {
     }
   }
 
+  const renderTitleEditor = () => (
+    <input
+      data-detail-editor
+      autoFocus
+      type="text"
+      value={editValue}
+      onChange={(e) => {
+        if (composingRef.current) return
+        editValueRef.current = e.target.value
+        setEditValue(e.target.value)
+      }}
+      onCompositionStart={() => { composingRef.current = true }}
+      onCompositionEnd={(e) => {
+        composingRef.current = false
+        const value = (e.target as HTMLInputElement).value
+        editValueRef.current = value
+        setEditValue(value)
+      }}
+      className="w-full min-w-0 px-1.5 py-1 text-sm font-bold border border-primary/40 rounded-md bg-background focus:outline-none focus:ring-1.5 focus:ring-primary"
+    />
+  )
+
   const Field = ({
     label,
     field,
@@ -605,7 +641,7 @@ export const DetailPanel = memo(function DetailPanel() {
           )}
         </label>
         <div className="px-3 pb-2.5">
-          {isEditing ? renderFieldEditor(field) : (
+          {isEditing && field !== 'title' ? renderFieldEditor(field) : (
             <div className="cursor-pointer min-h-[1.5em]">{children}</div>
           )}
         </div>
@@ -634,7 +670,15 @@ export const DetailPanel = memo(function DetailPanel() {
           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary uppercase tracking-wide flex-shrink-0">
             {currentLevelLabel}
           </span>
-          <h3 className="text-sm font-bold truncate">{task.title}</h3>
+          {editingField === 'title' ? renderTitleEditor() : (
+            <h3
+              className="text-sm font-bold truncate cursor-pointer hover:text-primary transition-colors"
+              onClick={() => startEditing('title')}
+              title="编辑任务标题"
+            >
+              {task.title}
+            </h3>
+          )}
         </div>
         <button
           onClick={() => {

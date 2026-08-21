@@ -1,4 +1,5 @@
 import type { ToolDefinition, ToolContext } from './types'
+import { fetchTasksForUser, updateTaskForUser } from '@/lib/task-service'
 
 const MAX_BATCH = 50
 
@@ -79,20 +80,24 @@ export async function executeUpdateTask(
       return { success: false, message: '未提供任何要更新的字段。' }
     }
 
+    const tasks = await fetchTasksForUser(ctx.userId)
+    const taskMap = new Map(tasks.map((task) => [task.id, task]))
     const results: string[] = []
     for (const id of ids) {
-      const { data, error } = await ctx.supabase
-        .from('tasks')
-        .update(updates)
-        .eq('id', id)
-        .eq('user_id', ctx.userId)
-        .select('title')
-        .single()
-
-      if (error) {
-        results.push(`❌ ${id}：${error.message}`)
-      } else {
-        results.push(`✅ ${(data as { title: string }).title}`)
+      const current = taskMap.get(id)
+      if (!current) {
+        results.push(`❌ ${id}：未找到任务或任务不属于当前用户`)
+        continue
+      }
+      try {
+        const updated = await updateTaskForUser(ctx.userId, {
+          id,
+          ...updates,
+          expectedUpdatedAt: current.updated_at,
+        })
+        results.push(`✅ ${updated.title}`)
+      } catch (error) {
+        results.push(`❌ ${id}：${error instanceof Error ? error.message : '未知错误'}`)
       }
     }
 

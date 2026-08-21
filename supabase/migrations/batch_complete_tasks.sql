@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION batch_complete_tasks(p_task_ids uuid[])
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _task_id uuid;

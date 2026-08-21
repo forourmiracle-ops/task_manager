@@ -198,6 +198,7 @@ CREATE OR REPLACE FUNCTION batch_complete_tasks(p_task_ids uuid[])
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _task_id uuid;
@@ -221,10 +222,15 @@ CREATE OR REPLACE FUNCTION fn_claim_orphaned_tasks()
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _count integer;
 BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
   WITH updated AS (
     UPDATE tasks SET user_id = auth.uid()
     WHERE user_id IS NULL
@@ -242,10 +248,20 @@ CREATE OR REPLACE FUNCTION check_dependency_cycle(p_task_id uuid, p_candidate_id
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _cycle_found boolean := false;
 BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM tasks WHERE id = p_task_id AND user_id = auth.uid())
+     OR NOT EXISTS (SELECT 1 FROM tasks WHERE id = p_candidate_id AND user_id = auth.uid()) THEN
+    RETURN false;
+  END IF;
+
   WITH RECURSIVE dep_chain AS (
     SELECT id, depends_on FROM tasks
     WHERE p_task_id = ANY(depends_on) AND user_id = auth.uid()
@@ -267,6 +283,7 @@ CREATE OR REPLACE FUNCTION fn_claim_recurring_task(p_task_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   _rec           recurring_tasks%ROWTYPE;
@@ -293,6 +310,15 @@ BEGIN
     AND (user_id = auth.uid() OR scope = 'builtin');
 
   IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  IF _rec.parent_task_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM tasks
+       WHERE id = _rec.parent_task_id
+         AND user_id = auth.uid()
+     ) THEN
     RETURN NULL;
   END IF;
 
@@ -465,6 +491,83 @@ BEGIN
     UPDATE ai_sessions SET user_id = _first_user_id WHERE user_id IS NULL;
   END IF;
 END $$;
+
+-- ============================================================
+-- 17. 关系归属校验：阻止跨用户父子任务与子表引用
+-- ============================================================
+CREATE OR REPLACE FUNCTION ensure_task_relationships_same_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  _parent_user_id UUID;
+  _dependency_count INTEGER;
+  _dependency_total INTEGER;
+BEGIN
+  IF TG_TABLE_NAME = 'tasks' THEN
+    IF NEW.parent_id IS NOT NULL THEN
+      IF NEW.parent_id = NEW.id THEN
+        RAISE EXCEPTION 'A task cannot be its own parent';
+      END IF;
+
+      SELECT user_id INTO _parent_user_id
+      FROM public.tasks
+      WHERE id = NEW.parent_id;
+
+      IF NOT FOUND OR _parent_user_id IS DISTINCT FROM NEW.user_id THEN
+        RAISE EXCEPTION 'Parent task must belong to the same user';
+      END IF;
+    END IF;
+
+    _dependency_total := COALESCE(array_length(NEW.depends_on, 1), 0);
+    IF _dependency_total > 0 THEN
+      SELECT count(*) INTO _dependency_count
+      FROM public.tasks
+      WHERE id = ANY(NEW.depends_on)
+        AND user_id = NEW.user_id;
+
+      IF _dependency_count <> _dependency_total THEN
+        RAISE EXCEPTION 'Dependencies must belong to the same user';
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  IF NEW.task_id IS NULL OR NEW.user_id IS NULL
+     OR NOT EXISTS (
+       SELECT 1 FROM public.tasks
+       WHERE id = NEW.task_id
+         AND user_id = NEW.user_id
+     ) THEN
+    RAISE EXCEPTION '% must reference a task owned by the same user', TG_TABLE_NAME;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tasks_relationships_same_user ON tasks;
+CREATE TRIGGER tasks_relationships_same_user
+  BEFORE INSERT OR UPDATE OF parent_id, user_id, depends_on ON tasks
+  FOR EACH ROW EXECUTE FUNCTION ensure_task_relationships_same_user();
+
+DROP TRIGGER IF EXISTS comments_task_same_user ON comments;
+CREATE TRIGGER comments_task_same_user
+  BEFORE INSERT OR UPDATE OF task_id, user_id ON comments
+  FOR EACH ROW EXECUTE FUNCTION ensure_task_relationships_same_user();
+
+DROP TRIGGER IF EXISTS attachments_task_same_user ON attachments;
+CREATE TRIGGER attachments_task_same_user
+  BEFORE INSERT OR UPDATE OF task_id, user_id ON attachments
+  FOR EACH ROW EXECUTE FUNCTION ensure_task_relationships_same_user();
+
+DROP TRIGGER IF EXISTS reminders_task_same_user ON reminders;
+CREATE TRIGGER reminders_task_same_user
+  BEFORE INSERT OR UPDATE OF task_id, user_id ON reminders
+  FOR EACH ROW EXECUTE FUNCTION ensure_task_relationships_same_user();
 
 -- ============================================================
 -- 验证部署结果

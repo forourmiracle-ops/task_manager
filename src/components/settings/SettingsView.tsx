@@ -1,7 +1,7 @@
 import { useAppStore, type ThemeMode, type DefaultDimension, type DensityMode } from '@/store'
 import { memo, useState, useCallback } from 'react'
 import { TemplateSettings } from '@/components/templates/TemplateSettings'
-import { useUpdateCheck } from '@/components/ui/AppUpdateBanner'
+import { useUpdateCheck } from '@/components/ui/useUpdateCheck'
 import { useSyncStatus } from '@/hooks/useTasks'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/hooks/useTasks'
@@ -35,7 +35,7 @@ export const SettingsView = memo(function SettingsView() {
   const handleUpdate = useCallback(async () => {
     setUpdating(true)
     try {
-      window.location.href = 'https://www.task-manager-framiracle.com/'
+      window.location.reload()
     } catch {
       window.location.reload()
     }

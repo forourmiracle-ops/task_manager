@@ -1,4 +1,6 @@
 import type { ToolDefinition, ToolContext } from './types'
+import type { TaskPriority, TaskStatus } from '@/types'
+import { createTaskForUser } from '@/lib/task-service'
 
 const MAX_CHILDREN = 20
 
@@ -70,41 +72,33 @@ export async function executeCreateTask(
   try {
     const children = (args.children as Array<Record<string, unknown>>) || []
 
-    const { data: parent, error: parentError } = await ctx.supabase
-      .from('tasks')
-      .insert({
-        title: args.title as string,
-        description: (args.description as string) || '',
-        status: (args.status as string) || 'todo',
-        priority: (args.priority as string) || 'medium',
-        due_date: (args.due_date as string) || null,
-        start_date: (args.start_date as string) || null,
-        parent_id: (args.parent_id as string) || null,
-        estimated_hours: (args.estimated_hours as number) || null,
-        tags: (args.tags as string[]) || [],
-        user_id: ctx.userId,
-      })
-      .select('id, title')
-      .single()
+    const parent = await createTaskForUser(ctx.userId, {
+      title: args.title as string,
+      description: (args.description as string) || '',
+      status: (args.status as TaskStatus) || 'todo',
+      priority: (args.priority as TaskPriority) || 'medium',
+      due_date: (args.due_date as string) || null,
+      start_date: (args.start_date as string) || null,
+      parent_id: (args.parent_id as string) || null,
+      estimated_hours: (args.estimated_hours as number) || null,
+      tags: (args.tags as string[]) || [],
+    })
 
-    if (parentError) throw parentError
-
-    const created: string[] = [(parent as { id: string; title: string }).title]
+    const created: string[] = [parent.title]
 
     for (const child of children) {
-      const { error: childError } = await ctx.supabase.from('tasks').insert({
-        title: child.title as string,
-        status: (child.status as string) || 'todo',
-        priority: (child.priority as string) || 'medium',
-        due_date: (child.due_date as string) || null,
-        parent_id: (parent as { id: string }).id,
-        user_id: ctx.userId,
-      })
-
-      if (childError) {
+      try {
+        await createTaskForUser(ctx.userId, {
+          title: child.title as string,
+          status: (child.status as TaskStatus) || 'todo',
+          priority: (child.priority as TaskPriority) || 'medium',
+          due_date: (child.due_date as string) || null,
+          parent_id: parent.id,
+        })
+      } catch (error) {
         return {
           success: false,
-          message: `父任务「${(parent as { title: string }).title}」创建成功，但子任务「${child.title}」创建失败：${childError.message}`,
+          message: `父任务「${parent.title}」创建成功，但子任务「${child.title}」创建失败：${error instanceof Error ? error.message : '未知错误'}`,
         }
       }
       created.push(child.title as string)

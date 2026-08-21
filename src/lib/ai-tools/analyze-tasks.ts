@@ -1,5 +1,5 @@
 import type { ToolDefinition } from './types'
-import type { Task } from '@/types'
+import { fetchTasksForUser } from '@/lib/task-service'
 
 export const analyzeTasksTool: ToolDefinition = {
   name: 'analyze_tasks',
@@ -17,14 +17,7 @@ export const analyzeTasksTool: ToolDefinition = {
   },
   async execute(args, ctx) {
     try {
-      const { data, error } = await ctx.supabase
-        .from('tasks')
-        .select('id, title, status, priority, due_date, progress_percent, parent_id, depends_on')
-        .eq('user_id', ctx.userId)
-
-      if (error) throw error
-
-      const tasks = (data as Task[]) || []
+      const tasks = await fetchTasksForUser(ctx.userId)
       if (tasks.length === 0) {
         return { success: true, message: '当前没有任务。' }
       }

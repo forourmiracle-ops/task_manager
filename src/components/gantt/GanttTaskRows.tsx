@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import type { VirtualItem } from '@tanstack/react-virtual'
 import { cn } from '@/lib/utils'
 import type { Task } from '@/types'
 import { DependencyLines } from './DependencyLines'
@@ -11,7 +12,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 interface GanttTaskRowsProps {
-  virtualItems: { index: number; start: number; size: number; key: number }[]
+  virtualItems: VirtualItem[]
   visibleTasks: Task[]
   visibleDayRange: { start: number; end: number }
   DAY_WIDTH: number

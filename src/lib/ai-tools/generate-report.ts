@@ -1,5 +1,5 @@
 import type { ToolDefinition } from './types'
-import type { Task } from '@/types'
+import { fetchTasksForUser } from '@/lib/task-service'
 
 export const generateReportTool: ToolDefinition = {
   name: 'generate_report',
@@ -61,14 +61,7 @@ export const generateReportTool: ToolDefinition = {
           return { success: false, message: `不支持的周期类型：${period}` }
       }
 
-      const { data, error } = await ctx.supabase
-        .from('tasks')
-        .select('id, title, status, priority, due_date, progress_percent, created_at, updated_at')
-        .eq('user_id', ctx.userId)
-
-      if (error) throw error
-
-      const tasks = (data as Task[]) || []
+      const tasks = await fetchTasksForUser(ctx.userId)
 
       // Completed in period
       const completed = tasks.filter(

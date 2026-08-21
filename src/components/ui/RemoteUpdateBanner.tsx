@@ -1,10 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-
-interface RemoteUpdate {
-  taskId: string
-  taskTitle: string
-}
+import type { RemoteUpdate } from './useRemoteUpdateConflict'
 
 /**
  * Non-blocking banner for remote edit conflicts.
@@ -46,61 +40,4 @@ export function RemoteUpdateBanner({
       </div>
     </div>
   )
-}
-
-/**
- * Hook to manage remote update conflict detection.
- * Tracks when a task being edited receives a remote update, and exposes
- * a banner to display when the user finishes editing.
- */
-export function useRemoteUpdateConflict() {
-  const queryClient = useQueryClient()
-  const [bannerUpdate, setBannerUpdate] = useState<RemoteUpdate | null>(null)
-  const pendingRef = useRef<RemoteUpdate | null>(null)
-  const editingTaskIdRef = useRef<string | null>(null)
-
-  const setEditingTask = useCallback((taskId: string | null) => {
-    const prevId = editingTaskIdRef.current
-    editingTaskIdRef.current = taskId
-
-    // When exiting editing, show banner if there's a pending update
-    if (prevId && !taskId && pendingRef.current) {
-      // If the pending update was for the task we just stopped editing
-      if (pendingRef.current.taskId === prevId) {
-        setBannerUpdate(pendingRef.current)
-        pendingRef.current = null
-      } else {
-        // For other tasks, just invalidate silently
-        queryClient.invalidateQueries({ queryKey: ['tasks'] })
-        pendingRef.current = null
-      }
-    }
-  }, [queryClient])
-
-  const handleRemoteChange = useCallback((taskId: string, taskTitle: string) => {
-    if (editingTaskIdRef.current === taskId) {
-      // User is editing this task — buffer the update, don't interrupt
-      pendingRef.current = { taskId, taskTitle }
-    } else {
-      // User is not editing this task — silently refresh
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    }
-  }, [queryClient])
-
-  const handleViewLatest = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    setBannerUpdate(null)
-  }, [queryClient])
-
-  const handleDismiss = useCallback(() => {
-    setBannerUpdate(null)
-  }, [])
-
-  return {
-    bannerUpdate,
-    setEditingTask,
-    handleRemoteChange,
-    handleViewLatest,
-    handleDismiss,
-  }
 }
