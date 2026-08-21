@@ -2,7 +2,7 @@
 
 TaskFlow 是一款多端通用的工作任务管理工具，支持项目层级管理、甘特图可视化、看板拖拽、日历视图、AI 智能分析等功能。前端基于 React + TypeScript + Vite 构建，数据通过 Supabase（BaaS）云端同步，无需自建服务器。
 
-> 在线体验：[www.task-manager-framiracle.com](https://www.task-manager-framiracle.com)
+> 在线体验：[www.task-manager-framiracle.online](https://www.task-manager-framiracle.online)
 
 ## 功能特性
 
@@ -121,6 +121,21 @@ npm run preview   # 预览生产构建
 
 构建产物位于 `dist/` 目录，可部署到任何静态托管服务（Vercel、Netlify、GitHub Pages 等）。
 
+### 自动部署到 Vercel
+
+项目已提供 GitHub Actions 工作流：`.github/workflows/deploy.yml`。
+每次将代码推送到 `master` 分支时，工作流会依次执行类型检查、Lint、生产构建，并在全部通过后部署到 Vercel 生产环境。也可以在 GitHub Actions 页面手动运行。
+
+首次使用需要在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中添加以下三个 Repository secrets：
+
+| Secret | 获取位置 | 用途 |
+|------|------|------|
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens | 允许 GitHub Actions 部署 |
+| `VERCEL_ORG_ID` | Vercel 项目 `.vercel/repo.json` 的 `orgId` | 指定 Vercel 账户或团队 |
+| `VERCEL_PROJECT_ID` | 同一文件的 `id` | 指定 TaskFlow 项目 |
+
+在本机进入已经关联的 Vercel 项目目录执行 `npx vercel link` 后，可在 `.vercel/repo.json` 查看后两个 ID。不同版本的 Vercel CLI 文件名可能不同；当前 CLI 使用 `repo.json`，其中项目 ID 字段名是 `id`。`.vercel` 目录不要提交到 GitHub，令牌也不要写入代码。
+
 ## 配置指南
 
 ### Supabase 配置
@@ -229,7 +244,7 @@ Task (任务)
 ## 常见问题
 
 ### Q: 手机端如何使用？
-A: 在手机浏览器中访问 [www.task-manager-framiracle.com](https://www.task-manager-framiracle.com) 即可。移动端针对窄屏做了全面优化：精简顶栏、底部导航、甘特图自适应缩放、半透明浮钮。
+A: 在手机浏览器中访问 [www.task-manager-framiracle.online](https://www.task-manager-framiracle.online) 即可。移动端针对窄屏做了全面优化：精简顶栏、底部导航、甘特图自适应缩放、半透明浮钮。
 
 ### Q: 数据安全吗？
 A: 数据存储在 Supabase 云端 PostgreSQL 数据库中，传输使用 HTTPS 加密。用户认证通过 Supabase Auth 管理，Row Level Security (RLS) 可在 Supabase 控制台配置。
