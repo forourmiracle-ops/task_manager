@@ -581,28 +581,6 @@ export const DetailPanel = memo(function DetailPanel() {
     }
   }
 
-  const renderTitleEditor = () => (
-    <input
-      data-detail-editor
-      autoFocus
-      type="text"
-      value={editValue}
-      onChange={(e) => {
-        if (composingRef.current) return
-        editValueRef.current = e.target.value
-        setEditValue(e.target.value)
-      }}
-      onCompositionStart={() => { composingRef.current = true }}
-      onCompositionEnd={(e) => {
-        composingRef.current = false
-        const value = (e.target as HTMLInputElement).value
-        editValueRef.current = value
-        setEditValue(value)
-      }}
-      className="w-full min-w-0 px-1.5 py-1 text-sm font-bold border border-primary/40 rounded-md bg-background focus:outline-none focus:ring-1.5 focus:ring-primary"
-    />
-  )
-
   const Field = ({
     label,
     field,
@@ -641,7 +619,7 @@ export const DetailPanel = memo(function DetailPanel() {
           )}
         </label>
         <div className="px-3 pb-2.5">
-          {isEditing && field !== 'title' ? renderFieldEditor(field) : (
+          {isEditing ? renderFieldEditor(field) : (
             <div className="cursor-pointer min-h-[1.5em]">{children}</div>
           )}
         </div>
@@ -670,15 +648,6 @@ export const DetailPanel = memo(function DetailPanel() {
           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary uppercase tracking-wide flex-shrink-0">
             {currentLevelLabel}
           </span>
-          {editingField === 'title' ? renderTitleEditor() : (
-            <h3
-              className="text-sm font-bold truncate cursor-pointer hover:text-primary transition-colors"
-              onClick={() => startEditing('title')}
-              title="编辑任务标题"
-            >
-              {task.title}
-            </h3>
-          )}
         </div>
         <button
           onClick={() => {
