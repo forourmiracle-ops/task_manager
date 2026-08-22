@@ -59,12 +59,27 @@ export const DetailPanel = memo(function DetailPanel() {
   const editValueRef = useRef('')
   const originalValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
+  const titleInputRef = useRef<HTMLInputElement | null>(null)
   const committingRef = useRef(false)
   const composingRef = useRef(false)
 
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
   useEffect(() => { editValueRef.current = editValue }, [editValue])
+
+  // Focus the title editor after it is mounted. This avoids relying only on
+  // autoFocus while the detail panel is being re-rendered by query updates.
+  useEffect(() => {
+    if (editingField !== 'title') return
+    const frame = requestAnimationFrame(() => {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.setSelectionRange(
+        titleInputRef.current.value.length,
+        titleInputRef.current.value.length,
+      )
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [editingField])
 
   // Reset editing state when task changes
   useEffect(() => {
@@ -280,6 +295,8 @@ export const DetailPanel = memo(function DetailPanel() {
 
     const handleMouseDown = (e: MouseEvent) => {
       try {
+        // The title input manages its own blur and keyboard events.
+        if (editingFieldRef.current === 'title') return
         // Date fields use onBlur for commit, skip mousedown entirely
         const field = editingFieldRef.current
         if (field === 'start_date' || field === 'due_date') return
@@ -315,6 +332,7 @@ export const DetailPanel = memo(function DetailPanel() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       try {
+        if (editingFieldRef.current === 'title') return
         if (e.key === 'Enter') {
           e.preventDefault()
           commitEdit()
@@ -575,6 +593,17 @@ export const DetailPanel = memo(function DetailPanel() {
               editValueRef.current = v
               setEditValue(v)
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitEdit()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                setEditingField(null)
+                setEditValue('')
+              }
+            }}
+            onBlur={() => commitEdit()}
             className={baseClass}
           />
         )
