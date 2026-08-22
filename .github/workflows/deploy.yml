@@ -55,6 +55,14 @@ jobs:
           test -n "$VERCEL_PROJECT_ID" || (echo "VERCEL_PROJECT_ID is missing" && exit 1)
           echo "Vercel configuration is present."
 
+      - name: Configure Vercel project binding
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
       - name: Deploy Vite output to Vercel production
         run: npx vercel deploy dist --prod --yes --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
         env:
