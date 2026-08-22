@@ -460,6 +460,42 @@ export const DetailPanel = memo(function DetailPanel() {
     const val = editValue || ''
 
     switch (field) {
+      case 'title':
+        return (
+          <input
+            ref={titleInputRef}
+            data-detail-editor
+            autoFocus
+            type="text"
+            value={editValue}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              editValueRef.current = e.target.value
+              setEditValue(e.target.value)
+            }}
+            onCompositionStart={() => { composingRef.current = true }}
+            onCompositionEnd={(e) => {
+              composingRef.current = false
+              const value = (e.target as HTMLInputElement).value
+              editValueRef.current = value
+              setEditValue(value)
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitEdit()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                setEditingField(null)
+                setEditValue('')
+              }
+            }}
+            onBlur={() => commitEdit()}
+            className={cn(baseClass, 'font-bold')}
+          />
+        )
       case 'description':
         return (
           <div data-detail-editor className="min-h-[100px] border border-primary/40 rounded-lg bg-background overflow-hidden">
