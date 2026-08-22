@@ -124,7 +124,7 @@ npm run preview   # 预览生产构建
 ### 自动部署到 Vercel
 
 项目已提供 GitHub Actions 工作流：`.github/workflows/deploy.yml`。
-每次将代码推送到 `master` 分支时，工作流会依次执行类型检查、Lint、生产构建，并在全部通过后部署到 Vercel 生产环境。也可以在 GitHub Actions 页面手动运行。
+每次将代码推送到 `master` 分支时，工作流会依次执行类型检查、Lint、生产构建，并在全部通过后将 `dist/` 静态文件部署到 Vercel 生产环境。也可以在 GitHub Actions 页面手动运行。
 
 首次使用需要在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中添加以下三个 Repository secrets：
 
