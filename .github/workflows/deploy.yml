@@ -62,9 +62,15 @@ jobs:
         run: |
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          test -f dist/index.html || (echo "dist/index.html is missing" && exit 1)
+
+      - name: Verify Vercel authentication
+        run: npx --yes vercel@latest whoami --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy Vite output to Vercel production
-        run: npx vercel deploy dist --prod --yes --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+        run: npx --yes vercel@latest deploy dist --prod --yes --debug --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
