@@ -15,6 +15,66 @@ const RichTextEditor = lazy(() => import('@/components/editor/RichTextEditor'))
 
 type EditableField = 'title' | 'description' | 'status' | 'priority' | 'start_date' | 'due_date' | 'progress_percent' | 'estimated_hours' | 'tags' | 'depends_on'
 
+interface TitleEditorProps {
+  value: string
+  onCommit: (value: string) => void
+  onCancel: () => void
+  className: string
+}
+
+/**
+ * Keep the title input value in the DOM during an edit session.
+ * The detail panel can re-render when task data is refreshed; using
+ * defaultValue prevents that refresh from replacing text the user is typing.
+ */
+function TitleEditor({ value, onCommit, onCancel, className }: TitleEditorProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.setSelectionRange(
+        inputRef.current.value.length,
+        inputRef.current.value.length,
+      )
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  const cancel = () => {
+    cancelledRef.current = true
+    onCancel()
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      data-detail-editor
+      data-testid="task-title-editor"
+      autoFocus
+      type="text"
+      defaultValue={value}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          onCommit(e.currentTarget.value)
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          cancel()
+        }
+      }}
+      onBlur={(e) => {
+        if (!cancelledRef.current) onCommit(e.currentTarget.value)
+      }}
+      className={className}
+    />
+  )
+}
+
 export const DetailPanel = memo(function DetailPanel() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
@@ -59,27 +119,12 @@ export const DetailPanel = memo(function DetailPanel() {
   const editValueRef = useRef('')
   const originalValueRef = useRef('')
   const taskRef = useRef<Task | null>(null)
-  const titleInputRef = useRef<HTMLInputElement | null>(null)
   const committingRef = useRef(false)
   const composingRef = useRef(false)
 
   useEffect(() => { taskRef.current = task }, [task])
   useEffect(() => { editingFieldRef.current = editingField }, [editingField])
   useEffect(() => { editValueRef.current = editValue }, [editValue])
-
-  // Focus the title editor after it is mounted. This avoids relying only on
-  // autoFocus while the detail panel is being re-rendered by query updates.
-  useEffect(() => {
-    if (editingField !== 'title') return
-    const frame = requestAnimationFrame(() => {
-      titleInputRef.current?.focus()
-      titleInputRef.current?.setSelectionRange(
-        titleInputRef.current.value.length,
-        titleInputRef.current.value.length,
-      )
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [editingField])
 
   // Reset editing state when task changes
   useEffect(() => {
@@ -462,37 +507,13 @@ export const DetailPanel = memo(function DetailPanel() {
     switch (field) {
       case 'title':
         return (
-          <input
-            ref={titleInputRef}
-            data-detail-editor
-            autoFocus
-            type="text"
+          <TitleEditor
             value={editValue}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              editValueRef.current = e.target.value
-              setEditValue(e.target.value)
+            onCommit={commitEdit}
+            onCancel={() => {
+              setEditingField(null)
+              setEditValue('')
             }}
-            onCompositionStart={() => { composingRef.current = true }}
-            onCompositionEnd={(e) => {
-              composingRef.current = false
-              const value = (e.target as HTMLInputElement).value
-              editValueRef.current = value
-              setEditValue(value)
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                commitEdit()
-              } else if (e.key === 'Escape') {
-                e.preventDefault()
-                setEditingField(null)
-                setEditValue('')
-              }
-            }}
-            onBlur={() => commitEdit()}
             className={cn(baseClass, 'font-bold')}
           />
         )
