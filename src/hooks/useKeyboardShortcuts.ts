@@ -2,13 +2,12 @@ import { useEffect } from 'react'
 import { useAppStore } from '@/store'
 import type { ProjectViewTab } from '@/store'
 
+// Order matches the ViewTabBar: 甘特图 / 看板 / 日历 / 列表
 const VIEW_TAB_SHORTCUTS: Record<string, ProjectViewTab> = {
-  '1': 'list',
+  '1': 'gantt',
   '2': 'board',
-  '3': 'table',
-  '4': 'gallery',
-  '5': 'calendar',
-  '6': 'gantt',
+  '3': 'calendar',
+  '4': 'list',
 }
 
 export function useKeyboardShortcuts() {

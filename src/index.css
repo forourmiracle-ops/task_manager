@@ -417,3 +417,23 @@ tr:hover .drag-handle {
     animation-duration: 0.01s;
   }
 }
+
+/* Gantt: breathing red glow on overdue unfinished task bars */
+.gantt-overdue-pulse {
+  animation: gantt-overdue-pulse 2s ease-in-out infinite;
+}
+@keyframes gantt-overdue-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gantt-overdue-pulse {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.4);
+  }
+}

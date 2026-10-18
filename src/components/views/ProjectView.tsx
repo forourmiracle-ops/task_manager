@@ -6,8 +6,6 @@ const GanttView = lazy(() => import('@/components/gantt/GanttView').then(m => ({
 const BoardView = lazy(() => import('@/components/board/BoardView').then(m => ({ default: m.BoardView })))
 const CalendarView = lazy(() => import('@/components/calendar/CalendarView').then(m => ({ default: m.CalendarView })))
 const ListView = lazy(() => import('./ListView').then(m => ({ default: m.ListView })))
-const TableView = lazy(() => import('./TableView').then(m => ({ default: m.TableView })))
-const GalleryView = lazy(() => import('./GalleryView').then(m => ({ default: m.GalleryView })))
 
 const ViewSkeleton = () => (
   <div className="flex-1 flex items-center justify-center">
@@ -29,8 +27,6 @@ export const ProjectView = memo(function ProjectView() {
         {projectViewTab === 'board' && <BoardView />}
         {projectViewTab === 'calendar' && <CalendarView />}
         {projectViewTab === 'list' && <ListView />}
-        {projectViewTab === 'table' && <TableView />}
-        {projectViewTab === 'gallery' && <GalleryView />}
       </Suspense>
     </div>
   )

@@ -1,12 +1,13 @@
 import type { StateCreator } from 'zustand'
 import type { ViewType } from '@/types'
 
-export type ProjectViewTab = 'list' | 'board' | 'table' | 'gallery' | 'calendar' | 'gantt'
+export type ProjectViewTab = 'gantt' | 'board' | 'calendar' | 'list'
 
 const STORED_PROJECT_VIEW_TAB = (() => {
   try {
     const v = localStorage.getItem('taskflow-project-view-tab')
-    if (v && ['list', 'board', 'table', 'gallery', 'calendar', 'gantt'].includes(v)) {
+    // Stale values from the retired 表格/画廊 tabs fall back to the default
+    if (v && ['gantt', 'board', 'calendar', 'list'].includes(v)) {
       return v as ProjectViewTab
     }
   } catch { /* noop */ }

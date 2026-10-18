@@ -86,6 +86,11 @@ export const GanttTaskRows = memo(function GanttTaskRows({
         const progressPercent = task.progress_percent || 0
         const depth = task.depth ?? 0
         const isChild = depth > 0
+        // Overdue & unfinished bars get a breathing red glow — visible at a glance
+        const isOverdue =
+          task.status !== 'done' &&
+          !!task.due_date &&
+          new Date(`${task.due_date}T23:59:59`) < new Date()
         const barColor = (() => {
           switch (task.status) {
             case 'done': return 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)'
@@ -141,8 +146,9 @@ export const GanttTaskRows = memo(function GanttTaskRows({
                   <div
                     data-task-bar
                     className={cn(
-                      'absolute rounded-md cursor-pointer transition-all hover:brightness-110 hover:shadow-md group',
+                      'absolute rounded-lg cursor-pointer transition-all hover:brightness-110 hover:shadow-lg hover:-translate-y-px group',
                       isSelected && 'ring-2 ring-primary ring-offset-1',
+                      isOverdue && 'gantt-overdue-pulse',
                     )}
                     style={{
                       left: Math.max(left, 0),
@@ -154,17 +160,17 @@ export const GanttTaskRows = memo(function GanttTaskRows({
                       boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
                     }}
                     onClick={() => onTaskClick(task.id)}
-                    title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%`}
+                    title={`${task.title}\n${task.start_date} → ${task.due_date}\n进度: ${progressPercent}%${isOverdue ? '\n已逾期' : ''}`}
                   >
                     {/* Priority color marker on left */}
                     <div
-                      className="absolute inset-y-0 left-0 rounded-l-md"
+                      className="absolute inset-y-0 left-0 rounded-l-lg"
                       style={{ width: 3, background: PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium }}
                     />
                     {/* Progress fill */}
                     {progressPercent > 0 && (
                       <div
-                        className="absolute inset-y-0 left-0 rounded-l-md bg-white/25"
+                        className="absolute inset-y-0 left-0 rounded-l-lg bg-white/35"
                         style={{ width: `${progressPercent}%`, left: 3 }}
                       />
                     )}

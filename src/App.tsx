@@ -244,28 +244,6 @@ export default function App() {
 
         <div className="flex-1" />
 
-        {/* Mobile AI quick-access — single icon, high-frequency */}
-        <button
-          onClick={() => setCurrentView('ai')}
-          className={`md:hidden flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
-            currentView === 'ai'
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-          }`}
-          title="AI 助手"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="12" cy="14" rx="9" ry="7" fill="#4D6BFE" />
-            <path d="M5 12 Q3 8 6 6 Q9 8 5 12Z" fill="#4D6BFE" />
-            <path d="M12 4 Q12 1 14 2 Q16 3 14 5" stroke="#4D6BFE" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-            <circle cx="8.5" cy="13" r="1.2" fill="white" />
-            <circle cx="14.5" cy="13" r="1.2" fill="white" />
-            <circle cx="8.5" cy="13" r="0.5" fill="#1a1a2e" />
-            <circle cx="14.5" cy="13" r="0.5" fill="#1a1a2e" />
-            <path d="M10 16 Q12 18 14 16" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" />
-          </svg>
-        </button>
-
         <div className="flex items-center gap-1.5 md:gap-3">
           {/* Gamification: streak + level widget */}
           <StatsBar />
@@ -283,7 +261,7 @@ export default function App() {
           {/* Quick Create — hidden on mobile, FAB handles it */}
           <button
             onClick={() => startCreating(null)}
-            className="hidden md:flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-1.5 md:py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:opacity-90 shadow-md transition-all"
+            className="hidden md:flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-1.5 md:py-2 text-xs font-bold bg-gradient-to-br from-primary to-blue-600 text-primary-foreground rounded-xl hover:brightness-110 hover:shadow-lg shadow-md transition-all"
             title="新建项目 (Ctrl+N)"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -325,7 +303,7 @@ export default function App() {
           onClick={() => startCreating(null)}
           className="flex-1 flex flex-col items-center justify-center text-[10px] text-primary font-semibold"
         >
-          <span className="bg-primary text-primary-foreground p-1.5 rounded-xl shadow-md">
+          <span className="bg-gradient-to-br from-primary to-blue-600 text-primary-foreground p-1.5 rounded-xl shadow-md">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M8 3v10M3 8h10" />
             </svg>
