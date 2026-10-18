@@ -17,6 +17,11 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useRealtimeSubscription } from '@/hooks/useTasks'
 import { useRecurringTaskExecutor } from '@/hooks/useRecurringTaskExecutor'
 import { useUserSettings } from '@/hooks/useUserSettings'
+import { useCompletionWatcher } from '@/hooks/useCompletionWatcher'
+import { useReminderChecker } from '@/hooks/useReminderChecker'
+import { StatsBar } from '@/components/gamification/StatsBar'
+import { CelebrationOverlay } from '@/components/gamification/CelebrationOverlay'
+import { ReminderToastContainer } from '@/components/gamification/ReminderToastContainer'
 import { supabase } from '@/lib/supabase'
 import { clearUserLocalData } from '@/lib/localStorage'
 import { clearAIStorage } from '@/store'
@@ -129,6 +134,8 @@ export default function App() {
   useKeyboardShortcuts()
   useRecurringTaskExecutor()
   useUserSettings() // Sync API key & preferences across devices
+  useCompletionWatcher() // Gamification: reward every transition into done
+  useReminderChecker() // Fire due reminders as toasts + notifications
 
   // Remote edit conflict detection
   const {
@@ -260,6 +267,8 @@ export default function App() {
         </button>
 
         <div className="flex items-center gap-1.5 md:gap-3">
+          {/* Gamification: streak + level widget */}
+          <StatsBar />
           <span className="text-xs text-muted-foreground hidden sm:inline">
             {session?.user?.email}
           </span>
@@ -345,6 +354,12 @@ export default function App() {
 
       {/* Local → Cloud migration prompt */}
       <LocalTaskMigration />
+
+      {/* Gamification: completion celebration overlay */}
+      <CelebrationOverlay />
+
+      {/* Reminder toasts */}
+      <ReminderToastContainer />
     </div>
   )
 }

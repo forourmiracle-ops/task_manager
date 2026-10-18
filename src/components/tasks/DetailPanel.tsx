@@ -6,6 +6,7 @@ import { CommentSection } from '@/components/tasks/CommentSection'
 import { DependencyPicker } from '@/components/tasks/DependencyPicker'
 import { HierarchyTree } from '@/components/tasks/HierarchyTree'
 import { SaveAsTemplate } from '@/components/templates/SaveAsTemplate'
+import { ReminderSection } from '@/components/gamification/ReminderSection'
 import { showDraftToast } from '@/components/ui/draftToastBus'
 import { sanitizeHtml } from '@/lib/sanitize'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
@@ -801,6 +802,9 @@ export const DetailPanel = memo(function DetailPanel() {
             <p className="text-xs font-semibold">{task.estimated_hours ? `${task.estimated_hours} 小时` : <span className="text-muted-foreground font-normal">未设置</span>}</p>
           </Field>
         </div>
+
+        {/* Reminder — quick presets relative to due date + custom time */}
+        <ReminderSection task={task} />
 
         <Field label="描述" field="description" fullWidth>
           {task.description ? (

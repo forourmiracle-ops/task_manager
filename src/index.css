@@ -367,3 +367,53 @@ tr:hover .drag-handle {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ===== Gamification animations ===== */
+
+/* Confetti particle: falls from top with horizontal drift and spin */
+.confetti-particle {
+  position: absolute;
+  top: -12px;
+  border-radius: 1.5px;
+  opacity: 0;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation-fill-mode: forwards;
+}
+@keyframes confetti-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--drift, 0px), 60vh, 0) rotate(var(--rotate, 360deg));
+    opacity: 0;
+  }
+}
+
+/* Reward card: floats up and fades in */
+.reward-card-enter {
+  animation: reward-float-up 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+}
+@keyframes reward-float-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-particle {
+    display: none;
+  }
+  .reward-card-enter {
+    animation-duration: 0.01s;
+  }
+}

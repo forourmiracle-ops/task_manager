@@ -1,8 +1,23 @@
-import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, useMemo, type KeyboardEvent } from 'react'
 import { useAppStore } from '@/store'
 import { useTasks, useCreateTask } from '@/hooks/useTasks'
-import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/utils'
+import { STATUS_LABELS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/utils'
 import type { TaskStatus, TaskPriority } from '@/types'
+
+function offsetDate(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const DUE_SHORTCUTS: Array<{ label: string; days: number }> = [
+  { label: '今天', days: 0 },
+  { label: '明天', days: 1 },
+  { label: '三天后', days: 3 },
+  { label: '下周', days: 7 },
+]
+
+const PRIORITY_ORDER: TaskPriority[] = ['low', 'medium', 'high', 'urgent']
 
 export function CreateTaskDialog() {
   const { isCreating, creatingParentId, stopCreating } = useAppStore()
@@ -35,6 +50,26 @@ export function CreateTaskDialog() {
 
   const parentTask = creatingParentId ? tasks?.find((t) => t.id === creatingParentId) : null
   const isSubtask = !!creatingParentId
+
+  // Tag suggestions: most-used tags across existing tasks, excluding already entered ones
+  const tagSuggestions = useMemo(() => {
+    if (!tasks) return []
+    const freq = new Map<string, number>()
+    for (const t of tasks) {
+      for (const tag of t.tags ?? []) freq.set(tag, (freq.get(tag) ?? 0) + 1)
+    }
+    const entered = new Set(tags.split(',').map((s) => s.trim()).filter(Boolean))
+    return [...freq.entries()]
+      .filter(([tag]) => !entered.has(tag))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([tag]) => tag)
+  }, [tasks, tags])
+
+  const appendTag = (tag: string) => {
+    const current = tags.split(',').map((s) => s.trim()).filter(Boolean)
+    setTags([...current, tag].join(', '))
+  }
 
   const resetForm = () => {
     setTitle('')
@@ -220,31 +255,61 @@ export function CreateTaskDialog() {
             <p className="text-[11px] text-red-500 font-medium -mt-1">{dateError}</p>
           )}
 
-          {/* Status + Priority */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">状态</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background"
+          {/* Due date shortcuts */}
+          <div className="flex flex-wrap gap-1.5 -mt-1">
+            {DUE_SHORTCUTS.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => { setDueDate(offsetDate(s.days)); setDateError(null) }}
+                className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
+                  dueDate === offsetDate(s.days)
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
               >
-                {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Status + Priority — chip pickers for one-tap selection */}
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">状态</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(Object.entries(STATUS_LABELS) as [TaskStatus, string][]).map(([k, v]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setStatus(k)}
+                  className={`px-1 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+                    status === k
+                      ? 'border-primary bg-primary/10 text-primary font-bold'
+                      : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">优先级</label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background"
-              >
-                {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">优先级</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PRIORITY_ORDER.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setPriority(k)}
+                  className={`px-1 py-1.5 text-[11px] rounded-lg border transition-colors ${
+                    priority === k
+                      ? `${PRIORITY_COLORS[k]} border-transparent font-bold ring-1 ring-current`
+                      : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground font-medium'
+                  }`}
+                >
+                  {PRIORITY_LABELS[k]}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -285,6 +350,20 @@ export function CreateTaskDialog() {
               placeholder="如：重要, 前端, 紧急"
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
             />
+            {tagSuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {tagSuggestions.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => appendTag(tag)}
+                    className="px-2 py-0.5 text-[10px] font-medium rounded-md border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                  >
+                    + {tag}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

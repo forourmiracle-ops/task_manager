@@ -16,6 +16,13 @@ export const GanttDayHeaders = memo(function GanttDayHeaders({
   todayOffset,
   weekendHolidayIndices,
 }: GanttDayHeadersProps) {
+  // Adaptive label density — at narrow widths (季/半年/年 views where
+  // DAY_WIDTH approaches MIN_DAY_WIDTH) full labels overlap into a blur.
+  // ≥16px: day number + weekday; 6–16px: small day number only;
+  // <6px: grid lines and background tint only, no text.
+  const showFullLabel = DAY_WIDTH >= 16
+  const showCompactLabel = DAY_WIDTH >= 6 && DAY_WIDTH < 16
+
   return (
     <div className="h-8 border-b border-border bg-muted/5 relative overflow-hidden">
       {Array.from({ length: visibleDayRange.end - visibleDayRange.start }, (_, j) => {
@@ -29,26 +36,40 @@ export const GanttDayHeaders = memo(function GanttDayHeaders({
           <div
             key={i}
             className={cn(
-              'absolute flex flex-col items-center justify-center border-r border-border/60',
+              'absolute flex flex-col items-center justify-center overflow-hidden',
+              // Grid line only when cells are wide enough to read as separate days
+              DAY_WIDTH >= 6 && 'border-r border-border/60',
               w && !h && 'bg-red-50/20',
               h && 'bg-amber-50/30',
               isToday && 'bg-blue-50/50',
             )}
             style={{ left: i * DAY_WIDTH, width: DAY_WIDTH, height: '100%' }}
           >
-            <span className={cn(
-              'text-[11px] font-semibold leading-tight',
-              isToday ? 'text-blue-600' : w ? 'text-red-400' : h ? 'text-amber-600' : 'text-foreground/60',
-            )}>
-              {d.getDate()}
-            </span>
-            <span className={cn(
-              'text-[9px] leading-tight',
-              isToday ? 'text-blue-500 font-semibold' : w ? 'text-red-300' : h ? 'text-amber-500' : 'text-muted-foreground/60',
-            )}>
-              {['日', '一', '二', '三', '四', '五', '六'][d.getDay()]}
-            </span>
-            {h && <span className="text-[8px] text-amber-500 leading-none mt-0.5">休</span>}
+            {showFullLabel && (
+              <>
+                <span className={cn(
+                  'text-[11px] font-semibold leading-tight',
+                  isToday ? 'text-blue-600' : w ? 'text-red-400' : h ? 'text-amber-600' : 'text-foreground/60',
+                )}>
+                  {d.getDate()}
+                </span>
+                <span className={cn(
+                  'text-[9px] leading-tight',
+                  isToday ? 'text-blue-500 font-semibold' : w ? 'text-red-300' : h ? 'text-amber-500' : 'text-muted-foreground/60',
+                )}>
+                  {['日', '一', '二', '三', '四', '五', '六'][d.getDay()]}
+                </span>
+                {h && <span className="text-[8px] text-amber-500 leading-none mt-0.5">休</span>}
+              </>
+            )}
+            {showCompactLabel && (
+              <span className={cn(
+                'text-[9px] leading-tight whitespace-nowrap',
+                isToday ? 'text-blue-600 font-semibold' : w ? 'text-red-400' : h ? 'text-amber-600' : 'text-foreground/50',
+              )}>
+                {d.getDate()}
+              </span>
+            )}
           </div>
         )
       })}

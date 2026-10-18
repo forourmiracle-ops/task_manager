@@ -17,6 +17,42 @@ interface FlattenedNode {
   path: string[]
 }
 
+/** Days from today to the due date (negative = overdue), in local time */
+function daysUntilDue(dueDate: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(`${dueDate}T00:00:00`)
+  return Math.round((due.getTime() - today.getTime()) / 86_400_000)
+}
+
+/** Due-date badge with urgency coloring: overdue red, today amber, tomorrow blue */
+function DueBadge({ dueDate, isDone }: { dueDate: string | null; isDone: boolean }) {
+  if (!dueDate) return <span className="text-[10px] text-muted-foreground">-</span>
+  const diff = daysUntilDue(dueDate)
+  if (!isDone && diff < 0) {
+    return (
+      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-100 text-red-600">
+        逾期{-diff}天
+      </span>
+    )
+  }
+  if (!isDone && diff === 0) {
+    return (
+      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700">
+        今天截止
+      </span>
+    )
+  }
+  if (!isDone && diff === 1) {
+    return (
+      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">
+        明天
+      </span>
+    )
+  }
+  return <span className="text-[10px] text-muted-foreground">{formatDate(dueDate)}</span>
+}
+
 export const ListView = memo(function ListView() {
   const { data: tasks, isLoading } = useTasks()
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
@@ -231,9 +267,7 @@ export const ListView = memo(function ListView() {
 
                 {/* Due date */}
                 <div className="w-24 text-right flex-shrink-0 hidden sm:block">
-                  <span className="text-[10px] text-muted-foreground">
-                    {task.due_date ? formatDate(task.due_date) : '-'}
-                  </span>
+                  <DueBadge dueDate={task.due_date} isDone={task.status === 'done'} />
                 </div>
 
                 {/* Quick complete */}
