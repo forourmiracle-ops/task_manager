@@ -156,6 +156,9 @@ html {
 
 #root {
   min-height: 100vh;
+  /* Dynamic viewport height: shrinks when mobile browser chrome (e.g. Edge's
+     bottom address/operation bar) is visible, keeping fixed UI unobscured */
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }

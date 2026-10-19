@@ -2,15 +2,22 @@ import { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/hooks/useTasks'
-import { useDailyTasksStore, todayStr, XP_DAILY_TASK, XP_PERFECT_DAY } from '@/store/daily-tasks-store'
+import { useDailyTasksStore, todayStr, XP_DAILY_TASK, XP_PERFECT_DAY, type DailyTaskDef } from '@/store/daily-tasks-store'
 import { useGamificationStore } from '@/store/gamification-store'
-import { cn, PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/utils'
+import { cn, PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS } from '@/lib/utils'
 import type { Task } from '@/types'
 
 /** Preset icons offered when creating a daily task */
 const ICON_PRESETS = ['📌', '💧', '🏃', '📚', '🧘', '🍎', '💤', '📝', '🎯', '🧹', '💊', '🌱']
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+
+/** Days until a YYYY-MM-DD date (negative = overdue) */
+function daysUntil(dateStr: string): number {
+  const today = new Date(`${todayStr()}T00:00:00`)
+  const target = new Date(`${dateStr}T00:00:00`)
+  return Math.round((target.getTime() - today.getTime()) / 86400000)
+}
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -50,98 +57,152 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
   )
 }
 
-/** Single daily-task row with animated checkbox and hover actions */
-function DailyTaskRow({
-  icon,
-  title,
+/**
+ * Dopamind-style big card for one daily task — the whole card is the tap
+ * target. Checked state fills the card with the primary tint and pops a
+ * checkmark badge + XP floater.
+ */
+function DailyTaskCard({
+  def,
   checked,
   onToggle,
   onRemove,
 }: {
-  icon: string
-  title: string
+  def: DailyTaskDef
   checked: boolean
   onToggle: () => void
   onRemove: () => void
 }) {
-  // XP floater shown briefly after each check
   const [floaterId, setFloaterId] = useState(0)
 
   return (
     <div
-      className={cn(
-        'group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors',
-        checked
-          ? 'border-primary/25 bg-primary/5'
-          : 'border-border bg-card hover:border-primary/30',
-      )}
-    >
-      <button
-        onClick={() => {
+      role="button"
+      tabIndex={0}
+      onClick={() => {
+        onToggle()
+        if (!checked) setFloaterId(Date.now())
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
           onToggle()
           if (!checked) setFloaterId(Date.now())
+        }
+      }}
+      className={cn(
+        'group relative flex flex-col items-center gap-2 px-3 py-5 rounded-2xl border-2 cursor-pointer select-none transition-all',
+        checked
+          ? 'border-primary/50 bg-gradient-to-br from-primary/15 to-blue-500/10 shadow-md'
+          : 'border-border bg-card hover:border-primary/30 hover:shadow-sm active:scale-[0.98]',
+      )}
+    >
+      {/* Delete — always subtly visible on touch devices, hover-revealed on desktop */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove()
         }}
-        className={cn(
-          'relative w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
-          checked
-            ? 'bg-primary border-primary text-primary-foreground'
-            : 'border-muted-foreground/40 hover:border-primary text-transparent',
-        )}
-        title={checked ? '取消打卡' : `打卡 +${XP_DAILY_TASK} XP`}
+        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground/60 md:text-muted-foreground/0 md:group-hover:text-muted-foreground hover:!text-red-500 hover:bg-accent transition-all"
+        title="删除该每日任务"
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          className={checked ? 'daily-check-pop' : ''}
-        >
-          <path d="M3 8.5l3.5 3.5L13 4.5" />
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 3l10 10M13 3L3 13" />
         </svg>
+      </button>
+
+      {/* Icon with check badge */}
+      <div className="relative">
+        <span className="text-3xl md:text-4xl leading-none">{def.icon}</span>
+        {checked && (
+          <span className="absolute -right-2 -bottom-1 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" className="daily-check-pop">
+              <path d="M3 8.5l3.5 3.5L13 4.5" />
+            </svg>
+          </span>
+        )}
         {/* XP floater on check */}
         {floaterId > 0 && checked && (
           <span
             key={floaterId}
-            className="xp-float-up absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-primary whitespace-nowrap pointer-events-none"
+            className="xp-float-up absolute -top-2 left-1/2 -translate-x-1/2 text-xs font-bold text-primary whitespace-nowrap pointer-events-none"
             onAnimationEnd={() => setFloaterId(0)}
           >
-            +{XP_DAILY_TASK}
+            +{XP_DAILY_TASK} XP
           </span>
         )}
-      </button>
+      </div>
 
-      <span className="text-base flex-shrink-0">{icon}</span>
       <span
         className={cn(
-          'flex-1 text-sm truncate transition-colors',
-          checked ? 'text-muted-foreground line-through' : 'text-foreground',
+          'text-sm font-medium text-center leading-snug break-all line-clamp-2 transition-colors',
+          checked ? 'text-primary' : 'text-foreground',
         )}
       >
-        {title}
+        {def.title}
       </span>
 
-      <button
-        onClick={onRemove}
-        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 p-1 rounded-lg hover:bg-accent transition-all flex-shrink-0"
-        title="删除该每日任务"
+      <span
+        className={cn(
+          'text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors',
+          checked ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-muted-foreground',
+        )}
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M3 3l10 10M13 3L3 13" />
-        </svg>
-      </button>
+        {checked ? '已打卡 ✓' : `打卡 +${XP_DAILY_TASK} XP`}
+      </span>
     </div>
   )
 }
 
-/** Compact row for a real task due today / overdue */
-function DueTaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
+/** Urgency badge for an upcoming / overdue task */
+function DueBadge({ task }: { task: Task }) {
+  if (!task.due_date) {
+    return (
+      <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded-md flex-shrink-0">
+        {STATUS_LABELS[task.status] ?? task.status}
+      </span>
+    )
+  }
+  const d = daysUntil(task.due_date)
+  if (d < 0) {
+    return (
+      <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+        逾期{-d}天
+      </span>
+    )
+  }
+  if (d === 0) {
+    return (
+      <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+        今天截止
+      </span>
+    )
+  }
+  if (d === 1) {
+    return (
+      <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+        明天截止
+      </span>
+    )
+  }
+  return (
+    <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded-md flex-shrink-0">
+      {d} 天后
+    </span>
+  )
+}
+
+/** Compact row for an upcoming / in-flight task — tap to open the detail panel */
+function FocusTaskRow({ task }: { task: Task }) {
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
+  const overdue = !!task.due_date && daysUntil(task.due_date) < 0
   return (
     <button
       onClick={() => setSelectedTaskId(task.id)}
-      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors text-left"
+      className={cn(
+        'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-colors text-left',
+        overdue ? 'border-red-200 bg-red-50/40 hover:border-red-300' : 'border-border bg-card hover:border-primary/30',
+      )}
     >
       <span
         className="w-2 h-2 rounded-full flex-shrink-0"
@@ -149,11 +210,7 @@ function DueTaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
         title={PRIORITY_LABELS[task.priority]}
       />
       <span className="flex-1 text-sm text-foreground truncate">{task.title}</span>
-      {overdue && (
-        <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
-          已逾期
-        </span>
-      )}
+      <DueBadge task={task} />
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground flex-shrink-0">
         <path d="M6 3l5 5-5 5" />
       </svg>
@@ -162,8 +219,9 @@ function DueTaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
 }
 
 /**
- * "Today" landing view — daily quests (check-in habits), tasks due today,
- * and overdue warnings. Dopamind-style daily dashboard.
+ * "Today" landing view — daily quest cards (Dopamind-style check-ins) plus a
+ * focus list of in-flight and upcoming-due tasks for quick review.
+ * Desktop uses a two-column layout to avoid dead space; mobile stacks.
  */
 export function TodayView() {
   const { userId } = useAuth()
@@ -178,6 +236,7 @@ export function TodayView() {
 
   const [newTitle, setNewTitle] = useState('')
   const [newIcon, setNewIcon] = useState(ICON_PRESETS[0])
+  const [adding, setAdding] = useState(false)
 
   const today = todayStr()
   const todayMarks = completions[today] ?? {}
@@ -187,150 +246,176 @@ export function TodayView() {
 
   const now = new Date()
 
-  const { dueToday, overdue } = useMemo(() => {
-    if (!tasks) return { dueToday: [] as Task[], overdue: [] as Task[] }
-    const due: Task[] = []
-    const over: Task[] = []
-    for (const t of tasks) {
-      if (t.status === 'done' || !t.due_date) continue
-      if (t.due_date === today) due.push(t)
-      else if (t.due_date < today) over.push(t)
-    }
-    over.sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))
-    return { dueToday: due, overdue: over }
-  }, [tasks, today])
+  /** Focus list: in-flight tasks + anything due within 7 days (overdue first) */
+  const focusTasks = useMemo(() => {
+    if (!tasks) return [] as Task[]
+    const horizon = new Date()
+    horizon.setDate(horizon.getDate() + 7)
+    const horizonStr = `${horizon.getFullYear()}-${String(horizon.getMonth() + 1).padStart(2, '0')}-${String(horizon.getDate()).padStart(2, '0')}`
+    return tasks
+      .filter((t) => {
+        if (t.status === 'done') return false
+        if (t.due_date && t.due_date <= horizonStr) return true
+        return t.status === 'in_progress'
+      })
+      .sort((a, b) => {
+        // Dated tasks first (soonest on top), undated in-progress last
+        if (a.due_date && b.due_date) return a.due_date < b.due_date ? -1 : 1
+        if (a.due_date) return -1
+        if (b.due_date) return 1
+        return 0
+      })
+  }, [tasks])
+
+  const overdueCount = focusTasks.filter((t) => t.due_date && daysUntil(t.due_date) < 0).length
 
   const handleAdd = () => {
     const title = newTitle.trim()
     if (!title || !userId) return
     addDef(userId, title, newIcon)
     setNewTitle('')
+    setAdding(false)
   }
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0 bg-muted/10">
-      <div className="max-w-2xl mx-auto px-4 py-5 md:py-8 flex flex-col gap-4">
-        {/* Header card: greeting + progress ring + streak */}
-        <div className="rounded-2xl border border-border bg-card p-4 md:p-5 flex items-center gap-4 shadow-sm">
-          <ProgressRing done={doneCount} total={enabledDefs.length} />
-          <div className="flex-1 min-w-0">
-            <p className="text-base md:text-lg font-bold text-foreground leading-tight">
-              {greeting()}，今天是 {now.getMonth() + 1} 月 {now.getDate()} 日 · 周{WEEKDAY_LABELS[now.getDay()]}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {allDone
-                ? `🌟 每日任务全部完成，已领取 +${XP_PERFECT_DAY} XP 完美奖励！`
-                : enabledDefs.length === 0
-                  ? '还没有每日任务，从下方添加第一个打卡目标吧'
-                  : `今日打卡进度 ${doneCount}/${enabledDefs.length}，全部完成可领取 +${XP_PERFECT_DAY} XP 完美奖励`}
-            </p>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="text-[11px] font-semibold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-lg">
-                🔥 连续 {streak} 天
-              </span>
-              <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
-                今日完成 {completionsByDate[today] ?? 0} 项
-              </span>
+      <div className="max-w-2xl lg:max-w-6xl mx-auto px-4 py-5 md:py-8">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-5 lg:items-start flex flex-col gap-4">
+          {/* ===== Left column: header + daily quests ===== */}
+          <div className="flex flex-col gap-4 min-w-0">
+            {/* Header card: greeting + progress ring + streak */}
+            <div className="rounded-2xl border border-border bg-card p-4 md:p-5 flex items-center gap-4 shadow-sm">
+              <ProgressRing done={doneCount} total={enabledDefs.length} />
+              <div className="flex-1 min-w-0">
+                <p className="text-base md:text-lg font-bold text-foreground leading-tight">
+                  {greeting()}，今天是 {now.getMonth() + 1} 月 {now.getDate()} 日 · 周{WEEKDAY_LABELS[now.getDay()]}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {allDone
+                    ? `🌟 每日任务全部完成，已领取 +${XP_PERFECT_DAY} XP 完美奖励！`
+                    : enabledDefs.length === 0
+                      ? '还没有每日任务，点击下方卡片添加第一个打卡目标吧'
+                      : `今日打卡进度 ${doneCount}/${enabledDefs.length}，全部完成可领取 +${XP_PERFECT_DAY} XP 完美奖励`}
+                </p>
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  <span className="text-[11px] font-semibold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-lg">
+                    🔥 连续 {streak} 天
+                  </span>
+                  <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
+                    今日完成 {completionsByDate[today] ?? 0} 项
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Daily quests */}
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-foreground">每日任务</h2>
-            <span className="text-[10px] text-muted-foreground">每天重置 · 打卡 +{XP_DAILY_TASK} XP</span>
+            {/* Daily quests — Dopamind-style big cards */}
+            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-foreground">每日任务</h2>
+                <span className="text-[10px] text-muted-foreground">每天重置 · 点击卡片打卡</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {enabledDefs.map((d) => (
+                  <DailyTaskCard
+                    key={d.id}
+                    def={d}
+                    checked={!!todayMarks[d.id]}
+                    onToggle={() => userId && toggleToday(userId, d.id)}
+                    onRemove={() => removeDef(d.id)}
+                  />
+                ))}
+
+                {/* Add card — dashed placeholder, expands into the editor */}
+                {!adding ? (
+                  <button
+                    onClick={() => setAdding(true)}
+                    className="flex flex-col items-center justify-center gap-2 px-3 py-5 rounded-2xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M8 3v10M3 8h10" />
+                    </svg>
+                    <span className="text-xs font-medium">添加每日任务</span>
+                  </button>
+                ) : (
+                  <div className="col-span-2 sm:col-span-3 rounded-2xl border-2 border-primary/30 bg-primary/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-none">
+                      {ICON_PRESETS.map((icon) => (
+                        <button
+                          key={icon}
+                          onClick={() => setNewIcon(icon)}
+                          className={cn(
+                            'w-7 h-7 rounded-lg text-sm flex items-center justify-center flex-shrink-0 transition-all',
+                            newIcon === icon ? 'bg-primary/15 ring-1 ring-primary' : 'hover:bg-accent',
+                          )}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                        placeholder="如：背 20 个单词"
+                        autoFocus
+                        className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
+                      />
+                      <button
+                        onClick={handleAdd}
+                        disabled={!newTitle.trim()}
+                        className="px-3.5 py-2 text-xs font-bold bg-gradient-to-br from-primary to-blue-600 text-primary-foreground rounded-xl hover:brightness-110 shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        添加
+                      </button>
+                      <button
+                        onClick={() => setAdding(false)}
+                        className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground rounded-xl hover:bg-accent transition-colors"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {enabledDefs.length === 0 && !adding && (
+                <p className="text-xs text-muted-foreground text-center pt-3">
+                  每日任务适合固定习惯：喝水、运动、背英语、复盘…… 每天打卡可维持 🔥 连续记录
+                </p>
+              )}
+            </section>
           </div>
 
-          <div className="flex flex-col gap-2">
-            {enabledDefs.map((d) => (
-              <DailyTaskRow
-                key={d.id}
-                icon={d.icon}
-                title={d.title}
-                checked={!!todayMarks[d.id]}
-                onToggle={() => userId && toggleToday(userId, d.id)}
-                onRemove={() => removeDef(d.id)}
-              />
-            ))}
-            {enabledDefs.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-6">
-                每日任务适合固定习惯：喝水、运动、背英语、复盘……
-                <br />
-                每天打卡可维持 🔥 连续记录
-              </p>
-            )}
-          </div>
-
-          {/* Add new daily task */}
-          <div className="mt-3 pt-3 border-t border-border/60">
-            <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-none">
-              {ICON_PRESETS.map((icon) => (
-                <button
-                  key={icon}
-                  onClick={() => setNewIcon(icon)}
-                  className={cn(
-                    'w-7 h-7 rounded-lg text-sm flex items-center justify-center flex-shrink-0 transition-all',
-                    newIcon === icon ? 'bg-primary/15 ring-1 ring-primary' : 'hover:bg-accent',
-                  )}
-                >
-                  {icon}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                placeholder="添加每日任务，如：背 20 个单词"
-                className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
-              />
-              <button
-                onClick={handleAdd}
-                disabled={!newTitle.trim()}
-                className="px-3.5 py-2 text-xs font-bold bg-gradient-to-br from-primary to-blue-600 text-primary-foreground rounded-xl hover:brightness-110 shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                添加
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Due today */}
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-foreground">今日到期</h2>
-            <span className="text-[10px] text-muted-foreground">{dueToday.length} 项</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {dueToday.map((t) => (
-              <DueTaskRow key={t.id} task={t} />
-            ))}
-            {dueToday.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">今天没有到期任务，可以从容推进</p>
-            )}
-          </div>
-        </section>
-
-        {/* Overdue warning */}
-        {overdue.length > 0 && (
-          <section className="rounded-2xl border border-red-200 bg-red-50/50 p-4 shadow-sm">
+          {/* ===== Right column: focus list (in-flight + due soon) ===== */}
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-red-600">⚠️ 逾期任务</h2>
-              <span className="text-[10px] font-semibold text-red-500">{overdue.length} 项待处理</span>
+              <h2 className="text-sm font-bold text-foreground">近期任务</h2>
+              <div className="flex items-center gap-2">
+                {overdueCount > 0 && (
+                  <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">
+                    {overdueCount} 项逾期
+                  </span>
+                )}
+                <span className="text-[10px] text-muted-foreground">在做 + 7 天内到期</span>
+              </div>
             </div>
-            <div className="flex flex-col gap-2">
-              {overdue.slice(0, 5).map((t) => (
-                <DueTaskRow key={t.id} task={t} overdue />
+            <div className="flex flex-col gap-2 lg:max-h-[65vh] lg:overflow-y-auto lg:pr-1">
+              {focusTasks.map((t) => (
+                <FocusTaskRow key={t.id} task={t} />
               ))}
-              {overdue.length > 5 && (
-                <p className="text-[10px] text-red-400 text-center pt-1">还有 {overdue.length - 5} 项，点击任务可打开详情处理</p>
+              {focusTasks.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  近期没有在做或即将到期的任务
+                  <br />
+                  可以到项目视图规划新任务
+                </p>
               )}
             </div>
           </section>
-        )}
+        </div>
       </div>
     </div>
   )

@@ -197,7 +197,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden min-h-0">
+    <div className="h-dvh flex flex-col bg-background overflow-hidden min-h-0">
       {/* Remote update conflict banner — non-blocking, top center */}
       <RemoteUpdateBanner
         update={bannerUpdate}
@@ -210,15 +210,18 @@ export default function App() {
 
       {/* Top Navigation */}
       <header className="border-b border-border flex items-center px-2 md:px-4 gap-1.5 md:gap-3 bg-background/95 backdrop-blur flex-shrink-0 z-40" style={{ height: 52 }}>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
-          title="切换侧边栏 (Ctrl+B)"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M2 4h12M2 8h12M2 12h12" />
-          </svg>
-        </button>
+        {/* Sidebar toggle — only relevant in the project view */}
+        {currentView === 'project' && (
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
+            title="切换侧边栏 (Ctrl+B)"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 4h12M2 8h12M2 12h12" />
+            </svg>
+          </button>
+        )}
 
         <div className="flex items-center gap-1.5 md:gap-2.5">
           <div className="w-6 h-6 md:w-8 md:h-8 rounded-xl bg-white text-primary flex items-center justify-center shadow-sm flex-shrink-0 ring-1 ring-border/50">
@@ -284,7 +287,8 @@ export default function App() {
 
       {/* Main Content — only active view rendered, lazy-loaded on demand */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
-        <Sidebar />
+        {/* Sidebar only serves the project view's task tree */}
+        {currentView === 'project' && <Sidebar />}
         <Suspense fallback={<ViewSkeleton />}>
           {currentView === 'today' && <TodayView />}
           {currentView === 'project' && <ProjectView />}
@@ -294,9 +298,11 @@ export default function App() {
         <DetailPanel />
       </div>
 
-      {/* Mobile Bottom Nav */}
-      <nav className="md:hidden border-t border-border flex items-center bg-background flex-shrink-0 z-40 safe-bottom" style={{ height: 56 }}>
-        {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
+      {/* Mobile Bottom Nav — 新建 FAB sits elevated in the center.
+          minHeight (not fixed height) lets safe-area padding extend the bar
+          instead of squeezing the buttons when the browser chrome shows. */}
+      <nav className="md:hidden border-t border-border flex items-stretch bg-background flex-shrink-0 z-40 safe-bottom" style={{ minHeight: 56 }}>
+        {(Object.keys(VIEW_LABELS) as ViewType[]).slice(0, 2).map((view) => (
           <button
             key={view}
             onClick={() => setCurrentView(view)}
@@ -310,17 +316,34 @@ export default function App() {
             {VIEW_LABELS[view].label}
           </button>
         ))}
-        <button
-          onClick={() => startCreating(null)}
-          className="flex-1 flex flex-col items-center justify-center text-[10px] text-primary font-semibold"
-        >
-          <span className="bg-gradient-to-br from-primary to-blue-600 text-primary-foreground p-1.5 rounded-xl shadow-md">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
+
+        {/* Center create FAB */}
+        <div className="flex-1 flex items-start justify-center">
+          <button
+            onClick={() => startCreating(null)}
+            className="-mt-4 w-12 h-12 rounded-full bg-gradient-to-br from-primary to-blue-600 text-primary-foreground flex items-center justify-center shadow-lg ring-4 ring-background hover:brightness-110 active:scale-95 transition-all"
+            title="新建项目"
+          >
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M8 3v10M3 8h10" />
             </svg>
-          </span>
-          新建
-        </button>
+          </button>
+        </div>
+
+        {(Object.keys(VIEW_LABELS) as ViewType[]).slice(2).map((view) => (
+          <button
+            key={view}
+            onClick={() => setCurrentView(view)}
+            className={`flex-1 flex flex-col items-center justify-center text-[10px] transition-colors ${
+              currentView === view
+                ? 'text-primary font-semibold'
+                : 'text-muted-foreground'
+            }`}
+          >
+            <span className={currentView === view ? 'text-primary bg-primary/10 p-1 rounded-lg' : ''}>{VIEW_LABELS[view].icon}</span>
+            {VIEW_LABELS[view].label}
+          </button>
+        ))}
       </nav>
 
       {/* Create Task Dialog */}
