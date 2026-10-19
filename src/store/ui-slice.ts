@@ -37,7 +37,7 @@ export interface UISlice {
 }
 
 export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
-  currentView: 'project',
+  currentView: 'today',
   setCurrentView: (view) => set({ currentView: view }),
 
   projectViewTab: STORED_PROJECT_VIEW_TAB,

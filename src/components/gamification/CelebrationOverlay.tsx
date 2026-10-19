@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from 'react'
-import { useGamificationStore } from '@/store/gamification-store'
+import { useGamificationStore, type RewardVariant } from '@/store/gamification-store'
 
 const CONFETTI_COLORS = ['#4D6BFE', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4']
-const PARTICLE_COUNT = 36
-const DISPLAY_MS = 3000
+const GOLD_COLORS = ['#f59e0b', '#fbbf24', '#f97316', '#fde68a', '#eab308', '#ffffff']
 
 interface Particle {
   left: number
@@ -15,35 +14,52 @@ interface Particle {
   drift: number
 }
 
+/** Per-variant presentation tuning */
+const VARIANT_STYLE: Record<
+  RewardVariant,
+  { particles: number; displayMs: number; gold: boolean; icon: string }
+> = {
+  normal: { particles: 36, displayMs: 3000, gold: false, icon: '🎉' },
+  bonus: { particles: 36, displayMs: 3000, gold: false, icon: '🎁' },
+  milestone: { particles: 56, displayMs: 4200, gold: true, icon: '🏅' },
+  perfect: { particles: 72, displayMs: 4600, gold: true, icon: '🌟' },
+}
+
 /**
  * Dopamind-style completion reward: confetti burst from the top + a floating
- * XP card. Renders whenever the gamification store publishes a reward event,
- * then auto-dismisses. Fully pointer-transparent — never blocks interaction.
+ * XP card. Variants: normal completion, streak milestone (golden), perfect day
+ * (full golden burst + rays), level-up (trophy). Fully pointer-transparent.
  */
 export function CelebrationOverlay() {
   const lastReward = useGamificationStore((s) => s.lastReward)
   const clearReward = useGamificationStore((s) => s.clearReward)
 
+  const style = lastReward ? VARIANT_STYLE[lastReward.variant] : null
+
   const particles = useMemo<Particle[]>(() => {
-    if (!lastReward) return []
-    return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+    if (!lastReward || !style) return []
+    const palette = style.gold ? GOLD_COLORS : CONFETTI_COLORS
+    return Array.from({ length: style.particles }, (_, i) => ({
       left: Math.random() * 100,
       delay: Math.random() * 0.4,
       duration: 1.6 + Math.random() * 1.2,
-      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-      size: 5 + Math.random() * 5,
+      color: palette[i % palette.length],
+      size: 5 + Math.random() * (style.gold ? 7 : 5),
       rotate: Math.random() * 360,
       drift: (Math.random() - 0.5) * 120,
     }))
-  }, [lastReward])
+  }, [lastReward, style])
 
   useEffect(() => {
-    if (!lastReward) return
-    const timer = setTimeout(clearReward, DISPLAY_MS)
+    if (!lastReward || !style) return
+    const timer = setTimeout(clearReward, style.displayMs)
     return () => clearTimeout(timer)
-  }, [lastReward, clearReward])
+  }, [lastReward, style, clearReward])
 
-  if (!lastReward) return null
+  if (!lastReward || !style) return null
+
+  const golden = style.gold || lastReward.leveledUp
+  const icon = lastReward.leveledUp ? '🏆' : style.icon
 
   return (
     <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden" aria-live="polite">
@@ -65,11 +81,28 @@ export function CelebrationOverlay() {
         />
       ))}
 
+      {/* Perfect day: radiant backdrop behind the card */}
+      {lastReward.variant === 'perfect' && (
+        <div className="absolute left-1/2 bottom-24 md:bottom-16 -translate-x-1/2 translate-y-1/2 perfect-rays" />
+      )}
+
       {/* Reward card */}
       <div className="absolute left-1/2 bottom-24 md:bottom-16 -translate-x-1/2 reward-card-enter">
-        <div className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-border bg-card shadow-elevated">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl flex-shrink-0">
-            {lastReward.leveledUp ? '🏆' : '🎉'}
+        <div
+          className={
+            golden
+              ? 'flex items-center gap-3 px-5 py-3 rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-100 shadow-[0_8px_30px_rgba(245,158,11,0.35)]'
+              : 'flex items-center gap-3 px-5 py-3 rounded-2xl border border-border bg-card shadow-elevated'
+          }
+        >
+          <div
+            className={
+              golden
+                ? 'w-10 h-10 rounded-xl bg-amber-400/90 flex items-center justify-center text-xl flex-shrink-0 shadow-md'
+                : 'w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl flex-shrink-0'
+            }
+          >
+            {icon}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-foreground leading-tight">

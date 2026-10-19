@@ -31,6 +31,7 @@ import type { ViewType } from '@/types'
 
 // Lazy-loaded views — code-split into separate chunks, loaded on first access
 const ProjectView = lazy(() => import('@/components/views/ProjectView').then(m => ({ default: m.ProjectView })))
+const TodayView = lazy(() => import('@/components/daily/TodayView').then(m => ({ default: m.TodayView })))
 const AIAssistantView = lazy(() => import('@/components/ai/AIAssistantView').then(m => ({ default: m.AIAssistantView })))
 const SettingsView = lazy(() => import('@/components/settings/SettingsView').then(m => ({ default: m.SettingsView })))
 
@@ -44,6 +45,15 @@ const ViewSkeleton = () => (
 )
 
 const VIEW_LABELS: Record<ViewType, { label: string; icon: React.ReactNode }> = {
+  today: {
+    label: '今日',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="8" cy="8" r="3" />
+        <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M12.6 3.4l-1 1M4.4 11.6l-1 1" />
+      </svg>
+    ),
+  },
   project: {
     label: '项目',
     icon: (
@@ -276,6 +286,7 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
         <Sidebar />
         <Suspense fallback={<ViewSkeleton />}>
+          {currentView === 'today' && <TodayView />}
           {currentView === 'project' && <ProjectView />}
           {currentView === 'ai' && <AIAssistantView />}
           {currentView === 'settings' && <SettingsView />}

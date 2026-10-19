@@ -19,6 +19,8 @@ export function xpForLevel(level: number): number {
   return 50 * (level - 1) * (level - 1)
 }
 
+export type RewardVariant = 'normal' | 'milestone' | 'perfect' | 'bonus'
+
 export interface RewardEvent {
   id: number
   xp: number
@@ -27,6 +29,16 @@ export interface RewardEvent {
   leveledUp: boolean
   newLevel: number
   streak: number
+  /** Visual variant picked by CelebrationOverlay */
+  variant: RewardVariant
+}
+
+/** Streak lengths that trigger a golden milestone celebration + bonus XP */
+export const MILESTONE_STREAKS = [3, 7, 14, 30, 60, 100] as const
+
+/** Bonus XP for hitting a streak milestone — scales with the streak length */
+export function milestoneBonusXp(streak: number): number {
+  return streak * 5
 }
 
 const REWARD_MESSAGES = [
@@ -107,6 +119,8 @@ interface GamificationState {
     updatedAt: string,
     priority: TaskPriority,
     taskTitle: string,
+    /** Optional flat XP override (e.g. daily-task check-ins use a fixed amount) */
+    xpOverride?: number,
   ) => void
   /**
    * One-time import of existing done tasks so the stats panel reflects real
@@ -115,6 +129,17 @@ interface GamificationState {
   backfill: (
     userId: string,
     doneTasks: Array<{ id: string; updated_at: string; priority: TaskPriority }>,
+  ) => void
+  /**
+   * Grant XP outside of a task completion (e.g. perfect-day bonus).
+   * Does not touch the streak — the underlying completions already did.
+   */
+  awardBonusXp: (
+    userId: string,
+    amount: number,
+    taskTitle: string,
+    message: string,
+    variant: RewardVariant,
   ) => void
   clearReward: () => void
 }
@@ -133,7 +158,7 @@ export const useGamificationStore = create<GamificationState>()(
       backfilledFor: null,
       lastReward: null,
 
-      recordCompletion: (userId, taskId, updatedAt, priority, taskTitle) => {
+      recordCompletion: (userId, taskId, updatedAt, priority, taskTitle, xpOverride) => {
         const state = get()
         // Switch account → reset stats instead of leaking across users
         const accountMismatch = !!state.userId && state.userId !== userId
@@ -151,22 +176,34 @@ export const useGamificationStore = create<GamificationState>()(
         // Dedupe: the same completion event (taskId + updatedAt) is rewarded once
         if (base.counted[taskId] === updatedAt) return
 
-        const gained = XP_BY_PRIORITY[priority] ?? XP_BY_PRIORITY.medium
+        let gained = xpOverride ?? XP_BY_PRIORITY[priority] ?? XP_BY_PRIORITY.medium
         const prevLevel = levelForXp(base.xp)
-        const xp = base.xp + gained
-        const newLevel = levelForXp(xp)
 
         // Streak: completing ≥1 task per day keeps the chain alive
         const today = todayStr()
         let streak = base.streak
+        let streakAdvanced = false
         if (base.lastActiveDate === today) {
           // same day — streak unchanged
         } else if (base.lastActiveDate === yesterdayStr()) {
           streak += 1
+          streakAdvanced = true
         } else {
           streak = 1
+          streakAdvanced = true
         }
         const bestStreak = Math.max(base.bestStreak, streak)
+
+        // Milestone: hitting 3/7/14/... consecutive days earns bonus XP and a
+        // golden celebration variant
+        const hitMilestone =
+          streakAdvanced && (MILESTONE_STREAKS as readonly number[]).includes(streak)
+        if (hitMilestone) {
+          gained += milestoneBonusXp(streak)
+        }
+
+        const xp = base.xp + gained
+        const newLevel = levelForXp(xp)
 
         const completionsByDate = {
           ...base.completionsByDate,
@@ -194,11 +231,14 @@ export const useGamificationStore = create<GamificationState>()(
           lastReward: {
             id: Date.now(),
             xp: gained,
-            message: REWARD_MESSAGES[Math.floor(Math.random() * REWARD_MESSAGES.length)],
+            message: hitMilestone
+              ? `连续打卡 ${streak} 天达成！`
+              : REWARD_MESSAGES[Math.floor(Math.random() * REWARD_MESSAGES.length)],
             taskTitle,
             leveledUp: newLevel > prevLevel,
             newLevel,
             streak,
+            variant: hitMilestone ? 'milestone' : 'normal',
           },
         })
       },
@@ -242,6 +282,29 @@ export const useGamificationStore = create<GamificationState>()(
           completionsByDate,
           counted,
           backfilledFor: userId,
+        })
+      },
+
+      awardBonusXp: (userId, amount, taskTitle, message, variant) => {
+        const state = get()
+        const accountMismatch = !!state.userId && state.userId !== userId
+        const prevXp = accountMismatch ? 0 : state.xp
+        const prevLevel = levelForXp(prevXp)
+        const xp = prevXp + amount
+        const newLevel = levelForXp(xp)
+        set({
+          userId,
+          xp,
+          lastReward: {
+            id: Date.now(),
+            xp: amount,
+            message,
+            taskTitle,
+            leveledUp: newLevel > prevLevel,
+            newLevel,
+            streak: accountMismatch ? 0 : state.streak,
+            variant,
+          },
         })
       },
 
