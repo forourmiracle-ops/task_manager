@@ -15,6 +15,7 @@ import { GanttTaskRows } from './GanttTaskRows'
 import { GanttDayHeaders } from './GanttDayHeaders'
 import { GanttMonthHeaders } from './GanttMonthHeaders'
 import { GanttErrorBoundary } from './GanttErrorBoundary'
+import { MobileTimelineView } from './MobileTimelineView'
 
 type Dimension = 'week' | 'month' | 'quarter' | 'halfyear' | 'year'
 
@@ -88,6 +89,13 @@ export const GanttView = memo(function GanttView() {
     return (defaultDimension as Dimension) || 'quarter'
   })
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  // Mobile presentation: vertical timeline (default, touch-native) vs the
+  // classic two-panel chart. Persisted so the choice survives reloads.
+  const [mobileMode, setMobileMode] = useState<'timeline' | 'classic'>(() => {
+    const stored = localStorage.getItem('taskflow-gantt-mobile-mode')
+    return stored === 'classic' ? 'classic' : 'timeline'
+  })
+  const showMobileTimeline = isMobile && mobileMode === 'timeline'
   const [goTodayHighlight, setGoTodayHighlight] = useState(false)
   const goTodayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -390,6 +398,11 @@ export const GanttView = memo(function GanttView() {
     updateTask.mutate({ id: sourceId, sort_order: newSort, parent_id: newParentId })
   }, [updateTask])
 
+  const handleMobileModeChange = useCallback((mode: 'timeline' | 'classic') => {
+    setMobileMode(mode)
+    localStorage.setItem('taskflow-gantt-mobile-mode', mode)
+  }, [])
+
   // ── Render — chart structure always exists, overlays for loading/empty ────
   // Toolbar stays outside the overlay area so it's always visible.
   // Overlays only cover the chart body (below the toolbar).
@@ -401,6 +414,7 @@ export const GanttView = memo(function GanttView() {
           dimension={dimension}
           goTodayHighlight={goTodayHighlight}
           fontSize={fontSize}
+          hideDimensions={showMobileTimeline}
           onDimensionChange={handleDimensionChange}
           onGoToday={handleGoToday}
           onZoomIn={() => setFontSize(Math.min(8, fontSize + 1))}
@@ -411,7 +425,25 @@ export const GanttView = memo(function GanttView() {
           canUndo={canUndo}
         />
 
-        {/* Gantt body: two-panel layout — always rendered, overlays inside */}
+        {/* Mobile timeline replaces the two-panel chart entirely */}
+        {showMobileTimeline ? (
+          <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
+            <MobileTimelineView
+              tasks={allFlatTasks}
+              isLoading={isLoading}
+              selectedTaskId={selectedTaskId}
+              onTaskClick={handleTaskClick}
+            />
+            {/* Mode toggle — switch back to the classic chart */}
+            <button
+              onClick={() => handleMobileModeChange('classic')}
+              className="fixed bottom-20 left-3 px-3 py-1.5 bg-background/80 backdrop-blur border border-border/60 text-[11px] font-medium text-muted-foreground rounded-full shadow-sm z-40 active:scale-95 transition-all"
+            >
+              经典甘特
+            </button>
+          </div>
+        ) : (
+        /* Gantt body: two-panel layout — always rendered, overlays inside */
         <div className="flex-1 flex overflow-hidden relative min-w-0">
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
@@ -522,7 +554,18 @@ export const GanttView = memo(function GanttView() {
               今天
             </button>
           )}
+
+          {/* Mobile classic mode: floating switch back to the timeline */}
+          {isMobile && mobileMode === 'classic' && !isLoading && !isEmpty && (
+            <button
+              onClick={() => handleMobileModeChange('timeline')}
+              className="fixed bottom-20 left-3 px-3 py-1.5 bg-background/80 backdrop-blur border border-border/60 text-[11px] font-medium text-muted-foreground rounded-full shadow-sm z-40 active:scale-95 transition-all"
+            >
+              时间线
+            </button>
+          )}
         </div>
+        )}
       </div>
     </GanttErrorBoundary>
   )

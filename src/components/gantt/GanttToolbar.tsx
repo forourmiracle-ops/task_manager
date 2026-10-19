@@ -13,6 +13,8 @@ interface GanttToolbarProps {
   dimension: string
   goTodayHighlight: boolean
   fontSize: number
+  /** Mobile timeline mode: dimension pills & go-today are meaningless there */
+  hideDimensions?: boolean
   onDimensionChange: (dim: string) => void
   onGoToday: () => void
   onZoomIn: () => void
@@ -27,6 +29,7 @@ export const GanttToolbar = memo(function GanttToolbar({
   dimension,
   goTodayHighlight,
   fontSize,
+  hideDimensions = false,
   onDimensionChange,
   onGoToday,
   onZoomIn,
@@ -52,44 +55,51 @@ export const GanttToolbar = memo(function GanttToolbar({
   return (
     <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-muted/10 flex-shrink-0 overflow-x-auto scrollbar-none">
       {/* Dimension selector — compact pill group */}
-      <div className="flex items-center rounded-lg bg-muted/30 p-0.5 gap-0.5 flex-shrink-0">
-        {DIMENSION_LABELS.map(({ key, label }) => (
+      {!hideDimensions && (
+        <>
+          <div className="flex items-center rounded-lg bg-muted/30 p-0.5 gap-0.5 flex-shrink-0">
+            {DIMENSION_LABELS.map(({ key, label }) => (
+              <button
+                type="button"
+                key={key}
+                onClick={() => onDimensionChange(key)}
+                className={cn(
+                  'px-2.5 py-1 text-[11px] rounded-md font-medium transition-all',
+                  dimension === key
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-5 bg-border flex-shrink-0" />
+
+          {/* Go today — one-shot action, highlights briefly */}
           <button
             type="button"
-            key={key}
-            onClick={() => onDimensionChange(key)}
             className={cn(
-              'px-2.5 py-1 text-[11px] rounded-md font-medium transition-all',
-              dimension === key
+              'px-2.5 py-1 text-[11px] font-medium rounded-md transition-all flex-shrink-0 flex items-center gap-1',
+              goTodayHighlight
                 ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                : 'text-primary hover:bg-primary/5',
             )}
+            onClick={onGoToday}
+            title="回到今天"
           >
-            {label}
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 4v4l3 2" />
+            </svg>
+            <span className="hidden sm:inline">回到今天</span>
           </button>
-        ))}
-      </div>
-
-      <div className="w-px h-5 bg-border flex-shrink-0" />
-
-      {/* Go today — one-shot action, highlights briefly */}
-      <button
-        type="button"
-        className={cn(
-          'px-2.5 py-1 text-[11px] font-medium rounded-md transition-all flex-shrink-0 flex items-center gap-1',
-          goTodayHighlight
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-primary hover:bg-primary/5',
-        )}
-        onClick={onGoToday}
-        title="回到今天"
-      >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="8" cy="8" r="6" />
-          <path d="M8 4v4l3 2" />
-        </svg>
-        <span className="hidden sm:inline">回到今天</span>
-      </button>
+        </>
+      )}
+      {hideDimensions && (
+        <span className="text-[11px] font-medium text-muted-foreground flex-shrink-0 px-1">时间线视图</span>
+      )}
 
       <div className="flex-1" />
 
