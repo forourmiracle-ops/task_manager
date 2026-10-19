@@ -50,15 +50,17 @@ interface MobileTimelineViewProps {
   isLoading: boolean
   selectedTaskId: string | null
   onTaskClick: (id: string) => void
+  /** Jump to the Today view (overdue tasks are handled there, not listed here) */
+  onOpenToday: () => void
 }
 
 /**
  * Mobile-native replacement for the two-panel Gantt chart.
- * Vertical-scroll agenda: overdue list, then 4 week-groups whose rows carry
- * a mini bar positioned on a shared Mon–Sun scale (durations and overlaps
- * stay visible), then a plain "later" list.
+ * Vertical-scroll agenda: a slim overdue notice (detail lives in the Today
+ * view), then 4 week-groups whose rows carry a mini bar positioned on a
+ * shared Mon–Sun scale, then a plain "later" list.
  */
-export function MobileTimelineView({ tasks, isLoading, selectedTaskId, onTaskClick }: MobileTimelineViewProps) {
+export function MobileTimelineView({ tasks, isLoading, selectedTaskId, onTaskClick, onOpenToday }: MobileTimelineViewProps) {
   const { overdue, weeks, later, todayDow } = useMemo(() => {
     const today = startOfDay(new Date())
     const monday = mondayOfWeek(today)
@@ -124,35 +126,19 @@ export function MobileTimelineView({ tasks, isLoading, selectedTaskId, onTaskCli
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0 px-3 pt-3 space-y-4" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
-      {/* ── Overdue ─────────────────────────────────────────────── */}
+      {/* ── Overdue: slim notice only — the actionable list lives in the
+             Today view ("近期任务"), no duplicated point-check list here ── */}
       {overdue.length > 0 && (
-        <section>
-          <h3 className="text-xs font-bold text-red-600 mb-2 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-            已逾期 · {overdue.length}
-          </h3>
-          <div className="space-y-1.5">
-            {overdue.map((t) => {
-              const days = Math.round((today.getTime() - parseLocal(t.due_date!).getTime()) / DAY_MS)
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => onTaskClick(t.id)}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors',
-                    selectedTaskId === t.id ? 'border-primary/50 bg-primary/5' : 'border-red-200/60 bg-red-50/40 active:bg-red-50',
-                  )}
-                >
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: PRIORITY_COLORS[t.priority] || PRIORITY_COLORS.medium }} />
-                  <span className="flex-1 min-w-0 text-[13px] font-medium text-foreground truncate">{t.title}</span>
-                  <span className="text-[10px] font-semibold text-red-600 bg-red-100/70 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                    逾期{days}天
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
+        <button
+          onClick={onOpenToday}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-red-200/60 bg-red-50/40 text-left active:bg-red-50 transition-colors"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+          <span className="flex-1 text-xs font-medium text-red-600">
+            {overdue.length} 项任务已逾期
+          </span>
+          <span className="text-[10px] text-red-500 flex-shrink-0">去「今日」处理 →</span>
+        </button>
       )}
 
       {/* ── Week groups with mini bars ──────────────────────────── */}

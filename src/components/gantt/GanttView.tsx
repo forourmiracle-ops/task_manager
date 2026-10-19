@@ -4,6 +4,7 @@ import { useAppStore } from '@/store'
 import { useUpdateTask } from '@/hooks/useTasks'
 import { showDraftToast } from '@/components/ui/draftToastBus'
 import { exportToCSV, downloadFile } from '@/lib/export'
+import { cn } from '@/lib/utils'
 
 import { useGanttData } from './hooks/useGanttData'
 import { useGanttScroll } from './hooks/useGanttScroll'
@@ -40,6 +41,7 @@ export const GanttView = memo(function GanttView() {
   const defaultDimension = useAppStore((s) => s.defaultDimension)
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
   const [lastSelectedDimension, setLastSelectedDimensionState] = useState<Dimension | null>(() => {
     const stored = localStorage.getItem('taskflow-last-gantt-dimension')
     return (stored as Dimension) || null
@@ -403,6 +405,10 @@ export const GanttView = memo(function GanttView() {
     localStorage.setItem('taskflow-gantt-mobile-mode', mode)
   }, [])
 
+  const handleOpenToday = useCallback(() => {
+    setCurrentView('today')
+  }, [setCurrentView])
+
   // ── Render — chart structure always exists, overlays for loading/empty ────
   // Toolbar stays outside the overlay area so it's always visible.
   // Overlays only cover the chart body (below the toolbar).
@@ -425,14 +431,18 @@ export const GanttView = memo(function GanttView() {
           canUndo={canUndo}
         />
 
-        {/* Mobile timeline replaces the two-panel chart entirely */}
-        {showMobileTimeline ? (
+        {/* Mobile timeline renders as a sibling; the classic chart stays
+            MOUNTED (only visually hidden) — its scroll-container refs and
+            one-shot mount effects must stay alive. Unmounting them reset the
+            scroll to the chart start (10 years back), hiding all tasks. */}
+        {showMobileTimeline && (
           <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
             <MobileTimelineView
               tasks={allFlatTasks}
               isLoading={isLoading}
               selectedTaskId={selectedTaskId}
               onTaskClick={handleTaskClick}
+              onOpenToday={handleOpenToday}
             />
             {/* Mode toggle — switch back to the classic chart */}
             <button
@@ -442,9 +452,10 @@ export const GanttView = memo(function GanttView() {
               经典甘特
             </button>
           </div>
-        ) : (
-        /* Gantt body: two-panel layout — always rendered, overlays inside */
-        <div className="flex-1 flex overflow-hidden relative min-w-0">
+        )}
+
+        {/* Gantt body: two-panel layout — always rendered, overlays inside */}
+        <div className={cn('flex-1 flex overflow-hidden relative min-w-0', showMobileTimeline && 'hidden')}>
           {/* Left panel: virtual task list */}
           <GanttTaskPanel
             virtualItems={virtualItems}
@@ -565,7 +576,6 @@ export const GanttView = memo(function GanttView() {
             </button>
           )}
         </div>
-        )}
       </div>
     </GanttErrorBoundary>
   )
