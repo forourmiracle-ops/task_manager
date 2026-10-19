@@ -2,8 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useGamificationStore } from '@/store/gamification-store'
 
-/** Flat XP for checking off a daily task */
+/** Flat XP for fully completing a daily task */
 export const XP_DAILY_TASK = 15
+/** Small silent XP per segment tap on a segmented daily task */
+export const XP_DAILY_SEGMENT = 2
 /** Bonus XP when every enabled daily task is completed in one day */
 export const XP_PERFECT_DAY = 50
 
@@ -14,6 +16,23 @@ export interface DailyTaskDef {
   icon: string
   enabled: boolean
   createdAt: string
+}
+
+/**
+ * Smart segmentation: titles containing a quantity like "喝2杯水" / "背10个单词"
+ * become staged check-ins. Returns the segment count (1 = simple binary task).
+ */
+export function segmentsFor(def: DailyTaskDef): number {
+  const m = def.title.match(/(\d+)\s*(?:杯|个|次|页|遍|组|章|节|分钟|下|题|圈|条|公里|km|单词)?/i)
+  if (!m) return 1
+  const n = parseInt(m[1], 10)
+  return n >= 2 && n <= 20 ? n : 1
+}
+
+/** Progress of one def on one day. Older data stored an ISO string = done (1) */
+export function progressOf(v: number | string | undefined): number {
+  if (typeof v === 'number') return v
+  return v ? 1 : 0
 }
 
 function dateStr(d: Date): string {
@@ -32,21 +51,24 @@ interface DailyTasksState {
   /** Bound account — daily tasks reset if a different user signs in */
   userId: string | null
   defs: DailyTaskDef[]
-  /** dateStr -> defId -> ISO check time. Drives the per-day checklist */
-  completions: Record<string, Record<string, string>>
+  /** dateStr -> defId -> completed segment count (1 = done for binary tasks) */
+  completions: Record<string, Record<string, number>>
   /** Dates for which the perfect-day bonus was already awarded */
   perfectDays: Record<string, true>
   addDef: (userId: string, title: string, icon: string) => void
   removeDef: (id: string) => void
   setEnabled: (id: string, enabled: boolean) => void
   /**
-   * Check / uncheck a daily task for today.
-   * Checking awards XP through the gamification store (which also feeds the
-   * streak) and may trigger a perfect-day bonus. Unchecking only removes the
-   * check mark — already-awarded XP is kept (documented behaviour).
-   * @returns 'checked' | 'unchecked' | 'perfect' — lets the UI pick an animation
+   * Tap a daily task card.
+   * - Segmented task (e.g. "喝2杯水"): each tap advances one segment with a
+   *   small silent XP grant; the final segment awards full XP + celebration.
+   * - Binary task: tap toggles done.
+   * - Tapping a fully completed card resets it (already-awarded XP is kept —
+   *   documented generous rule).
+   * Checking the final segment may trigger the perfect-day bonus.
+   * @returns 'partial' | 'completed' | 'perfect' | 'unchecked'
    */
-  toggleToday: (userId: string, defId: string) => 'checked' | 'unchecked' | 'perfect'
+  toggleToday: (userId: string, defId: string) => 'partial' | 'completed' | 'perfect' | 'unchecked'
 }
 
 export const useDailyTasksStore = create<DailyTasksState>()(
@@ -60,7 +82,7 @@ export const useDailyTasksStore = create<DailyTasksState>()(
       addDef: (userId, title, icon) => {
         const state = get()
         const base = state.userId && state.userId !== userId
-          ? { defs: [] as DailyTaskDef[], completions: {} as Record<string, Record<string, string>>, perfectDays: {} as Record<string, true> }
+          ? { defs: [] as DailyTaskDef[], completions: {} as Record<string, Record<string, number>>, perfectDays: {} as Record<string, true> }
           : state
         const def: DailyTaskDef = {
           id: genId(),
@@ -75,7 +97,7 @@ export const useDailyTasksStore = create<DailyTasksState>()(
       removeDef: (id) => {
         const state = get()
         // Also purge historical checkmarks for this def
-        const completions: Record<string, Record<string, string>> = {}
+        const completions: Record<string, Record<string, number>> = {}
         for (const [date, marks] of Object.entries(state.completions)) {
           const rest = { ...marks }
           delete rest[id]
@@ -92,7 +114,7 @@ export const useDailyTasksStore = create<DailyTasksState>()(
         const state = get()
         // Switch account → reset instead of leaking across users
         const base = state.userId && state.userId !== userId
-          ? { defs: [] as DailyTaskDef[], completions: {} as Record<string, Record<string, string>>, perfectDays: {} as Record<string, true> }
+          ? { defs: [] as DailyTaskDef[], completions: {} as Record<string, Record<string, number>>, perfectDays: {} as Record<string, true> }
           : state
         const def = base.defs.find((d) => d.id === defId)
         if (!def) return 'unchecked'
@@ -100,9 +122,11 @@ export const useDailyTasksStore = create<DailyTasksState>()(
         const today = todayStr()
         const todayMarks = { ...(base.completions[today] ?? {}) }
         const gamification = useGamificationStore.getState()
+        const total = segmentsFor(def)
+        const current = progressOf(todayMarks[defId])
 
-        if (todayMarks[defId]) {
-          // Uncheck — XP already awarded is kept (simple, generous rule)
+        // Fully done → tap again resets (XP already awarded is kept)
+        if (current >= total) {
           delete todayMarks[defId]
           set({
             userId,
@@ -113,20 +137,27 @@ export const useDailyTasksStore = create<DailyTasksState>()(
           return 'unchecked'
         }
 
+        const next = current + 1
+        todayMarks[defId] = next
         const checkedAt = new Date().toISOString()
-        todayMarks[defId] = checkedAt
 
-        // Award XP via the gamification store. Synthetic taskId + the check
-        // timestamp make the built-in dedupe naturally allow one reward per
-        // def per day, and the completion feeds today's streak.
-        gamification.recordCompletion(userId, `daily:${defId}`, checkedAt, 'low', `${def.icon} ${def.title}`, XP_DAILY_TASK)
+        const isFinalSegment = next >= total
 
-        // Perfect day: every enabled def is now checked and the bonus hasn't
-        // been awarded for today yet
+        if (isFinalSegment) {
+          // Full completion: award XP via the gamification store. Synthetic
+          // taskId + check timestamp make the built-in dedupe allow one reward
+          // per def per day, and the completion feeds today's streak.
+          gamification.recordCompletion(userId, `daily:${defId}`, checkedAt, 'low', `${def.icon} ${def.title}`, XP_DAILY_TASK)
+        } else {
+          // Segment tick: small XP, silent (no celebration overlay per tap)
+          gamification.recordCompletion(userId, `daily:${defId}#${next}`, checkedAt, 'low', `${def.icon} ${def.title}`, XP_DAILY_SEGMENT, true)
+        }
+
+        // Perfect day: every enabled def fully completed and bonus not yet awarded
         const enabledDefs = base.defs.filter((d) => d.enabled)
         const isPerfect =
           enabledDefs.length > 0 &&
-          enabledDefs.every((d) => todayMarks[d.id]) &&
+          enabledDefs.every((d) => progressOf(todayMarks[d.id]) >= segmentsFor(d)) &&
           !base.perfectDays[today]
 
         set({
@@ -140,7 +171,7 @@ export const useDailyTasksStore = create<DailyTasksState>()(
           gamification.awardBonusXp(userId, XP_PERFECT_DAY, '完美一天', '每日任务全部完成！', 'perfect')
           return 'perfect'
         }
-        return 'checked'
+        return isFinalSegment ? 'completed' : 'partial'
       },
     }),
     {

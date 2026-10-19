@@ -121,6 +121,8 @@ interface GamificationState {
     taskTitle: string,
     /** Optional flat XP override (e.g. daily-task check-ins use a fixed amount) */
     xpOverride?: number,
+    /** Silent mode: accrue XP/streak without showing the celebration overlay */
+    silent?: boolean,
   ) => void
   /**
    * One-time import of existing done tasks so the stats panel reflects real
@@ -158,7 +160,7 @@ export const useGamificationStore = create<GamificationState>()(
       backfilledFor: null,
       lastReward: null,
 
-      recordCompletion: (userId, taskId, updatedAt, priority, taskTitle, xpOverride) => {
+      recordCompletion: (userId, taskId, updatedAt, priority, taskTitle, xpOverride, silent) => {
         const state = get()
         // Switch account → reset stats instead of leaking across users
         const accountMismatch = !!state.userId && state.userId !== userId
@@ -228,18 +230,21 @@ export const useGamificationStore = create<GamificationState>()(
           lastActiveDate: today,
           completionsByDate,
           counted,
-          lastReward: {
-            id: Date.now(),
-            xp: gained,
-            message: hitMilestone
-              ? `连续打卡 ${streak} 天达成！`
-              : REWARD_MESSAGES[Math.floor(Math.random() * REWARD_MESSAGES.length)],
-            taskTitle,
-            leveledUp: newLevel > prevLevel,
-            newLevel,
-            streak,
-            variant: hitMilestone ? 'milestone' : 'normal',
-          },
+          // Silent completions (e.g. daily-task segment ticks) skip the overlay
+          lastReward: silent
+            ? state.lastReward
+            : {
+                id: Date.now(),
+                xp: gained,
+                message: hitMilestone
+                  ? `连续打卡 ${streak} 天达成！`
+                  : REWARD_MESSAGES[Math.floor(Math.random() * REWARD_MESSAGES.length)],
+                taskTitle,
+                leveledUp: newLevel > prevLevel,
+                newLevel,
+                streak,
+                variant: hitMilestone ? 'milestone' : 'normal',
+              },
         })
       },
 

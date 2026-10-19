@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/hooks/useTasks'
-import { useDailyTasksStore, todayStr, XP_DAILY_TASK, XP_PERFECT_DAY, type DailyTaskDef } from '@/store/daily-tasks-store'
+import { useDailyTasksStore, todayStr, segmentsFor, progressOf, XP_DAILY_TASK, XP_DAILY_SEGMENT, XP_PERFECT_DAY, type DailyTaskDef } from '@/store/daily-tasks-store'
 import { useGamificationStore } from '@/store/gamification-store'
 import { cn, PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS } from '@/lib/utils'
 import type { Task } from '@/types'
@@ -59,42 +59,52 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
 
 /**
  * Dopamind-style big card for one daily task — the whole card is the tap
- * target. Checked state fills the card with the primary tint and pops a
- * checkmark badge + XP floater.
+ * target. Segmented tasks (e.g. "喝2杯水") advance one segment per tap with
+ * progress dots; completion pops a checkmark badge + XP floater.
  */
 function DailyTaskCard({
   def,
-  checked,
-  onToggle,
+  progress,
+  onTap,
   onRemove,
 }: {
   def: DailyTaskDef
-  checked: boolean
-  onToggle: () => void
+  progress: number
+  onTap: () => 'partial' | 'completed' | 'perfect' | 'unchecked'
   onRemove: () => void
 }) {
-  const [floaterId, setFloaterId] = useState(0)
+  const [floater, setFloater] = useState<{ id: number; text: string } | null>(null)
+  const total = segmentsFor(def)
+  const segmented = total > 1
+  const checked = progress >= total
+
+  const handleTap = () => {
+    const result = onTap()
+    if (result === 'partial') {
+      setFloater({ id: Date.now(), text: `+${XP_DAILY_SEGMENT}` })
+    } else if (result === 'completed' || result === 'perfect') {
+      setFloater({ id: Date.now(), text: `+${XP_DAILY_TASK} XP` })
+    }
+  }
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => {
-        onToggle()
-        if (!checked) setFloaterId(Date.now())
-      }}
+      onClick={handleTap}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onToggle()
-          if (!checked) setFloaterId(Date.now())
+          handleTap()
         }
       }}
       className={cn(
         'group relative flex flex-col items-center gap-2 px-3 py-5 rounded-2xl border-2 cursor-pointer select-none transition-all',
         checked
           ? 'border-primary/50 bg-gradient-to-br from-primary/15 to-blue-500/10 shadow-md'
-          : 'border-border bg-card hover:border-primary/30 hover:shadow-sm active:scale-[0.98]',
+          : progress > 0
+            ? 'border-primary/30 bg-primary/5 hover:border-primary/40 active:scale-[0.98]'
+            : 'border-border bg-card hover:border-primary/30 hover:shadow-sm active:scale-[0.98]',
       )}
     >
       {/* Delete — always subtly visible on touch devices, hover-revealed on desktop */}
@@ -121,14 +131,14 @@ function DailyTaskCard({
             </svg>
           </span>
         )}
-        {/* XP floater on check */}
-        {floaterId > 0 && checked && (
+        {/* XP floater on tap */}
+        {floater && (
           <span
-            key={floaterId}
+            key={floater.id}
             className="xp-float-up absolute -top-2 left-1/2 -translate-x-1/2 text-xs font-bold text-primary whitespace-nowrap pointer-events-none"
-            onAnimationEnd={() => setFloaterId(0)}
+            onAnimationEnd={() => setFloater(null)}
           >
-            +{XP_DAILY_TASK} XP
+            {floater.text}
           </span>
         )}
       </div>
@@ -142,13 +152,43 @@ function DailyTaskCard({
         {def.title}
       </span>
 
+      {/* Segmented progress dots (≤10) or thin bar (>10) */}
+      {segmented && (
+        total <= 10 ? (
+          <div className="flex items-center gap-1">
+            {Array.from({ length: total }, (_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  'w-2 h-2 rounded-full transition-all duration-300',
+                  i < progress ? 'bg-primary scale-110' : 'bg-muted-foreground/25',
+                )}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${(progress / total) * 100}%` }}
+            />
+          </div>
+        )
+      )}
+
       <span
         className={cn(
           'text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors',
           checked ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-muted-foreground',
         )}
       >
-        {checked ? '已打卡 ✓' : `打卡 +${XP_DAILY_TASK} XP`}
+        {checked
+          ? '已完成 ✓'
+          : segmented
+            ? progress > 0
+              ? `${progress}/${total} · 点按 +1`
+              : `共 ${total} 段 · 点按打卡`
+            : `打卡 +${XP_DAILY_TASK} XP`}
       </span>
     </div>
   )
@@ -241,7 +281,7 @@ export function TodayView() {
   const today = todayStr()
   const todayMarks = completions[today] ?? {}
   const enabledDefs = useMemo(() => defs.filter((d) => d.enabled), [defs])
-  const doneCount = enabledDefs.filter((d) => todayMarks[d.id]).length
+  const doneCount = enabledDefs.filter((d) => progressOf(todayMarks[d.id]) >= segmentsFor(d)).length
   const allDone = enabledDefs.length > 0 && doneCount === enabledDefs.length
 
   const now = new Date()
@@ -312,7 +352,7 @@ export function TodayView() {
             <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-foreground">每日任务</h2>
-                <span className="text-[10px] text-muted-foreground">每天重置 · 点击卡片打卡</span>
+                <span className="text-[10px] text-muted-foreground">每天重置 · 点卡打卡 · 带数量自动分段</span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -320,8 +360,8 @@ export function TodayView() {
                   <DailyTaskCard
                     key={d.id}
                     def={d}
-                    checked={!!todayMarks[d.id]}
-                    onToggle={() => userId && toggleToday(userId, d.id)}
+                    progress={progressOf(todayMarks[d.id])}
+                    onTap={() => (userId ? toggleToday(userId, d.id) : 'unchecked')}
                     onRemove={() => removeDef(d.id)}
                   />
                 ))}
@@ -359,7 +399,7 @@ export function TodayView() {
                         value={newTitle}
                         onChange={(e) => setNewTitle(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                        placeholder="如：背 20 个单词"
+                        placeholder="如：喝 8 杯水（自动拆分分段打卡）"
                         autoFocus
                         className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1.5 focus:ring-ring"
                       />
