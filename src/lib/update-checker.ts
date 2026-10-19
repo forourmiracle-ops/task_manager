@@ -13,16 +13,41 @@ interface UpdateStatus {
 
 let cachedStatus: UpdateStatus | null = null
 
+/**
+ * Validate a cached/stored status against the bundle that is ACTUALLY
+ * running right now. After the user clicks "立即更新" and the page reloads,
+ * the new bundle may already be the latest — a stale cached "hasUpdate"
+ * must not resurrect the banner.
+ */
+function resolveAgainstRunningBundle(status: UpdateStatus): UpdateStatus {
+  const runningSha = (import.meta.env.VITE_COMMIT_SHA || '').slice(0, 7)
+  if (runningSha && status.latestSha && runningSha === status.latestSha) {
+    // Already running the version the cached status wanted us to update to
+    const fresh: UpdateStatus = {
+      hasUpdate: false,
+      latestSha: status.latestSha,
+      currentSha: runningSha,
+      status: 'latest',
+    }
+    cachedStatus = fresh
+    try {
+      localStorage.setItem(LAST_STATUS_KEY, JSON.stringify(fresh))
+    } catch { /* noop */ }
+    return fresh
+  }
+  return status
+}
+
 export async function checkForUpdates(): Promise<UpdateStatus> {
   try {
     const lastCheck = localStorage.getItem(LAST_CHECK_KEY)
     if (lastCheck && Date.now() - Number(lastCheck) < CHECK_INTERVAL_MS) {
-      if (cachedStatus) return cachedStatus
+      if (cachedStatus) return resolveAgainstRunningBundle(cachedStatus)
       const storedStatus = localStorage.getItem(LAST_STATUS_KEY)
       if (storedStatus) {
         try {
           cachedStatus = JSON.parse(storedStatus) as UpdateStatus
-          return cachedStatus
+          return resolveAgainstRunningBundle(cachedStatus)
         } catch {
           localStorage.removeItem(LAST_STATUS_KEY)
         }

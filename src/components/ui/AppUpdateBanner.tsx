@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { checkForUpdates } from '@/lib/update-checker'
+import { checkForUpdates, clearUpdateCache } from '@/lib/update-checker'
 
 export function AppUpdateBanner() {
   const [visible, setVisible] = useState(false)
@@ -20,6 +20,9 @@ export function AppUpdateBanner() {
 
   const handleUpdate = useCallback(() => {
     setUpdating(true)
+    // Drop the cached "hasUpdate" status before reloading — otherwise the
+    // banner would reappear from cache for up to 2h even on the new build.
+    clearUpdateCache()
     window.location.reload()
   }, [])
 
