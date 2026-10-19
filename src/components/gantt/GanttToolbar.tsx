@@ -93,8 +93,9 @@ export const GanttToolbar = memo(function GanttToolbar({
 
       <div className="flex-1" />
 
-      {/* Zoom controls */}
-      <div className="flex items-center gap-0.5 rounded-md bg-muted/30 p-0.5 flex-shrink-0">
+      {/* Zoom controls — desktop only; mobile uses horizontal touch scroll
+          with a wider minimum day width instead of font scaling */}
+      <div className="hidden sm:flex items-center gap-0.5 rounded-md bg-muted/30 p-0.5 flex-shrink-0">
         <button
           type="button"
           className="px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground rounded transition-colors"

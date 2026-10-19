@@ -3,6 +3,8 @@ import type { Task } from '@/types'
 import type { MonthHeader } from './useGanttData'
 
 export const MIN_DAY_WIDTH = 3
+/** Mobile needs wider cells so bars stay visible and tappable (touch targets) */
+export const MIN_DAY_WIDTH_MOBILE = 10
 export const DIMENSION_DAYS: Record<string, number> = {
   day: 1,
   week: 7,
@@ -42,11 +44,13 @@ export function useGanttViewport(params: {
   totalDays: number
   monthHeaders: MonthHeader[]
   todayOffset: number
+  isMobile?: boolean
 }) {
   const {
     scrollLeft, scrollWidth, datePanelWidth, dimension,
     allFlatTasks, expandedIds, parentMap,
     startDate, endDate, totalDays, monthHeaders, todayOffset,
+    isMobile = false,
   } = params
 
   const dimensionDays = useMemo(() => {
@@ -54,9 +58,12 @@ export function useGanttViewport(params: {
   }, [dimension])
 
   const DAY_WIDTH = useMemo(() => {
-    if (datePanelWidth <= 0) return Math.max(MIN_DAY_WIDTH, 480 / dimensionDays)
-    return Math.max(MIN_DAY_WIDTH, datePanelWidth / dimensionDays)
-  }, [datePanelWidth, dimensionDays])
+    // On mobile the chart overflows horizontally and scrolls via touch
+    // instead of crushing days into unreadable 3px slivers.
+    const minWidth = isMobile ? MIN_DAY_WIDTH_MOBILE : MIN_DAY_WIDTH
+    if (datePanelWidth <= 0) return Math.max(minWidth, 480 / dimensionDays)
+    return Math.max(minWidth, datePanelWidth / dimensionDays)
+  }, [datePanelWidth, dimensionDays, isMobile])
 
   const viewportRange = useMemo(() => {
     const effectiveWidth = scrollWidth || datePanelWidth || 800

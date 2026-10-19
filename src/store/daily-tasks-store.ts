@@ -18,15 +18,50 @@ export interface DailyTaskDef {
   createdAt: string
 }
 
+/** Units that mark a countable daily task ("喝2杯水" / "背十个单词") */
+const COUNT_UNITS = '杯|个|次|页|遍|组|章|节|分钟|下|题|圈|条|公里|km|单词|部|集|小时|行|句'
+
+const CN_DIGITS: Record<string, number> = {
+  零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
+}
+
 /**
- * Smart segmentation: titles containing a quantity like "喝2杯水" / "背10个单词"
+ * Parse a Chinese numeral up to 99 ("十"=10, "十五"=15, "二十"=20,
+ * "二十三"=23). Returns null when the string is not a plain numeral.
+ */
+function parseChineseNumber(s: string): number | null {
+  if (!s || s.length > 3) return null
+  const tenIdx = s.indexOf('十')
+  if (tenIdx === -1) {
+    return s.length === 1 && s in CN_DIGITS ? CN_DIGITS[s] : null
+  }
+  const before = s.slice(0, tenIdx)
+  const after = s.slice(tenIdx + 1)
+  const tens = before === '' ? 1 : before.length === 1 && before in CN_DIGITS ? CN_DIGITS[before] : NaN
+  const ones = after === '' ? 0 : after.length === 1 && after in CN_DIGITS ? CN_DIGITS[after] : NaN
+  if (Number.isNaN(tens) || Number.isNaN(ones)) return null
+  return tens * 10 + ones
+}
+
+/**
+ * Smart segmentation: titles containing a quantity like "喝2杯水" / "背十个单词"
  * become staged check-ins. Returns the segment count (1 = simple binary task).
+ * Arabic numerals match anywhere (unit optional, historical behaviour);
+ * Chinese numerals REQUIRE a unit to avoid misfires like "二战纪录片".
+ * Only 2..20 becomes a segmented task, anything else stays a single tap.
  */
 export function segmentsFor(def: DailyTaskDef): number {
-  const m = def.title.match(/(\d+)\s*(?:杯|个|次|页|遍|组|章|节|分钟|下|题|圈|条|公里|km|单词)?/i)
-  if (!m) return 1
-  const n = parseInt(m[1], 10)
-  return n >= 2 && n <= 20 ? n : 1
+  const arabic = def.title.match(new RegExp(`(\\d+)\\s*(?:${COUNT_UNITS})?`, 'i'))
+  if (arabic) {
+    const n = parseInt(arabic[1], 10)
+    return n >= 2 && n <= 20 ? n : 1
+  }
+  const chinese = def.title.match(new RegExp(`([零一二三四五六七八九十两]{1,3})\\s*(?:${COUNT_UNITS})`))
+  if (chinese) {
+    const n = parseChineseNumber(chinese[1])
+    if (n !== null && n >= 2 && n <= 20) return n
+  }
+  return 1
 }
 
 /** Progress of one def on one day. Older data stored an ISO string = done (1) */

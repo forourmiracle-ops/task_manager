@@ -81,6 +81,9 @@ export const GanttView = memo(function GanttView() {
   // ── Local state ───────────────────────────────────────────────────────────
   const [dimension, setDimension] = useState<Dimension>(() => {
     if (lastSelectedDimension) return lastSelectedDimension
+    // Mobile first-open defaults to week: quarter/year crush days into
+    // unreadable slivers on a phone screen.
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return 'week'
     if (defaultDimension === 'auto') return autoDimension
     return (defaultDimension as Dimension) || 'quarter'
   })
@@ -138,6 +141,7 @@ export const GanttView = memo(function GanttView() {
     totalDays,
     monthHeaders,
     todayOffset,
+    isMobile,
   })
 
   // ── Layout (useGanttLayout) ───────────────────────────────────────────────
@@ -165,7 +169,9 @@ export const GanttView = memo(function GanttView() {
     return isMobile ? Math.max(0.55, s * 0.85) : s
   }, [fontSize, isMobile])
   const ROW_HEIGHT = useMemo(() => Math.round(44 * scale), [scale])
-  const LABEL_WIDTH = useMemo(() => Math.round(isMobile ? 200 : 260 * scale), [scale, isMobile])
+  // Mobile: narrow the task-name column so the date area keeps ~60% of the
+  // screen; titles truncate with ellipsis (full title still in DetailPanel).
+  const LABEL_WIDTH = useMemo(() => Math.round(isMobile ? 140 : 260 * scale), [scale, isMobile])
 
   // ── Sync dimension with defaultDimension ──────────────────────────────────
   const prevDefaultDimRef = useRef(defaultDimension)
@@ -501,11 +507,12 @@ export const GanttView = memo(function GanttView() {
             </div>
           )}
 
-          {/* Mobile floating "today" button — subtle capsule, appears when today line is off-screen */}
+          {/* Mobile floating "today" button — subtle capsule, appears when today line is off-screen.
+              bottom-20 clears the 56px bottom nav + safe-area padding */}
           {isMobile && showMobileToday && !isLoading && !isEmpty && (
             <button
               onClick={handleMobileGoToday}
-              className="fixed bottom-16 right-3 px-3 py-1.5 bg-background/80 backdrop-blur border border-border/60 text-[11px] font-medium text-muted-foreground rounded-full shadow-sm flex items-center gap-1 z-40 active:scale-95 transition-all hover:text-foreground hover:border-border animate-in fade-in"
+              className="fixed bottom-20 right-3 px-3 py-1.5 bg-background/80 backdrop-blur border border-border/60 text-[11px] font-medium text-muted-foreground rounded-full shadow-sm flex items-center gap-1 z-40 active:scale-95 transition-all hover:text-foreground hover:border-border animate-in fade-in"
               title="回到今天"
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
